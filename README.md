@@ -152,28 +152,28 @@ the wrapper, not the top-level `wall time`.
 
 ### Full Protocol Trace
 
-All values in this table are milliseconds. `wall` is the top-level command wall
-time, while the other columns are the benchmark entries printed by `daa_cli`.
-RISC0 segment `1` is the default segment setting, and segment `2` is
-`--segment-po2 20`.
+This table omits top-level wall time and reports protocol step metrics only.
+Small steps are shown in milliseconds; long-running totals and host proving are
+shown in seconds to keep the numbers readable. RISC0 segment `1` is the default
+segment setting, and segment `2` is `--segment-po2 20`.
 
 <table>
 <thead>
-<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>wall</th><th>setup.total</th><th>join.host</th><th>join.tpm.keygen_owf</th><th>join.tpm.pi_join_prove</th><th>join.issuer.commit_check</th><th>join.issuer.pi_join_verify</th><th>join.issuer.credential_sign</th><th>join.total</th><th>sign.tpm.3aes</th><th>sign.tpm.pi_tpm_prove</th><th>sign.host.precompute</th><th>sign.host.pi_host_prove</th><th>sign.total</th><th>revoke.update_state</th><th>revoke.total</th><th>verify.revocation_check</th><th>verify.pi_tpm_verify</th><th>verify.pi_host_verify</th><th>verify.total</th><th>link.slt_compare</th><th>link.total</th></tr>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>setup.total (ms)</th><th>join.host (ms)</th><th>join.tpm.keygen_owf (ms)</th><th>join.tpm.pi_join_prove (ms)</th><th>join.issuer.commit_check (ms)</th><th>join.issuer.pi_join_verify (ms)</th><th>join.issuer.credential_sign (ms)</th><th>join.total (s)</th><th>sign.tpm.3aes (ms)</th><th>sign.tpm.pi_tpm_prove (ms)</th><th>sign.host.precompute (ms)</th><th>sign.host.pi_host_prove (s)</th><th>sign.total (s)</th><th>revoke.update_state (ms)</th><th>revoke.total (ms)</th><th>verify.revocation_check (ms)</th><th>verify.pi_tpm_verify (ms)</th><th>verify.pi_host_verify (ms)</th><th>verify.total (ms)</th><th>link.slt_compare (ms)</th><th>link.total (ms)</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">1438978.829</td><td align="right">38.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">19.638</td><td align="right">0.001</td><td align="right">15.862</td><td align="right">297.000</td><td align="right">66272.069</td><td align="right">0.001</td><td align="right">30.952</td><td align="right">0.007</td><td align="right">27658.000</td><td align="right">27688.960</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">23.746</td><td align="right">1.000</td><td align="right">24.746</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td align="center">2</td><td align="right">270381.516</td><td align="right">39.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">19.744</td><td align="right">0.001</td><td align="right">14.840</td><td align="right">286.000</td><td align="right">66455.630</td><td align="right">0.001</td><td align="right">28.910</td><td align="right">0.006</td><td align="right">5721.000</td><td align="right">5749.917</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">22.612</td><td align="right">2.000</td><td align="right">24.612</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">320596.857</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">7.400</td><td align="right">0.001</td><td align="right">5.641</td><td align="right">14.000</td><td align="right">65512.385</td><td align="right">0.001</td><td align="right">18.150</td><td align="right">0.005</td><td align="right">55841.000</td><td align="right">55859.156</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">13.236</td><td align="right">3.000</td><td align="right">16.236</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td align="center">2</td><td align="right">280686.726</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">7.657</td><td align="right">0.001</td><td align="right">5.662</td><td align="right">14.000</td><td align="right">65846.628</td><td align="right">0.001</td><td align="right">18.298</td><td align="right">0.009</td><td align="right">16144.000</td><td align="right">16162.308</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">12.709</td><td align="right">6.000</td><td align="right">18.709</td><td align="right">0.000</td><td align="right">0.001</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">356409.115</td><td align="right">55.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">143.740</td><td align="right">0.001</td><td align="right">119.061</td><td align="right">516.000</td><td align="right">66253.884</td><td align="right">0.026</td><td align="right">257.987</td><td align="right">0.035</td><td align="right">88917.000</td><td align="right">89175.048</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">190.559</td><td align="right">5.000</td><td align="right">195.559</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td align="center">2</td><td align="right">296808.217</td><td align="right">55.000</td><td align="right">0.008</td><td align="right">0.007</td><td align="right">150.450</td><td align="right">0.002</td><td align="right">116.981</td><td align="right">520.000</td><td align="right">66467.862</td><td align="right">0.026</td><td align="right">260.605</td><td align="right">0.031</td><td align="right">30901.000</td><td align="right">31161.662</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">190.083</td><td align="right">11.000</td><td align="right">201.083</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">430044.914</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">66.131</td><td align="right">0.001</td><td align="right">47.279</td><td align="right">22.000</td><td align="right">66021.214</td><td align="right">0.026</td><td align="right">177.381</td><td align="right">0.033</td><td align="right">159062.000</td><td align="right">159239.440</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">117.280</td><td align="right">8.000</td><td align="right">125.280</td><td align="right">0.000</td><td align="right">0.001</td></tr>
-<tr><td align="center">2</td><td align="right">322975.561</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">65.737</td><td align="right">0.002</td><td align="right">47.300</td><td align="right">22.000</td><td align="right">65864.209</td><td align="right">0.025</td><td align="right">174.031</td><td align="right">0.033</td><td align="right">57387.000</td><td align="right">57561.089</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">118.769</td><td align="right">20.000</td><td align="right">138.769</td><td align="right">0.000</td><td align="right">0.001</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">398137.106</td><td align="right">38.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">171.226</td><td align="right">0.002</td><td align="right">159.565</td><td align="right">455.000</td><td align="right">66956.199</td><td align="right">0.030</td><td align="right">250.372</td><td align="right">0.041</td><td align="right">127460.000</td><td align="right">127710.443</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">214.968</td><td align="right">6.000</td><td align="right">220.968</td><td align="right">0.000</td><td align="right">0.000</td></tr>
-<tr><td align="center">2</td><td align="right">310125.144</td><td align="right">36.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">169.691</td><td align="right">0.002</td><td align="right">154.087</td><td align="right">460.000</td><td align="right">66853.075</td><td align="right">0.036</td><td align="right">244.407</td><td align="right">0.036</td><td align="right">42608.000</td><td align="right">42852.479</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">213.624</td><td align="right">15.000</td><td align="right">228.624</td><td align="right">0.000</td><td align="right">0.001</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">444276.102</td><td align="right">2.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">52.147</td><td align="right">0.003</td><td align="right">39.793</td><td align="right">48.000</td><td align="right">65652.629</td><td align="right">0.035</td><td align="right">115.096</td><td align="right">0.037</td><td align="right">176981.000</td><td align="right">177096.168</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">86.652</td><td align="right">9.000</td><td align="right">95.652</td><td align="right">0.000</td><td align="right">0.001</td></tr>
-<tr><td align="center">2</td><td align="right">333295.204</td><td align="right">2.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">49.930</td><td align="right">0.002</td><td align="right">40.285</td><td align="right">46.000</td><td align="right">66854.596</td><td align="right">0.036</td><td align="right">114.224</td><td align="right">0.051</td><td align="right">64776.000</td><td align="right">64890.311</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">84.453</td><td align="right">23.000</td><td align="right">107.453</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">38.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">19.64</td><td align="right">0.00</td><td align="right">15.86</td><td align="right">297.00</td><td align="right">66.27</td><td align="right">0.00</td><td align="right">30.95</td><td align="right">0.01</td><td align="right">27.66</td><td align="right">27.69</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">23.75</td><td align="right">1.00</td><td align="right">24.75</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">39.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">19.74</td><td align="right">0.00</td><td align="right">14.84</td><td align="right">286.00</td><td align="right">66.46</td><td align="right">0.00</td><td align="right">28.91</td><td align="right">0.01</td><td align="right">5.72</td><td align="right">5.75</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">22.61</td><td align="right">2.00</td><td align="right">24.61</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">7.40</td><td align="right">0.00</td><td align="right">5.64</td><td align="right">14.00</td><td align="right">65.51</td><td align="right">0.00</td><td align="right">18.15</td><td align="right">0.01</td><td align="right">55.84</td><td align="right">55.86</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">13.24</td><td align="right">3.00</td><td align="right">16.24</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">7.66</td><td align="right">0.00</td><td align="right">5.66</td><td align="right">14.00</td><td align="right">65.85</td><td align="right">0.00</td><td align="right">18.30</td><td align="right">0.01</td><td align="right">16.14</td><td align="right">16.16</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">12.71</td><td align="right">6.00</td><td align="right">18.71</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">55.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">143.74</td><td align="right">0.00</td><td align="right">119.06</td><td align="right">516.00</td><td align="right">66.25</td><td align="right">0.03</td><td align="right">257.99</td><td align="right">0.04</td><td align="right">88.92</td><td align="right">89.18</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">190.56</td><td align="right">5.00</td><td align="right">195.56</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">55.00</td><td align="right">0.01</td><td align="right">0.01</td><td align="right">150.45</td><td align="right">0.00</td><td align="right">116.98</td><td align="right">520.00</td><td align="right">66.47</td><td align="right">0.03</td><td align="right">260.61</td><td align="right">0.03</td><td align="right">30.90</td><td align="right">31.16</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">190.08</td><td align="right">11.00</td><td align="right">201.08</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">66.13</td><td align="right">0.00</td><td align="right">47.28</td><td align="right">22.00</td><td align="right">66.02</td><td align="right">0.03</td><td align="right">177.38</td><td align="right">0.03</td><td align="right">159.06</td><td align="right">159.24</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">117.28</td><td align="right">8.00</td><td align="right">125.28</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">65.74</td><td align="right">0.00</td><td align="right">47.30</td><td align="right">22.00</td><td align="right">65.86</td><td align="right">0.03</td><td align="right">174.03</td><td align="right">0.03</td><td align="right">57.39</td><td align="right">57.56</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">118.77</td><td align="right">20.00</td><td align="right">138.77</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">38.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">171.23</td><td align="right">0.00</td><td align="right">159.56</td><td align="right">455.00</td><td align="right">66.96</td><td align="right">0.03</td><td align="right">250.37</td><td align="right">0.04</td><td align="right">127.46</td><td align="right">127.71</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">214.97</td><td align="right">6.00</td><td align="right">220.97</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">36.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">169.69</td><td align="right">0.00</td><td align="right">154.09</td><td align="right">460.00</td><td align="right">66.85</td><td align="right">0.04</td><td align="right">244.41</td><td align="right">0.04</td><td align="right">42.61</td><td align="right">42.85</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">213.62</td><td align="right">15.00</td><td align="right">228.62</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">2.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">52.15</td><td align="right">0.00</td><td align="right">39.79</td><td align="right">48.00</td><td align="right">65.65</td><td align="right">0.04</td><td align="right">115.10</td><td align="right">0.04</td><td align="right">176.98</td><td align="right">177.10</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">86.65</td><td align="right">9.00</td><td align="right">95.65</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td align="center">2</td><td align="right">2.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">49.93</td><td align="right">0.00</td><td align="right">40.28</td><td align="right">46.00</td><td align="right">66.85</td><td align="right">0.04</td><td align="right">114.22</td><td align="right">0.05</td><td align="right">64.78</td><td align="right">64.89</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">84.45</td><td align="right">23.00</td><td align="right">107.45</td><td align="right">0.00</td><td align="right">0.00</td></tr>
 </tbody>
 </table>
 
@@ -184,47 +184,48 @@ RISC0 segment `1` is the default segment setting, and segment `2` is
 <tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Host prove</th><th>Host verify</th><th>Prove speedup vs segment 1</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">27.658 s</td><td align="right">1 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">5.721 s</td><td align="right">2 ms</td><td align="right">4.83x</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">55.841 s</td><td align="right">3 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">16.144 s</td><td align="right">6 ms</td><td align="right">3.46x</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">88.917 s</td><td align="right">5 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">30.901 s</td><td align="right">11 ms</td><td align="right">2.88x</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">159.062 s</td><td align="right">8 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">57.387 s</td><td align="right">20 ms</td><td align="right">2.77x</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">127.460 s</td><td align="right">6 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">42.608 s</td><td align="right">15 ms</td><td align="right">2.99x</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">176.981 s</td><td align="right">9 ms</td><td align="right">1.00x</td></tr>
-<tr><td align="center">2</td><td align="right">64.776 s</td><td align="right">23 ms</td><td align="right">2.73x</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">27.66 s</td><td align="right">1.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">5.72 s</td><td align="right">2.00 ms</td><td align="right">4.83x</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">55.84 s</td><td align="right">3.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">16.14 s</td><td align="right">6.00 ms</td><td align="right">3.46x</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">88.92 s</td><td align="right">5.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">30.90 s</td><td align="right">11.00 ms</td><td align="right">2.88x</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">159.06 s</td><td align="right">8.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">57.39 s</td><td align="right">20.00 ms</td><td align="right">2.77x</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">127.46 s</td><td align="right">6.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">42.61 s</td><td align="right">15.00 ms</td><td align="right">2.99x</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">176.98 s</td><td align="right">9.00 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">64.78 s</td><td align="right">23.00 ms</td><td align="right">2.73x</td></tr>
 </tbody>
 </table>
 
 Across all six parameter sets, `seg20` reduces host proving time by about
-2.73x-4.83x. Host verification remains small, increasing from 1-9 ms to
-2-23 ms.
+2.73x-4.83x. Host verification remains small, increasing from 1.00-9.00 ms to
+2.00-23.00 ms.
 
 ### TPM And Issuer Steps
 
 The TPM/issuer-side costs do not depend on the RISC0 segment setting, but both
 rows are recorded because each full benchmark run measures them independently.
+All values are milliseconds.
 
 <table>
 <thead>
 <tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove</th><th>Join verify</th><th>TPM sign prove</th><th>TPM verify</th><th>Credential sign</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">19.638 ms</td><td align="right">15.862 ms</td><td align="right">30.952 ms</td><td align="right">23.746 ms</td><td align="right">297 ms</td></tr>
-<tr><td align="center">2</td><td align="right">19.744 ms</td><td align="right">14.840 ms</td><td align="right">28.910 ms</td><td align="right">22.612 ms</td><td align="right">286 ms</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">7.400 ms</td><td align="right">5.641 ms</td><td align="right">18.150 ms</td><td align="right">13.236 ms</td><td align="right">14 ms</td></tr>
-<tr><td align="center">2</td><td align="right">7.657 ms</td><td align="right">5.662 ms</td><td align="right">18.298 ms</td><td align="right">12.709 ms</td><td align="right">14 ms</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">143.740 ms</td><td align="right">119.061 ms</td><td align="right">257.987 ms</td><td align="right">190.559 ms</td><td align="right">516 ms</td></tr>
-<tr><td align="center">2</td><td align="right">150.450 ms</td><td align="right">116.981 ms</td><td align="right">260.605 ms</td><td align="right">190.083 ms</td><td align="right">520 ms</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">66.131 ms</td><td align="right">47.279 ms</td><td align="right">177.381 ms</td><td align="right">117.280 ms</td><td align="right">22 ms</td></tr>
-<tr><td align="center">2</td><td align="right">65.737 ms</td><td align="right">47.300 ms</td><td align="right">174.031 ms</td><td align="right">118.769 ms</td><td align="right">22 ms</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">171.226 ms</td><td align="right">159.565 ms</td><td align="right">250.372 ms</td><td align="right">214.968 ms</td><td align="right">455 ms</td></tr>
-<tr><td align="center">2</td><td align="right">169.691 ms</td><td align="right">154.087 ms</td><td align="right">244.407 ms</td><td align="right">213.624 ms</td><td align="right">460 ms</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">52.147 ms</td><td align="right">39.793 ms</td><td align="right">115.096 ms</td><td align="right">86.652 ms</td><td align="right">48 ms</td></tr>
-<tr><td align="center">2</td><td align="right">49.930 ms</td><td align="right">40.285 ms</td><td align="right">114.224 ms</td><td align="right">84.453 ms</td><td align="right">46 ms</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">19.64</td><td align="right">15.86</td><td align="right">30.95</td><td align="right">23.75</td><td align="right">297.00</td></tr>
+<tr><td align="center">2</td><td align="right">19.74</td><td align="right">14.84</td><td align="right">28.91</td><td align="right">22.61</td><td align="right">286.00</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">7.40</td><td align="right">5.64</td><td align="right">18.15</td><td align="right">13.24</td><td align="right">14.00</td></tr>
+<tr><td align="center">2</td><td align="right">7.66</td><td align="right">5.66</td><td align="right">18.30</td><td align="right">12.71</td><td align="right">14.00</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">143.74</td><td align="right">119.06</td><td align="right">257.99</td><td align="right">190.56</td><td align="right">516.00</td></tr>
+<tr><td align="center">2</td><td align="right">150.45</td><td align="right">116.98</td><td align="right">260.61</td><td align="right">190.08</td><td align="right">520.00</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">66.13</td><td align="right">47.28</td><td align="right">177.38</td><td align="right">117.28</td><td align="right">22.00</td></tr>
+<tr><td align="center">2</td><td align="right">65.74</td><td align="right">47.30</td><td align="right">174.03</td><td align="right">118.77</td><td align="right">22.00</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">171.23</td><td align="right">159.56</td><td align="right">250.37</td><td align="right">214.97</td><td align="right">455.00</td></tr>
+<tr><td align="center">2</td><td align="right">169.69</td><td align="right">154.09</td><td align="right">244.41</td><td align="right">213.62</td><td align="right">460.00</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">52.15</td><td align="right">39.79</td><td align="right">115.10</td><td align="right">86.65</td><td align="right">48.00</td></tr>
+<tr><td align="center">2</td><td align="right">49.93</td><td align="right">40.28</td><td align="right">114.22</td><td align="right">84.45</td><td align="right">46.00</td></tr>
 </tbody>
 </table>
 
@@ -234,40 +235,41 @@ above until `join.total` is made synthetic like `sign.total` and `verify.total`.
 
 ### Size Metrics
 
-All values in this table are bytes. `pi_host` is the serialized RISC0 receipt
-byte length used in the DAA signature, not the older `Vec<u32>` word-count
-metric from the standalone SHA-256 backend README. Divide by 1024 for KiB.
+All values in this table are KB, computed from the serialized byte lengths with
+`bytes / 1024` and rounded to two decimals. `pi_host` is the serialized RISC0
+receipt size used in the DAA signature, not the older `Vec<u32>` word-count
+metric from the standalone SHA-256 backend README.
 
 <table>
 <thead>
-<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>pi_join FAEST</th><th>Issuer credential</th><th>pi_TPM FAEST</th><th>pi_host serialized receipt</th><th>Signature remaining</th><th>DAA signature total</th></tr>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>pi_join FAEST (KB)</th><th>Issuer credential (KB)</th><th>pi_TPM FAEST (KB)</th><th>pi_host serialized receipt (KB)</th><th>Signature remaining (KB)</th><th>DAA signature total (KB)</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">4,506</td><td align="right">7,872</td><td align="right">7,586</td><td align="right">306,464</td><td align="right">48</td><td align="right">314,098</td></tr>
-<tr><td align="center">2</td><td align="right">4,506</td><td align="right">7,872</td><td align="right">7,586</td><td align="right">549,884</td><td align="right">48</td><td align="right">557,518</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">5,924</td><td align="right">17,104</td><td align="right">10,404</td><td align="right">868,248</td><td align="right">48</td><td align="right">878,700</td></tr>
-<tr><td align="center">2</td><td align="right">5,924</td><td align="right">17,104</td><td align="right">10,404</td><td align="right">1,393,808</td><td align="right">48</td><td align="right">1,404,260</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">11,260</td><td align="right">16,256</td><td align="right">20,860</td><td align="right">1,492,624</td><td align="right">88</td><td align="right">1,513,572</td></tr>
-<tr><td align="center">2</td><td align="right">11,260</td><td align="right">16,256</td><td align="right">20,860</td><td align="right">2,532,544</td><td align="right">88</td><td align="right">2,553,492</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">14,948</td><td align="right">35,696</td><td align="right">29,348</td><td align="right">2,448,356</td><td align="right">88</td><td align="right">2,477,792</td></tr>
-<tr><td align="center">2</td><td align="right">14,948</td><td align="right">35,696</td><td align="right">29,348</td><td align="right">4,769,760</td><td align="right">88</td><td align="right">4,799,196</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">20,696</td><td align="right">29,824</td><td align="right">36,624</td><td align="right">1,836,588</td><td align="right">96</td><td align="right">1,873,308</td></tr>
-<tr><td align="center">2</td><td align="right">20,696</td><td align="right">29,824</td><td align="right">36,624</td><td align="right">3,620,720</td><td align="right">96</td><td align="right">3,657,440</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">26,548</td><td align="right">49,888</td><td align="right">49,716</td><td align="right">2,754,432</td><td align="right">96</td><td align="right">2,804,244</td></tr>
-<tr><td align="center">2</td><td align="right">26,548</td><td align="right">49,888</td><td align="right">49,716</td><td align="right">5,332,504</td><td align="right">96</td><td align="right">5,382,316</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">4.40</td><td align="right">7.69</td><td align="right">7.41</td><td align="right">299.28</td><td align="right">0.05</td><td align="right">306.74</td></tr>
+<tr><td align="center">2</td><td align="right">4.40</td><td align="right">7.69</td><td align="right">7.41</td><td align="right">537.00</td><td align="right">0.05</td><td align="right">544.45</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">5.79</td><td align="right">16.70</td><td align="right">10.16</td><td align="right">847.90</td><td align="right">0.05</td><td align="right">858.11</td></tr>
+<tr><td align="center">2</td><td align="right">5.79</td><td align="right">16.70</td><td align="right">10.16</td><td align="right">1361.14</td><td align="right">0.05</td><td align="right">1371.35</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">11.00</td><td align="right">15.88</td><td align="right">20.37</td><td align="right">1457.64</td><td align="right">0.09</td><td align="right">1478.10</td></tr>
+<tr><td align="center">2</td><td align="right">11.00</td><td align="right">15.88</td><td align="right">20.37</td><td align="right">2473.19</td><td align="right">0.09</td><td align="right">2493.64</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">14.60</td><td align="right">34.86</td><td align="right">28.66</td><td align="right">2390.97</td><td align="right">0.09</td><td align="right">2419.72</td></tr>
+<tr><td align="center">2</td><td align="right">14.60</td><td align="right">34.86</td><td align="right">28.66</td><td align="right">4657.97</td><td align="right">0.09</td><td align="right">4686.71</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">20.21</td><td align="right">29.12</td><td align="right">35.77</td><td align="right">1793.54</td><td align="right">0.09</td><td align="right">1829.40</td></tr>
+<tr><td align="center">2</td><td align="right">20.21</td><td align="right">29.12</td><td align="right">35.77</td><td align="right">3535.86</td><td align="right">0.09</td><td align="right">3571.72</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">25.93</td><td align="right">48.72</td><td align="right">48.55</td><td align="right">2689.88</td><td align="right">0.09</td><td align="right">2738.52</td></tr>
+<tr><td align="center">2</td><td align="right">25.93</td><td align="right">48.72</td><td align="right">48.55</td><td align="right">5207.52</td><td align="right">0.09</td><td align="right">5256.17</td></tr>
 </tbody>
 </table>
 
 Issuer credentials are `SPHINCS+ sigma || issuer_nonce`. The breakdown is:
 
-| FAEST security | SPHINCS+ security | SPHINCS+ sigma | Issuer nonce | Issuer credential total |
+| FAEST security | SPHINCS+ security | SPHINCS+ sigma (KB) | Issuer nonce (KB) | Issuer credential total (KB) |
 |---|---|---:|---:|---:|
-| 128s | 128s | 7,856 | 16 | 7,872 |
-| 128f | 128f | 17,088 | 16 | 17,104 |
-| 192s | 192s | 16,224 | 32 | 16,256 |
-| 192f | 192f | 35,664 | 32 | 35,696 |
-| 256s | 256s | 29,792 | 32 | 29,824 |
-| 256f | 256f | 49,856 | 32 | 49,888 |
+| 128s | 128s | 7.67 | 0.02 | 7.69 |
+| 128f | 128f | 16.69 | 0.02 | 16.70 |
+| 192s | 192s | 15.84 | 0.03 | 15.88 |
+| 192f | 192f | 34.83 | 0.03 | 34.86 |
+| 256s | 256s | 29.09 | 0.03 | 29.12 |
+| 256f | 256f | 48.69 | 0.03 | 48.72 |
 
 ## Benchmark Steps
 
