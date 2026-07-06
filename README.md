@@ -202,79 +202,45 @@ verification and AES hook statement. The tables below isolate this host-side
 signature cost from the TPM/issuer FAEST costs. RISC0 segment `1` is the
 default segment setting, and segment `2` is `--segment-po2 20`.
 
-#### SHA-256 Backend Running Time
+#### SHA-256 Backend Host Proof
 
-| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 |
-|---|---|---:|---:|---:|---:|
-| 128s | 128s | 1 | 27.66 s | 1.00 ms | 1.00x |
-| 128s | 128s | 2 | 5.72 s | 2.00 ms | 4.83x |
-| 128f | 128f | 1 | 55.84 s | 3.00 ms | 1.00x |
-| 128f | 128f | 2 | 16.14 s | 6.00 ms | 3.46x |
-| 192s | 192s | 1 | 88.92 s | 5.00 ms | 1.00x |
-| 192s | 192s | 2 | 30.90 s | 11.00 ms | 2.88x |
-| 192f | 192f | 1 | 159.06 s | 8.00 ms | 1.00x |
-| 192f | 192f | 2 | 57.39 s | 20.00 ms | 2.77x |
-| 256s | 256s | 1 | 127.46 s | 6.00 ms | 1.00x |
-| 256s | 256s | 2 | 42.61 s | 15.00 ms | 2.99x |
-| 256f | 256f | 1 | 176.98 s | 9.00 ms | 1.00x |
-| 256f | 256f | 2 | 64.78 s | 23.00 ms | 2.73x |
+All size values are KB, computed as `bytes / 1024`. The SHA-256 size column
+reports the serialized RISC0 receipt from the full DAA signature.
 
-#### SHA-256 Backend Host Proof Size
+| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt |
+|---|---|---:|---:|---:|---:|---:|
+| 128s | 128s | 1 | 27.66 s | 1.00 ms | 1.00x | 299.28 |
+| 128s | 128s | 2 | 5.72 s | 2.00 ms | 4.83x | 537.00 |
+| 128f | 128f | 1 | 55.84 s | 3.00 ms | 1.00x | 847.90 |
+| 128f | 128f | 2 | 16.14 s | 6.00 ms | 3.46x | 1361.14 |
+| 192s | 192s | 1 | 88.92 s | 5.00 ms | 1.00x | 1457.64 |
+| 192s | 192s | 2 | 30.90 s | 11.00 ms | 2.88x | 2473.19 |
+| 192f | 192f | 1 | 159.06 s | 8.00 ms | 1.00x | 2390.97 |
+| 192f | 192f | 2 | 57.39 s | 20.00 ms | 2.77x | 4657.97 |
+| 256s | 256s | 1 | 127.46 s | 6.00 ms | 1.00x | 1793.54 |
+| 256s | 256s | 2 | 42.61 s | 15.00 ms | 2.99x | 3535.86 |
+| 256f | 256f | 1 | 176.98 s | 9.00 ms | 1.00x | 2689.88 |
+| 256f | 256f | 2 | 64.78 s | 23.00 ms | 2.73x | 5207.52 |
 
-All values are KB, computed as `bytes / 1024`. These SHA-256 rows report the
-serialized RISC0 receipt size from the full DAA signature.
+#### Poseidon2 Backend Host Proof
 
-| FAEST security | SPHINCS+ security | RISC0 segments | pi_host serialized receipt |
-|---|---|---:|---:|
-| 128s | 128s | 1 | 299.28 |
-| 128s | 128s | 2 | 537.00 |
-| 128f | 128f | 1 | 847.90 |
-| 128f | 128f | 2 | 1361.14 |
-| 192s | 192s | 1 | 1457.64 |
-| 192s | 192s | 2 | 2473.19 |
-| 192f | 192f | 1 | 2390.97 |
-| 192f | 192f | 2 | 4657.97 |
-| 256s | 256s | 1 | 1793.54 |
-| 256s | 256s | 2 | 3535.86 |
-| 256f | 256f | 1 | 2689.88 |
-| 256f | 256f | 2 | 5207.52 |
+All size values are KB. The receipt overhead is the difference between the
+serialized RISC0 receipt and the cryptographic seal payload.
 
-#### Poseidon2 Backend Running Time
-
-| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 |
-|---|---|---:|---:|---:|---:|
-| 128s | 128s | 1 | 29.04 s | 12.00 ms | 1.00x |
-| 128s | 128s | 2 | 5.82 s | 21.00 ms | 4.99x |
-| 128f | 128f | 1 | 48.06 s | 33.00 ms | 1.00x |
-| 128f | 128f | 2 | 16.78 s | 56.00 ms | 2.86x |
-| 192s | 192s | 1 | 88.23 s | 55.00 ms | 1.00x |
-| 192s | 192s | 2 | 32.90 s | 99.00 ms | 2.68x |
-| 192f | 192f | 1 | 156.03 s | 98.00 ms | 1.00x |
-| 192f | 192f | 2 | 60.76 s | 184.00 ms | 2.57x |
-| 256s | 256s | 1 | 121.95 s | 71.00 ms | 1.00x |
-| 256s | 256s | 2 | 45.08 s | 141.00 ms | 2.71x |
-| 256f | 256f | 1 | 176.32 s | 102.00 ms | 1.00x |
-| 256f | 256f | 2 | 67.62 s | 206.00 ms | 2.61x |
-
-#### Poseidon2 Backend Host Proof Size
-
-All values are KB. The receipt overhead is the difference between the serialized
-RISC0 receipt and the cryptographic seal payload.
-
-| FAEST security | SPHINCS+ security | RISC0 segments | Serialized receipt | Seal | Receipt overhead |
-|---|---|---:|---:|---:|---:|
-| 128s | 128s | 1 | 299.29 | 298.60 | 0.68 |
-| 128s | 128s | 2 | 537.00 | 536.14 | 0.86 |
-| 128f | 128f | 1 | 847.91 | 846.87 | 1.04 |
-| 128f | 128f | 2 | 1361.16 | 1359.76 | 1.40 |
-| 192s | 192s | 1 | 1457.66 | 1456.01 | 1.65 |
-| 192s | 192s | 2 | 2473.22 | 2470.85 | 2.37 |
-| 192f | 192f | 1 | 2391.00 | 2388.81 | 2.19 |
-| 192f | 192f | 2 | 4658.04 | 4654.23 | 3.81 |
-| 256s | 256s | 1 | 1793.57 | 1791.61 | 1.96 |
-| 256s | 256s | 2 | 3535.91 | 3532.70 | 3.21 |
-| 256f | 256f | 1 | 2689.91 | 2687.41 | 2.50 |
-| 256f | 256f | 2 | 5207.60 | 5203.30 | 4.29 |
+| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt | Seal | Receipt overhead |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 128s | 128s | 1 | 29.04 s | 12.00 ms | 1.00x | 299.29 | 298.60 | 0.68 |
+| 128s | 128s | 2 | 5.82 s | 21.00 ms | 4.99x | 537.00 | 536.14 | 0.86 |
+| 128f | 128f | 1 | 48.06 s | 33.00 ms | 1.00x | 847.91 | 846.87 | 1.04 |
+| 128f | 128f | 2 | 16.78 s | 56.00 ms | 2.86x | 1361.16 | 1359.76 | 1.40 |
+| 192s | 192s | 1 | 88.23 s | 55.00 ms | 1.00x | 1457.66 | 1456.01 | 1.65 |
+| 192s | 192s | 2 | 32.90 s | 99.00 ms | 2.68x | 2473.22 | 2470.85 | 2.37 |
+| 192f | 192f | 1 | 156.03 s | 98.00 ms | 1.00x | 2391.00 | 2388.81 | 2.19 |
+| 192f | 192f | 2 | 60.76 s | 184.00 ms | 2.57x | 4658.04 | 4654.23 | 3.81 |
+| 256s | 256s | 1 | 121.95 s | 71.00 ms | 1.00x | 1793.57 | 1791.61 | 1.96 |
+| 256s | 256s | 2 | 45.08 s | 141.00 ms | 2.71x | 3535.91 | 3532.70 | 3.21 |
+| 256f | 256f | 1 | 176.32 s | 102.00 ms | 1.00x | 2689.91 | 2687.41 | 2.50 |
+| 256f | 256f | 2 | 67.62 s | 206.00 ms | 2.61x | 5207.60 | 5203.30 | 4.29 |
 
 Across both backends, `seg20` substantially reduces host proving time but
 increases proof size. The Poseidon2 verifier is noticeably slower than the
