@@ -224,28 +224,28 @@ reports the serialized RISC0 receipt from the full DAA signature.
 
 #### Poseidon2 Backend Host Proof
 
-All size values are KB. The receipt overhead is the difference between the
-serialized RISC0 receipt and the cryptographic seal payload.
+All size values are KB, computed as `bytes / 1024`. The Poseidon2 size column
+reports the serialized RISC0 receipt from the full DAA signature.
 
-| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt | Seal | Receipt overhead |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 128s | 128s | 1 | 29.04 s | 12.00 ms | 1.00x | 299.29 | 298.60 | 0.68 |
-| 128s | 128s | 2 | 5.82 s | 21.00 ms | 4.99x | 537.00 | 536.14 | 0.86 |
-| 128f | 128f | 1 | 48.06 s | 33.00 ms | 1.00x | 847.91 | 846.87 | 1.04 |
-| 128f | 128f | 2 | 16.78 s | 56.00 ms | 2.86x | 1361.16 | 1359.76 | 1.40 |
-| 192s | 192s | 1 | 88.23 s | 55.00 ms | 1.00x | 1457.66 | 1456.01 | 1.65 |
-| 192s | 192s | 2 | 32.90 s | 99.00 ms | 2.68x | 2473.22 | 2470.85 | 2.37 |
-| 192f | 192f | 1 | 156.03 s | 98.00 ms | 1.00x | 2391.00 | 2388.81 | 2.19 |
-| 192f | 192f | 2 | 60.76 s | 184.00 ms | 2.57x | 4658.04 | 4654.23 | 3.81 |
-| 256s | 256s | 1 | 121.95 s | 71.00 ms | 1.00x | 1793.57 | 1791.61 | 1.96 |
-| 256s | 256s | 2 | 45.08 s | 141.00 ms | 2.71x | 3535.91 | 3532.70 | 3.21 |
-| 256f | 256f | 1 | 176.32 s | 102.00 ms | 1.00x | 2689.91 | 2687.41 | 2.50 |
-| 256f | 256f | 2 | 67.62 s | 206.00 ms | 2.61x | 5207.60 | 5203.30 | 4.29 |
+| FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt |
+|---|---|---:|---:|---:|---:|---:|
+| 128s | 128s | 1 | 29.04 s | 12.00 ms | 1.00x | 299.29 |
+| 128s | 128s | 2 | 5.82 s | 21.00 ms | 4.99x | 537.00 |
+| 128f | 128f | 1 | 48.06 s | 33.00 ms | 1.00x | 847.91 |
+| 128f | 128f | 2 | 16.78 s | 56.00 ms | 2.86x | 1361.16 |
+| 192s | 192s | 1 | 88.23 s | 55.00 ms | 1.00x | 1457.66 |
+| 192s | 192s | 2 | 32.90 s | 99.00 ms | 2.68x | 2473.22 |
+| 192f | 192f | 1 | 156.03 s | 98.00 ms | 1.00x | 2391.00 |
+| 192f | 192f | 2 | 60.76 s | 184.00 ms | 2.57x | 4658.04 |
+| 256s | 256s | 1 | 121.95 s | 71.00 ms | 1.00x | 1793.57 |
+| 256s | 256s | 2 | 45.08 s | 141.00 ms | 2.71x | 3535.91 |
+| 256f | 256f | 1 | 176.32 s | 102.00 ms | 1.00x | 2689.91 |
+| 256f | 256f | 2 | 67.62 s | 206.00 ms | 2.61x | 5207.60 |
 
 Across both backends, `seg20` substantially reduces host proving time but
 increases proof size. The Poseidon2 verifier is noticeably slower than the
 SHA-256 verifier in these runs, while proving time remains in the same range.
-Receipt overhead is negligible compared with the RISC0 seal payload.
+The serialized receipt sizes are nearly identical across the two backends.
 
 ### TPM And Issuer Steps
 
