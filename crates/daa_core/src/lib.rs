@@ -450,6 +450,7 @@ pub fn join(
 ) -> DaaResult<JoinOutput> {
     setup.config.ensure_real_supported()?;
     let total = Instant::now();
+    let trace_start = trace.entries.len();
     let mut rng = DeterministicRng::new(setup.config.deterministic_seed ^ member_id);
 
     let gid_and_commit_input = trace.scoped("join.host", || {
@@ -525,7 +526,14 @@ pub fn join(
         credential: credential.clone(),
     });
 
-    trace.add("join.total", total.elapsed());
+    if setup.config.proof_mode.uses_real_proofs() {
+        trace.add(
+            "join.total",
+            Duration::from_micros(trace.step_sum_micros_since(trace_start, "join.") as u64),
+        );
+    } else {
+        trace.add("join.total", total.elapsed());
+    }
 
     Ok(JoinOutput {
         tpm_state: TpmState { member_id, sk },
