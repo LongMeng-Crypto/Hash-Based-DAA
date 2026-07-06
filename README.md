@@ -154,38 +154,50 @@ the wrapper, not the top-level `wall time`.
 
 All values in this table are milliseconds. `wall` is the top-level command wall
 time, while the other columns are the benchmark entries printed by `daa_cli`.
+RISC0 segment `1` is the default segment setting, and segment `2` is
+`--segment-po2 20`.
 
-| Params | Segment | wall | setup.total | join.host | join.tpm.keygen_owf | join.tpm.pi_join_prove | join.issuer.commit_check | join.issuer.pi_join_verify | join.issuer.credential_sign | join.total | sign.tpm.3aes | sign.tpm.pi_tpm_prove | sign.host.precompute | sign.host.pi_host_prove | sign.total | revoke.update_state | revoke.total | verify.revocation_check | verify.pi_tpm_verify | verify.pi_host_verify | verify.total | link.slt_compare | link.total |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `sha2-128s` | default | 1438978.829 | 38.000 | 0.002 | 0.001 | 19.638 | 0.001 | 15.862 | 297.000 | 66272.069 | 0.001 | 30.952 | 0.007 | 27658.000 | 27688.960 | 0.000 | 0.000 | 0.000 | 23.746 | 1.000 | 24.746 | 0.000 | 0.000 |
-| `sha2-128s` | `seg20` | 270381.516 | 39.000 | 0.002 | 0.001 | 19.744 | 0.001 | 14.840 | 286.000 | 66455.630 | 0.001 | 28.910 | 0.006 | 5721.000 | 5749.917 | 0.000 | 0.000 | 0.000 | 22.612 | 2.000 | 24.612 | 0.000 | 0.000 |
-| `sha2-128f` | default | 320596.857 | 0.000 | 0.002 | 0.001 | 7.400 | 0.001 | 5.641 | 14.000 | 65512.385 | 0.001 | 18.150 | 0.005 | 55841.000 | 55859.156 | 0.000 | 0.000 | 0.000 | 13.236 | 3.000 | 16.236 | 0.000 | 0.000 |
-| `sha2-128f` | `seg20` | 280686.726 | 0.000 | 0.002 | 0.001 | 7.657 | 0.001 | 5.662 | 14.000 | 65846.628 | 0.001 | 18.298 | 0.009 | 16144.000 | 16162.308 | 0.000 | 0.000 | 0.000 | 12.709 | 6.000 | 18.709 | 0.000 | 0.001 |
-| `sha2-192s` | default | 356409.115 | 55.000 | 0.002 | 0.001 | 143.740 | 0.001 | 119.061 | 516.000 | 66253.884 | 0.026 | 257.987 | 0.035 | 88917.000 | 89175.048 | 0.000 | 0.000 | 0.000 | 190.559 | 5.000 | 195.559 | 0.000 | 0.000 |
-| `sha2-192s` | `seg20` | 296808.217 | 55.000 | 0.008 | 0.007 | 150.450 | 0.002 | 116.981 | 520.000 | 66467.862 | 0.026 | 260.605 | 0.031 | 30901.000 | 31161.662 | 0.000 | 0.000 | 0.000 | 190.083 | 11.000 | 201.083 | 0.000 | 0.000 |
-| `sha2-192f` | default | 430044.914 | 0.000 | 0.002 | 0.001 | 66.131 | 0.001 | 47.279 | 22.000 | 66021.214 | 0.026 | 177.381 | 0.033 | 159062.000 | 159239.440 | 0.000 | 0.000 | 0.000 | 117.280 | 8.000 | 125.280 | 0.000 | 0.001 |
-| `sha2-192f` | `seg20` | 322975.561 | 0.000 | 0.002 | 0.001 | 65.737 | 0.002 | 47.300 | 22.000 | 65864.209 | 0.025 | 174.031 | 0.033 | 57387.000 | 57561.089 | 0.000 | 0.000 | 0.000 | 118.769 | 20.000 | 138.769 | 0.000 | 0.001 |
-| `sha2-256s` | default | 398137.106 | 38.000 | 0.002 | 0.001 | 171.226 | 0.002 | 159.565 | 455.000 | 66956.199 | 0.030 | 250.372 | 0.041 | 127460.000 | 127710.443 | 0.000 | 0.000 | 0.000 | 214.968 | 6.000 | 220.968 | 0.000 | 0.000 |
-| `sha2-256s` | `seg20` | 310125.144 | 36.000 | 0.002 | 0.001 | 169.691 | 0.002 | 154.087 | 460.000 | 66853.075 | 0.036 | 244.407 | 0.036 | 42608.000 | 42852.479 | 0.000 | 0.000 | 0.000 | 213.624 | 15.000 | 228.624 | 0.000 | 0.001 |
-| `sha2-256f` | default | 444276.102 | 2.000 | 0.002 | 0.001 | 52.147 | 0.003 | 39.793 | 48.000 | 65652.629 | 0.035 | 115.096 | 0.037 | 176981.000 | 177096.168 | 0.000 | 0.000 | 0.000 | 86.652 | 9.000 | 95.652 | 0.000 | 0.001 |
-| `sha2-256f` | `seg20` | 333295.204 | 2.000 | 0.002 | 0.001 | 49.930 | 0.002 | 40.285 | 46.000 | 66854.596 | 0.036 | 114.224 | 0.051 | 64776.000 | 64890.311 | 0.000 | 0.000 | 0.000 | 84.453 | 23.000 | 107.453 | 0.000 | 0.001 |
+<table>
+<thead>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>wall</th><th>setup.total</th><th>join.host</th><th>join.tpm.keygen_owf</th><th>join.tpm.pi_join_prove</th><th>join.issuer.commit_check</th><th>join.issuer.pi_join_verify</th><th>join.issuer.credential_sign</th><th>join.total</th><th>sign.tpm.3aes</th><th>sign.tpm.pi_tpm_prove</th><th>sign.host.precompute</th><th>sign.host.pi_host_prove</th><th>sign.total</th><th>revoke.update_state</th><th>revoke.total</th><th>verify.revocation_check</th><th>verify.pi_tpm_verify</th><th>verify.pi_host_verify</th><th>verify.total</th><th>link.slt_compare</th><th>link.total</th></tr>
+</thead>
+<tbody>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">1438978.829</td><td align="right">38.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">19.638</td><td align="right">0.001</td><td align="right">15.862</td><td align="right">297.000</td><td align="right">66272.069</td><td align="right">0.001</td><td align="right">30.952</td><td align="right">0.007</td><td align="right">27658.000</td><td align="right">27688.960</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">23.746</td><td align="right">1.000</td><td align="right">24.746</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">270381.516</td><td align="right">39.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">19.744</td><td align="right">0.001</td><td align="right">14.840</td><td align="right">286.000</td><td align="right">66455.630</td><td align="right">0.001</td><td align="right">28.910</td><td align="right">0.006</td><td align="right">5721.000</td><td align="right">5749.917</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">22.612</td><td align="right">2.000</td><td align="right">24.612</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">320596.857</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">7.400</td><td align="right">0.001</td><td align="right">5.641</td><td align="right">14.000</td><td align="right">65512.385</td><td align="right">0.001</td><td align="right">18.150</td><td align="right">0.005</td><td align="right">55841.000</td><td align="right">55859.156</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">13.236</td><td align="right">3.000</td><td align="right">16.236</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">280686.726</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">7.657</td><td align="right">0.001</td><td align="right">5.662</td><td align="right">14.000</td><td align="right">65846.628</td><td align="right">0.001</td><td align="right">18.298</td><td align="right">0.009</td><td align="right">16144.000</td><td align="right">16162.308</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">12.709</td><td align="right">6.000</td><td align="right">18.709</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">356409.115</td><td align="right">55.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">143.740</td><td align="right">0.001</td><td align="right">119.061</td><td align="right">516.000</td><td align="right">66253.884</td><td align="right">0.026</td><td align="right">257.987</td><td align="right">0.035</td><td align="right">88917.000</td><td align="right">89175.048</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">190.559</td><td align="right">5.000</td><td align="right">195.559</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">296808.217</td><td align="right">55.000</td><td align="right">0.008</td><td align="right">0.007</td><td align="right">150.450</td><td align="right">0.002</td><td align="right">116.981</td><td align="right">520.000</td><td align="right">66467.862</td><td align="right">0.026</td><td align="right">260.605</td><td align="right">0.031</td><td align="right">30901.000</td><td align="right">31161.662</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">190.083</td><td align="right">11.000</td><td align="right">201.083</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">430044.914</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">66.131</td><td align="right">0.001</td><td align="right">47.279</td><td align="right">22.000</td><td align="right">66021.214</td><td align="right">0.026</td><td align="right">177.381</td><td align="right">0.033</td><td align="right">159062.000</td><td align="right">159239.440</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">117.280</td><td align="right">8.000</td><td align="right">125.280</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td align="center">2</td><td align="right">322975.561</td><td align="right">0.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">65.737</td><td align="right">0.002</td><td align="right">47.300</td><td align="right">22.000</td><td align="right">65864.209</td><td align="right">0.025</td><td align="right">174.031</td><td align="right">0.033</td><td align="right">57387.000</td><td align="right">57561.089</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">118.769</td><td align="right">20.000</td><td align="right">138.769</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">398137.106</td><td align="right">38.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">171.226</td><td align="right">0.002</td><td align="right">159.565</td><td align="right">455.000</td><td align="right">66956.199</td><td align="right">0.030</td><td align="right">250.372</td><td align="right">0.041</td><td align="right">127460.000</td><td align="right">127710.443</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">214.968</td><td align="right">6.000</td><td align="right">220.968</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">310125.144</td><td align="right">36.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">169.691</td><td align="right">0.002</td><td align="right">154.087</td><td align="right">460.000</td><td align="right">66853.075</td><td align="right">0.036</td><td align="right">244.407</td><td align="right">0.036</td><td align="right">42608.000</td><td align="right">42852.479</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">213.624</td><td align="right">15.000</td><td align="right">228.624</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">444276.102</td><td align="right">2.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">52.147</td><td align="right">0.003</td><td align="right">39.793</td><td align="right">48.000</td><td align="right">65652.629</td><td align="right">0.035</td><td align="right">115.096</td><td align="right">0.037</td><td align="right">176981.000</td><td align="right">177096.168</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">86.652</td><td align="right">9.000</td><td align="right">95.652</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+<tr><td align="center">2</td><td align="right">333295.204</td><td align="right">2.000</td><td align="right">0.002</td><td align="right">0.001</td><td align="right">49.930</td><td align="right">0.002</td><td align="right">40.285</td><td align="right">46.000</td><td align="right">66854.596</td><td align="right">0.036</td><td align="right">114.224</td><td align="right">0.051</td><td align="right">64776.000</td><td align="right">64890.311</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">84.453</td><td align="right">23.000</td><td align="right">107.453</td><td align="right">0.000</td><td align="right">0.001</td></tr>
+</tbody>
+</table>
 
 ### Host RISC0 Proof
 
-| Params | Segment setting | Host prove | Host verify | Prove speedup vs default |
-|---|---:|---:|---:|---:|
-| `sha2-128s` | default | 27.658 s | 1 ms | 1.00x |
-| `sha2-128s` | `seg20` | 5.721 s | 2 ms | 4.83x |
-| `sha2-128f` | default | 55.841 s | 3 ms | 1.00x |
-| `sha2-128f` | `seg20` | 16.144 s | 6 ms | 3.46x |
-| `sha2-192s` | default | 88.917 s | 5 ms | 1.00x |
-| `sha2-192s` | `seg20` | 30.901 s | 11 ms | 2.88x |
-| `sha2-192f` | default | 159.062 s | 8 ms | 1.00x |
-| `sha2-192f` | `seg20` | 57.387 s | 20 ms | 2.77x |
-| `sha2-256s` | default | 127.460 s | 6 ms | 1.00x |
-| `sha2-256s` | `seg20` | 42.608 s | 15 ms | 2.99x |
-| `sha2-256f` | default | 176.981 s | 9 ms | 1.00x |
-| `sha2-256f` | `seg20` | 64.776 s | 23 ms | 2.73x |
+<table>
+<thead>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Host prove</th><th>Host verify</th><th>Prove speedup vs segment 1</th></tr>
+</thead>
+<tbody>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">27.658 s</td><td align="right">1 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">5.721 s</td><td align="right">2 ms</td><td align="right">4.83x</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">55.841 s</td><td align="right">3 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">16.144 s</td><td align="right">6 ms</td><td align="right">3.46x</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">88.917 s</td><td align="right">5 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">30.901 s</td><td align="right">11 ms</td><td align="right">2.88x</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">159.062 s</td><td align="right">8 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">57.387 s</td><td align="right">20 ms</td><td align="right">2.77x</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">127.460 s</td><td align="right">6 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">42.608 s</td><td align="right">15 ms</td><td align="right">2.99x</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">176.981 s</td><td align="right">9 ms</td><td align="right">1.00x</td></tr>
+<tr><td align="center">2</td><td align="right">64.776 s</td><td align="right">23 ms</td><td align="right">2.73x</td></tr>
+</tbody>
+</table>
 
 Across all six parameter sets, `seg20` reduces host proving time by about
 2.73x-4.83x. Host verification remains small, increasing from 1-9 ms to
@@ -196,20 +208,25 @@ Across all six parameter sets, `seg20` reduces host proving time by about
 The TPM/issuer-side costs do not depend on the RISC0 segment setting, but both
 rows are recorded because each full benchmark run measures them independently.
 
-| Params | Segment setting | Join prove | Join verify | TPM sign prove | TPM verify | Credential sign |
-|---|---:|---:|---:|---:|---:|---:|
-| `sha2-128s` | default | 19.638 ms | 15.862 ms | 30.952 ms | 23.746 ms | 297 ms |
-| `sha2-128s` | `seg20` | 19.744 ms | 14.840 ms | 28.910 ms | 22.612 ms | 286 ms |
-| `sha2-128f` | default | 7.400 ms | 5.641 ms | 18.150 ms | 13.236 ms | 14 ms |
-| `sha2-128f` | `seg20` | 7.657 ms | 5.662 ms | 18.298 ms | 12.709 ms | 14 ms |
-| `sha2-192s` | default | 143.740 ms | 119.061 ms | 257.987 ms | 190.559 ms | 516 ms |
-| `sha2-192s` | `seg20` | 150.450 ms | 116.981 ms | 260.605 ms | 190.083 ms | 520 ms |
-| `sha2-192f` | default | 66.131 ms | 47.279 ms | 177.381 ms | 117.280 ms | 22 ms |
-| `sha2-192f` | `seg20` | 65.737 ms | 47.300 ms | 174.031 ms | 118.769 ms | 22 ms |
-| `sha2-256s` | default | 171.226 ms | 159.565 ms | 250.372 ms | 214.968 ms | 455 ms |
-| `sha2-256s` | `seg20` | 169.691 ms | 154.087 ms | 244.407 ms | 213.624 ms | 460 ms |
-| `sha2-256f` | default | 52.147 ms | 39.793 ms | 115.096 ms | 86.652 ms | 48 ms |
-| `sha2-256f` | `seg20` | 49.930 ms | 40.285 ms | 114.224 ms | 84.453 ms | 46 ms |
+<table>
+<thead>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove</th><th>Join verify</th><th>TPM sign prove</th><th>TPM verify</th><th>Credential sign</th></tr>
+</thead>
+<tbody>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">19.638 ms</td><td align="right">15.862 ms</td><td align="right">30.952 ms</td><td align="right">23.746 ms</td><td align="right">297 ms</td></tr>
+<tr><td align="center">2</td><td align="right">19.744 ms</td><td align="right">14.840 ms</td><td align="right">28.910 ms</td><td align="right">22.612 ms</td><td align="right">286 ms</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">7.400 ms</td><td align="right">5.641 ms</td><td align="right">18.150 ms</td><td align="right">13.236 ms</td><td align="right">14 ms</td></tr>
+<tr><td align="center">2</td><td align="right">7.657 ms</td><td align="right">5.662 ms</td><td align="right">18.298 ms</td><td align="right">12.709 ms</td><td align="right">14 ms</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">143.740 ms</td><td align="right">119.061 ms</td><td align="right">257.987 ms</td><td align="right">190.559 ms</td><td align="right">516 ms</td></tr>
+<tr><td align="center">2</td><td align="right">150.450 ms</td><td align="right">116.981 ms</td><td align="right">260.605 ms</td><td align="right">190.083 ms</td><td align="right">520 ms</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">66.131 ms</td><td align="right">47.279 ms</td><td align="right">177.381 ms</td><td align="right">117.280 ms</td><td align="right">22 ms</td></tr>
+<tr><td align="center">2</td><td align="right">65.737 ms</td><td align="right">47.300 ms</td><td align="right">174.031 ms</td><td align="right">118.769 ms</td><td align="right">22 ms</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">171.226 ms</td><td align="right">159.565 ms</td><td align="right">250.372 ms</td><td align="right">214.968 ms</td><td align="right">455 ms</td></tr>
+<tr><td align="center">2</td><td align="right">169.691 ms</td><td align="right">154.087 ms</td><td align="right">244.407 ms</td><td align="right">213.624 ms</td><td align="right">460 ms</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">52.147 ms</td><td align="right">39.793 ms</td><td align="right">115.096 ms</td><td align="right">86.652 ms</td><td align="right">48 ms</td></tr>
+<tr><td align="center">2</td><td align="right">49.930 ms</td><td align="right">40.285 ms</td><td align="right">114.224 ms</td><td align="right">84.453 ms</td><td align="right">46 ms</td></tr>
+</tbody>
+</table>
 
 Current `join.total` values include external host-fork/Cargo process overhead
 from issuer credential generation. For paper-facing analysis, use the substeps
@@ -221,31 +238,36 @@ All values in this table are bytes. `pi_host` is the serialized RISC0 receipt
 byte length used in the DAA signature, not the older `Vec<u32>` word-count
 metric from the standalone SHA-256 backend README. Divide by 1024 for KiB.
 
-| Params | Segment setting | pi_join FAEST | Issuer credential | pi_TPM FAEST | pi_host serialized receipt | Signature remaining | DAA signature total |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `sha2-128s` | default | 4,506 | 7,872 | 7,586 | 306,464 | 48 | 314,098 |
-| `sha2-128s` | `seg20` | 4,506 | 7,872 | 7,586 | 549,884 | 48 | 557,518 |
-| `sha2-128f` | default | 5,924 | 17,104 | 10,404 | 868,248 | 48 | 878,700 |
-| `sha2-128f` | `seg20` | 5,924 | 17,104 | 10,404 | 1,393,808 | 48 | 1,404,260 |
-| `sha2-192s` | default | 11,260 | 16,256 | 20,860 | 1,492,624 | 88 | 1,513,572 |
-| `sha2-192s` | `seg20` | 11,260 | 16,256 | 20,860 | 2,532,544 | 88 | 2,553,492 |
-| `sha2-192f` | default | 14,948 | 35,696 | 29,348 | 2,448,356 | 88 | 2,477,792 |
-| `sha2-192f` | `seg20` | 14,948 | 35,696 | 29,348 | 4,769,760 | 88 | 4,799,196 |
-| `sha2-256s` | default | 20,696 | 29,824 | 36,624 | 1,836,588 | 96 | 1,873,308 |
-| `sha2-256s` | `seg20` | 20,696 | 29,824 | 36,624 | 3,620,720 | 96 | 3,657,440 |
-| `sha2-256f` | default | 26,548 | 49,888 | 49,716 | 2,754,432 | 96 | 2,804,244 |
-| `sha2-256f` | `seg20` | 26,548 | 49,888 | 49,716 | 5,332,504 | 96 | 5,382,316 |
+<table>
+<thead>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>pi_join FAEST</th><th>Issuer credential</th><th>pi_TPM FAEST</th><th>pi_host serialized receipt</th><th>Signature remaining</th><th>DAA signature total</th></tr>
+</thead>
+<tbody>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">4,506</td><td align="right">7,872</td><td align="right">7,586</td><td align="right">306,464</td><td align="right">48</td><td align="right">314,098</td></tr>
+<tr><td align="center">2</td><td align="right">4,506</td><td align="right">7,872</td><td align="right">7,586</td><td align="right">549,884</td><td align="right">48</td><td align="right">557,518</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">5,924</td><td align="right">17,104</td><td align="right">10,404</td><td align="right">868,248</td><td align="right">48</td><td align="right">878,700</td></tr>
+<tr><td align="center">2</td><td align="right">5,924</td><td align="right">17,104</td><td align="right">10,404</td><td align="right">1,393,808</td><td align="right">48</td><td align="right">1,404,260</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">11,260</td><td align="right">16,256</td><td align="right">20,860</td><td align="right">1,492,624</td><td align="right">88</td><td align="right">1,513,572</td></tr>
+<tr><td align="center">2</td><td align="right">11,260</td><td align="right">16,256</td><td align="right">20,860</td><td align="right">2,532,544</td><td align="right">88</td><td align="right">2,553,492</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">14,948</td><td align="right">35,696</td><td align="right">29,348</td><td align="right">2,448,356</td><td align="right">88</td><td align="right">2,477,792</td></tr>
+<tr><td align="center">2</td><td align="right">14,948</td><td align="right">35,696</td><td align="right">29,348</td><td align="right">4,769,760</td><td align="right">88</td><td align="right">4,799,196</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">20,696</td><td align="right">29,824</td><td align="right">36,624</td><td align="right">1,836,588</td><td align="right">96</td><td align="right">1,873,308</td></tr>
+<tr><td align="center">2</td><td align="right">20,696</td><td align="right">29,824</td><td align="right">36,624</td><td align="right">3,620,720</td><td align="right">96</td><td align="right">3,657,440</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">26,548</td><td align="right">49,888</td><td align="right">49,716</td><td align="right">2,754,432</td><td align="right">96</td><td align="right">2,804,244</td></tr>
+<tr><td align="center">2</td><td align="right">26,548</td><td align="right">49,888</td><td align="right">49,716</td><td align="right">5,332,504</td><td align="right">96</td><td align="right">5,382,316</td></tr>
+</tbody>
+</table>
 
 Issuer credentials are `SPHINCS+ sigma || issuer_nonce`. The breakdown is:
 
-| Params | SPHINCS+ sigma | Issuer nonce | Issuer credential total |
-|---|---:|---:|---:|
-| `sha2-128s` | 7,856 | 16 | 7,872 |
-| `sha2-128f` | 17,088 | 16 | 17,104 |
-| `sha2-192s` | 16,224 | 32 | 16,256 |
-| `sha2-192f` | 35,664 | 32 | 35,696 |
-| `sha2-256s` | 29,792 | 32 | 29,824 |
-| `sha2-256f` | 49,856 | 32 | 49,888 |
+| FAEST security | SPHINCS+ security | SPHINCS+ sigma | Issuer nonce | Issuer credential total |
+|---|---|---:|---:|---:|
+| 128s | 128s | 7,856 | 16 | 7,872 |
+| 128f | 128f | 17,088 | 16 | 17,104 |
+| 192s | 192s | 16,224 | 32 | 16,256 |
+| 192f | 192f | 35,664 | 32 | 35,696 |
+| 256s | 256s | 29,792 | 32 | 29,824 |
+| 256f | 256f | 49,856 | 32 | 49,888 |
 
 ## Benchmark Steps
 
