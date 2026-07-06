@@ -215,6 +215,38 @@ Current `join.total` values include external host-fork/Cargo process overhead
 from issuer credential generation. For paper-facing analysis, use the substeps
 above until `join.total` is made synthetic like `sign.total` and `verify.total`.
 
+### Size Metrics
+
+All values in this table are bytes. `pi_host` is the serialized RISC0 receipt
+byte length used in the DAA signature, not the older `Vec<u32>` word-count
+metric from the standalone SHA-256 backend README. Divide by 1024 for KiB.
+
+| Params | Segment setting | pi_join FAEST | Issuer credential | pi_TPM FAEST | pi_host serialized receipt | Signature remaining | DAA signature total |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `sha2-128s` | default | 4,506 | 7,872 | 7,586 | 306,464 | 48 | 314,098 |
+| `sha2-128s` | `seg20` | 4,506 | 7,872 | 7,586 | 549,884 | 48 | 557,518 |
+| `sha2-128f` | default | 5,924 | 17,104 | 10,404 | 868,248 | 48 | 878,700 |
+| `sha2-128f` | `seg20` | 5,924 | 17,104 | 10,404 | 1,393,808 | 48 | 1,404,260 |
+| `sha2-192s` | default | 11,260 | 16,256 | 20,860 | 1,492,624 | 88 | 1,513,572 |
+| `sha2-192s` | `seg20` | 11,260 | 16,256 | 20,860 | 2,532,544 | 88 | 2,553,492 |
+| `sha2-192f` | default | 14,948 | 35,696 | 29,348 | 2,448,356 | 88 | 2,477,792 |
+| `sha2-192f` | `seg20` | 14,948 | 35,696 | 29,348 | 4,769,760 | 88 | 4,799,196 |
+| `sha2-256s` | default | 20,696 | 29,824 | 36,624 | 1,836,588 | 96 | 1,873,308 |
+| `sha2-256s` | `seg20` | 20,696 | 29,824 | 36,624 | 3,620,720 | 96 | 3,657,440 |
+| `sha2-256f` | default | 26,548 | 49,888 | 49,716 | 2,754,432 | 96 | 2,804,244 |
+| `sha2-256f` | `seg20` | 26,548 | 49,888 | 49,716 | 5,332,504 | 96 | 5,382,316 |
+
+Issuer credentials are `SPHINCS+ sigma || issuer_nonce`. The breakdown is:
+
+| Params | SPHINCS+ sigma | Issuer nonce | Issuer credential total |
+|---|---:|---:|---:|
+| `sha2-128s` | 7,856 | 16 | 7,872 |
+| `sha2-128f` | 17,088 | 16 | 17,104 |
+| `sha2-192s` | 16,224 | 32 | 16,256 |
+| `sha2-192f` | 35,664 | 32 | 35,696 |
+| `sha2-256s` | 29,792 | 32 | 29,824 |
+| `sha2-256f` | 49,856 | 32 | 49,888 |
+
 ## Benchmark Steps
 
 The benchmark table records both algorithm totals and important substeps:

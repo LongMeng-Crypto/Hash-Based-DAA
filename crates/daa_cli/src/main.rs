@@ -115,6 +115,14 @@ fn print_trace(trace: &BenchmarkTrace) {
     for entry in trace.entries() {
         println!("{:<32} {:>14.3}", entry.name, entry.micros as f64 / 1000.0);
     }
+    if !trace.sizes().is_empty() {
+        println!();
+        println!("{:<40} {:>14}", "metric", "size (bytes)");
+        println!("{:-<55}", "");
+        for entry in trace.sizes() {
+            println!("{:<40} {:>14}", entry.name, entry.bytes);
+        }
+    }
 }
 
 /// Averages multiple benchmark traces by entry name.
@@ -144,6 +152,25 @@ fn merge_traces(traces: &[BenchmarkTrace]) -> BenchmarkTrace {
             name,
             std::time::Duration::from_micros((sum / traces.len() as u128) as u64),
         );
+    }
+
+    let mut size_names: Vec<String> = Vec::new();
+    for trace in traces {
+        for entry in trace.sizes() {
+            if !size_names.iter().any(|name| name == &entry.name) {
+                size_names.push(entry.name.clone());
+            }
+        }
+    }
+
+    for name in size_names {
+        let sum: usize = traces
+            .iter()
+            .flat_map(|trace| trace.sizes())
+            .filter(|entry| entry.name == name)
+            .map(|entry| entry.bytes)
+            .sum();
+        merged.add_size(name, sum / traces.len());
     }
 
     merged

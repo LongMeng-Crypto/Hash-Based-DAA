@@ -268,6 +268,7 @@ pub struct FullRunOutput {
 #[derive(Debug, Clone)]
 pub struct BenchmarkTrace {
     entries: Vec<BenchmarkEntry>,
+    sizes: Vec<BenchmarkSizeEntry>,
 }
 
 impl BenchmarkTrace {
@@ -275,6 +276,7 @@ impl BenchmarkTrace {
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
+            sizes: Vec::new(),
         }
     }
 
@@ -294,6 +296,14 @@ impl BenchmarkTrace {
         });
     }
 
+    /// Appends a byte-size benchmark entry.
+    pub fn add_size(&mut self, name: impl Into<String>, bytes: usize) {
+        self.sizes.push(BenchmarkSizeEntry {
+            name: name.into(),
+            bytes,
+        });
+    }
+
     /// Measures a closure and appends its duration under the given name.
     pub fn scoped<T>(&mut self, name: impl Into<String>, f: impl FnOnce() -> T) -> T {
         let name = name.into();
@@ -306,6 +316,11 @@ impl BenchmarkTrace {
     /// Returns all recorded benchmark entries.
     pub fn entries(&self) -> &[BenchmarkEntry] {
         &self.entries
+    }
+
+    /// Returns all recorded size entries.
+    pub fn sizes(&self) -> &[BenchmarkSizeEntry] {
+        &self.sizes
     }
 
     /// Sums exact and nested benchmark entries for a prefix.
@@ -342,6 +357,17 @@ impl BenchmarkTrace {
                 comma
             ));
         }
+        out.push_str("  ],\n");
+        out.push_str("  \"sizes\": [\n");
+        for (idx, entry) in self.sizes.iter().enumerate() {
+            let comma = if idx + 1 == self.sizes.len() { "" } else { "," };
+            out.push_str(&format!(
+                "    {{ \"name\": \"{}\", \"bytes\": {} }}{}\n",
+                json_escape(&entry.name),
+                entry.bytes,
+                comma
+            ));
+        }
         out.push_str("  ]\n}\n");
         out
     }
@@ -358,6 +384,12 @@ impl Default for BenchmarkTrace {
 pub struct BenchmarkEntry {
     pub name: String,
     pub micros: u128,
+}
+
+#[derive(Debug, Clone)]
+pub struct BenchmarkSizeEntry {
+    pub name: String,
+    pub bytes: usize,
 }
 
 #[derive(Debug)]
@@ -800,6 +832,8 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
         false,
     )?;
 
+    record_size_metrics(&mut trace, &join_out, &sig1);
+
     let revocation = revoke_empty(&mut trace);
     let accepted = verify(
         &setup_out,
@@ -819,6 +853,38 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
         trace,
         signature: sig1.signature,
     })
+}
+
+/// Records proof, credential, and signature sizes for benchmark output.
+fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &SignOutput) {
+    let credential_sigma = join.host_state.credential.sigma.len();
+    let credential_nonce = join.host_state.credential.issuer_nonce.len();
+    let signature_remaining =
+        sign.signature.rho.len() + sign.signature.slt.len() + sign.signature.hk.len();
+    let signature_total = signature_remaining
+        + sign.signature.pi_tpm.size_bytes()
+        + sign.signature.pi_host.size_bytes();
+
+    trace.add_size(
+        "size.pi_join.faest_signature_bytes",
+        join.pi_join.size_bytes(),
+    );
+    trace.add_size("size.issuer_credential.sigma", credential_sigma);
+    trace.add_size("size.issuer_credential.issuer_nonce", credential_nonce);
+    trace.add_size(
+        "size.issuer_credential.total",
+        credential_sigma + credential_nonce,
+    );
+    trace.add_size(
+        "size.signature.pi_tpm.faest_signature_bytes",
+        sign.signature.pi_tpm.size_bytes(),
+    );
+    trace.add_size(
+        "size.signature.pi_host.serialized_receipt_bytes",
+        sign.signature.pi_host.size_bytes(),
+    );
+    trace.add_size("size.signature.remaining", signature_remaining);
+    trace.add_size("size.signature.total", signature_total);
 }
 
 /// Derives the group identifier from the issuer public key.
