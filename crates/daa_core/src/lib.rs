@@ -215,12 +215,18 @@ pub struct ProofArtifact {
     pub backend: String,
     pub statement_hash: Bytes,
     pub proof_bytes: Bytes,
+    pub seal_bytes: Option<usize>,
 }
 
 impl ProofArtifact {
     /// Returns the serialized proof size in bytes.
     pub fn size_bytes(&self) -> usize {
         self.proof_bytes.len()
+    }
+
+    /// Returns the RISC0 cryptographic seal size when available.
+    pub fn seal_size_bytes(&self) -> Option<usize> {
+        self.seal_bytes
     }
 }
 
@@ -665,6 +671,7 @@ fn sign_internal(
                     ),
                     statement_hash: hash_many(32, &[&hk, &setup.issuer_keys.mpk]),
                     proof_bytes: host_proof.proof_bytes,
+                    seal_bytes: host_proof.seal_bytes,
                 })
             }
         }
@@ -891,6 +898,16 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
         "size.signature.pi_host.serialized_receipt_bytes",
         sign.signature.pi_host.size_bytes(),
     );
+    if let Some(seal_bytes) = sign.signature.pi_host.seal_size_bytes() {
+        trace.add_size("size.signature.pi_host.seal_bytes", seal_bytes);
+        trace.add_size(
+            "size.signature.pi_host.receipt_overhead_bytes",
+            sign.signature
+                .pi_host
+                .size_bytes()
+                .saturating_sub(seal_bytes),
+        );
+    }
     trace.add_size("size.signature.remaining", signature_remaining);
     trace.add_size("size.signature.total", signature_total);
 }
@@ -1055,6 +1072,7 @@ fn prove_join_real(
         backend: format!("faest-{}-single-aes", spec.faest_suffix()),
         statement_hash: hash_many(32, &[gid, et, msg]),
         proof_bytes: proof,
+        seal_bytes: None,
     })
 }
 
@@ -1128,6 +1146,7 @@ fn prove_tpm_real(
         backend: format!("faest-{}-3aes", spec.faest_suffix()),
         statement_hash: hash_many(32, &[lid, gid, expected_slt, expected_hk, msg_prime]),
         proof_bytes: proof,
+        seal_bytes: None,
     })
 }
 
@@ -1215,6 +1234,7 @@ struct HostProofInput<'a> {
 #[derive(Debug, Clone)]
 struct HostProofResult {
     proof_bytes: Bytes,
+    seal_bytes: Option<usize>,
     accepted: bool,
     prover_millis: u128,
     verifier_millis: u128,
@@ -1328,6 +1348,7 @@ fn run_host_proof_command(
         let _ = std::fs::remove_file(&receipt_path);
         Ok(HostProofResult {
             proof_bytes: proof,
+            seal_bytes: metrics.seal_bytes,
             accepted: metrics.accepted,
             prover_millis: metrics.prover_millis,
             verifier_millis: metrics.verifier_millis,
@@ -1336,6 +1357,7 @@ fn run_host_proof_command(
         let _ = std::fs::remove_file(&receipt_path);
         Ok(HostProofResult {
             proof_bytes: Vec::new(),
+            seal_bytes: None,
             accepted: metrics.accepted,
             prover_millis: metrics.prover_millis,
             verifier_millis: metrics.verifier_millis,
@@ -1387,6 +1409,7 @@ struct HostMetrics {
     accepted: bool,
     prover_millis: u128,
     verifier_millis: u128,
+    seal_bytes: Option<usize>,
 }
 
 /// Parses key-value metrics emitted by the RISC0 host proof runner.
@@ -1395,6 +1418,7 @@ fn parse_host_metrics(output: &str) -> HostMetrics {
         accepted: parse_metric_bool(output, "accepted").unwrap_or_else(|| output.contains("ok")),
         prover_millis: parse_metric_u128(output, "prover_ms").unwrap_or(0),
         verifier_millis: parse_metric_u128(output, "verifier_ms").unwrap_or(0),
+        seal_bytes: parse_metric_u128(output, "seal_bytes").and_then(|v| v.try_into().ok()),
     }
 }
 
@@ -1569,6 +1593,7 @@ fn simulated_proof(
         backend: backend.to_string(),
         statement_hash,
         proof_bytes,
+        seal_bytes: None,
     }
 }
 

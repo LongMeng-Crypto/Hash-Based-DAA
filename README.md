@@ -211,7 +211,7 @@ All values are milliseconds.
 
 <table>
 <thead>
-<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove</th><th>Join verify</th><th>TPM sign prove</th><th>TPM verify</th><th>Credential sign</th></tr>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove (ms)</th><th>Join verify (ms)</th><th>TPM sign prove (ms)</th><th>TPM verify (ms)</th><th>Credential sign (ms)</th></tr>
 </thead>
 <tbody>
 <tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">19.64</td><td align="right">15.86</td><td align="right">30.95</td><td align="right">23.75</td><td align="right">297.00</td></tr>
@@ -239,6 +239,9 @@ All values in this table are KB, computed from the serialized byte lengths with
 `bytes / 1024` and rounded to two decimals. `pi_host` is the serialized RISC0
 receipt size used in the DAA signature, not the older `Vec<u32>` word-count
 metric from the standalone SHA-256 backend README.
+New benchmark runs also print `size.signature.pi_host.seal_bytes` and
+`size.signature.pi_host.receipt_overhead_bytes` to separate the cryptographic
+seal payload from receipt serialization overhead.
 
 <table>
 <thead>
