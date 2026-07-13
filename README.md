@@ -6,19 +6,29 @@ shared protocol variable flow instead of independent proof-of-concept inputs.
 
 ## Repository Layout
 
-`DAA_FULL` is now self-contained for the full benchmarked DAA prototype. The
-TPM-side FAEST/AES implementation and the RISC0 SHA-256 host-proof backend are
-vendored inside this directory, so the project no longer needs sibling
-`TPM_AES` or `DAA_HOST` directories to build or run.
+`DAA_FULL` is self-contained for the full benchmarked DAA prototype. The
+TPM-side FAEST/AES implementation, the RISC0 host-side SPHINCS+ proof runner,
+and the patched RISC0 SHA-256 backend crates are vendored inside this directory.
+The project does not need sibling `TPM_AES` or `DAA_HOST` directories to build
+or run.
 
 ```text
-crates/daa_core/                  protocol state machine and FFI glue
-crates/daa_cli/                   command-line runner and benchmark wrapper
-host_proof/                       RISC0 host-side SPHINCS+ proof runner
-vendor/TPM_AES/                   vendored FAEST/AES TPM proof implementation
-vendor/risc0_sha256_backend/      patched RISC0 crates for SHA-256 composite receipts
-scripts/                          benchmark helpers
+Cargo.toml                         standalone workspace and local RISC0 patches
+Cargo.lock                         locked dependency graph for reproducible builds
+crates/daa_core/                   protocol state machine, timing trace, FFI glue
+crates/daa_cli/                    command-line runner and benchmark wrapper
+host_proof/                        RISC0 host-side SPHINCS+ proof runner
+host_proof/host/                   native host binary used by daa_core
+host_proof/methods/guest/          RISC0 guest program and SPHINCS+ verifier C code
+vendor/TPM_AES/                    vendored FAEST/AES TPM proof implementation
+vendor/risc0_sha256_backend/       patched RISC0 crates for SHA-256 composite receipts
+scripts/                           full-protocol benchmark helpers
 ```
+
+`vendor/TPM_AES/builddir_rel/` intentionally contains only the generated FAEST
+C/header files needed by `daa_core/build.rs`; it does not contain Meson/Ninja
+build products. Cargo build output lives in `target/` and should not be
+committed.
 
 ## Implemented Flow
 
@@ -55,84 +65,132 @@ table for protocol analysis.
 ## Proof Modes
 
 - `simulated`: deterministic simulated proofs for fast protocol plumbing tests.
-- `real-tpm`: real FAEST join and TPM signing proofs, simulated host proof.
-- `real-128s`: real FAEST proofs and real RISC0 host proof. The name is kept
-  for CLI compatibility, but it now works for all six SHA2 parameter sets and
-  both supported RISC0 backend hash choices.
+- `real-tpm`: real FAEST join and TPM signing proofs, plus a simulated host proof.
+- `real-128s`: real FAEST proofs and a real RISC0 host proof. The name is kept
+  for CLI compatibility, but it works for all six SHA2 parameter sets.
 
-## Shared Build Cache
+## Build Cache
 
-If `CARGO_TARGET_DIR` is not already set, `DAA_FULL` now uses:
+Full host-proof benchmarks invoke the vendored RISC0 runner as an external
+Cargo command. If `CARGO_TARGET_DIR` is not set, `daa_core` sets it to:
 
 ```text
 /tmp/sedaa-risc0-shared-target
 ```
 
-This lets the default and `segment-po2=20` runs share CUDA/RISC0/Cargo build
-artifacts. Different SPHINCS+ parameter sets still need their own first guest
-build, but the shared target directory reuses as much common build output as
-Cargo/RISC0 allows.
+This lets default-segment and `--segment-po2 20` runs share CUDA/RISC0/Cargo
+build artifacts. Different SPHINCS+ parameter sets still need their own first
+guest build, but the shared target directory reuses common build output.
 
-You can also set it explicitly before a long benchmark session:
+For a clean standalone benchmark session, run from this project root and set it explicitly:
 
 ```sh
+# If this directory is still inside the larger SEDAA checkout, first run:
+# cd DAA_FULL
 export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
 ```
 
+The first real RISC0/CUDA run can be much slower than the reported protocol
+step time because it may compile vendored RISC0 kernels and guest methods. Use
+`sign.host.pi_host_prove`, not top-level `wall time`, for the paper benchmark.
+
 ## Commands
 
-Run the full protocol once with defaults:
+### Quick Standalone Checks
+
+Run these from the project root after cloning or copying only the `DAA_FULL` directory:
 
 ```sh
-cargo run -p daa_cli -- run-full
+cargo check -p daa_cli
+cargo run -p daa_cli -- run-full --proof-mode simulated
 ```
 
-Run a fast plumbing-only benchmark:
+A successful simulated run prints:
 
-```sh
-cargo run -p daa_cli -- bench \
-  --proof-mode simulated \
-  --iterations 3 \
-  --json results/bench_simulated.json
+```text
+verify accepted           : true
+link same basename        : true
+link different basename   : false
 ```
 
-Run a real TPM-proof smoke test without the expensive RISC0 host proof:
+### TPM/Issuer FAEST Benchmark Only
+
+This checks the real TPM-side FAEST/AES proofs and issuer SPHINCS+ credential
+logic without the expensive RISC0 host proof:
 
 ```sh
 cargo run -p daa_cli -- bench \
   --params sha2-128s \
   --proof-mode real-tpm \
   --iterations 1 \
-  --json results/bench_real_tpm_128s.json
+  --json results/standalone_real_tpm_128s.json
 ```
 
-## The 12 Real Host-Proof Benchmarks
+In this mode `pi_host` is simulated, so `size.signature.pi_host.serialized_receipt_bytes`
+will be `64` bytes. Use this mode only for TPM/issuer plumbing and FAEST timing.
+
+### Full DAA Benchmark With RISC0-SHA256 Host Proof
+
+This is the main full-protocol benchmark path used by the SHA-256 backend
+results below:
+
+```sh
+export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
+
+cargo run -p daa_cli -- bench \
+  --params sha2-128s \
+  --backend sha-256 \
+  --proof-mode real-128s \
+  --iterations 1 \
+  --json results/standalone_sha256_128s_default.json
+```
+
+For the small-segment version:
+
+```sh
+cargo run -p daa_cli -- bench \
+  --params sha2-128s \
+  --backend sha-256 \
+  --proof-mode real-128s \
+  --segment-po2 20 \
+  --iterations 1 \
+  --json results/standalone_sha256_128s_seg20.json
+```
+
+A successful real run prints a line like:
+
+```text
+iteration   1: verify=true link_same=true link_diff=false
+```
+
+### Full 12-Case Benchmark Suite
 
 Each parameter has two host-proof segment settings:
 
 - default segment setting: omit `--segment-po2`.
-- two-segment setting: pass `--segment-po2 20`.
+- small-segment setting: pass `--segment-po2 20`.
 
-Run from this directory:
+Run all six SHA2 parameter sets with both segment settings:
 
 ```sh
-cd DAA_FULL
 export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
-```
-
-Run all 12 benchmarks with the Poseidon2 backend:
-
-```sh
-scripts/run_all_benchmarks.sh
-```
-
-Run all 12 benchmarks with the SHA-256 backend:
-
-```sh
 scripts/run_all_benchmarks.sh --backend sha-256
 ```
 
-The script writes JSON traces to `results/bench_<backend>_<params>_<segment>.json`.
+The script writes JSON traces to:
+
+```text
+results/bench_<backend>_<params>_<segment>.json
+```
+
+The Poseidon2 backend can still be run for comparison:
+
+```sh
+scripts/run_all_benchmarks.sh --backend poseidon2 --prefix bench_poseidon2
+```
+
+### Manual Per-Parameter Commands
+
 Use the following commands only when running individual cases manually.
 
 SHA2-128s:
