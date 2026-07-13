@@ -1,15 +1,14 @@
 use std::path::PathBuf;
 
-// Configures C builds for TPM FAEST and SPHINCS+ FFI.
+// Configures C builds for the vendored TPM FAEST/AES sources.
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let repo = manifest_dir
+    let daa_full = manifest_dir
         .parent()
-        .and_then(|p| p.parent())
         .and_then(|p| p.parent())
         .expect("daa_core should live under DAA_FULL/crates/daa_core")
         .to_path_buf();
-    let tpm = repo.join("TPM_AES");
+    let tpm = daa_full.join("vendor/TPM_AES");
     let tpm_build = tpm.join("builddir_rel");
 
     println!("cargo:rerun-if-changed=c_src/daa_tpm_shim.c");

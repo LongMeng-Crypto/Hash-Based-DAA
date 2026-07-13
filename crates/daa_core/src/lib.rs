@@ -1367,8 +1367,7 @@ fn run_host_proof_command(
 
 /// Builds the external host-fork cargo command with shared cache settings.
 fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
-    let manifest =
-        repo_root().join("DAA_HOST/risc0_sha256_backend_fork/daa_host_proof/host/Cargo.toml");
+    let manifest = daa_full_root().join("host_proof/host/Cargo.toml");
     let mut cmd = Command::new("cargo");
     cmd.arg("run")
         .arg("--quiet")
@@ -1491,11 +1490,10 @@ fn read_length_prefixed_parts(path: &PathBuf) -> std::io::Result<Vec<Bytes>> {
     Ok(parts)
 }
 
-/// Returns the repository root that contains DAA_FULL, TPM_AES, and DAA_HOST.
-fn repo_root() -> PathBuf {
+/// Returns the standalone DAA_FULL project root.
+fn daa_full_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
-        .and_then(|p| p.parent())
         .and_then(|p| p.parent())
         .expect("daa_core path")
         .to_path_buf()

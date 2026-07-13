@@ -2,9 +2,24 @@
 members = [
     "crates/daa_core",
     "crates/daa_cli",
+    "host_proof/host",
+    "host_proof/methods",
 ]
 resolver = "2"
 
 [workspace.package]
 edition = "2021"
 license = "MIT"
+
+[patch.crates-io]
+risc0-zkvm = { path = "vendor/risc0_sha256_backend/crates/risc0-zkvm" }
+risc0-zkp = { path = "vendor/risc0_sha256_backend/crates/risc0-zkp" }
+risc0-circuit-rv32im = { path = "vendor/risc0_sha256_backend/crates/risc0-circuit-rv32im" }
+
+# Always optimize; building and running the guests takes much longer without optimization.
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = 1
+lto = true
