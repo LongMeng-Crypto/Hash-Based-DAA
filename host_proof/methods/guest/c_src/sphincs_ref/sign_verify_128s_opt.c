@@ -238,7 +238,14 @@ static void zk_fixed_chain_complete_128s(unsigned char *out,
         addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
 
         ct_select_n(input, dummy, real, active, SPX_N);
+#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && SPX_N == 16 && !SPX_SHA512
+        SPX_PROFILE_INC(SPX_PROF_THASH, 1);
+        SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
+        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
+        sha256_seeded_thash1_zk_wots_fast_128(hashed, ctx->state_seeded, addr, input);
+#else
         thash_opt(hashed, input, 1, ctx, addr);
+#endif
         ct_select_n(real, real, hashed, active, SPX_N);
         ct_select_n(dummy, hashed, dummy, active, SPX_N);
     }

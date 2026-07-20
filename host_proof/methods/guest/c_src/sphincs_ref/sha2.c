@@ -395,6 +395,50 @@ void sha256_seeded_thash_128s_simple(uint8_t *out,
     crypto_hashblocks_sha256(state, blocks, block_bytes);
     memcpy(out, state, SPX_N);
 }
+
+void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
+                                           const uint8_t *seeded_state,
+                                           const uint8_t *addr,
+                                           const uint8_t in[16])
+{
+    SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
+
+    uint8_t block[64] __attribute__((aligned(4)));
+    uint8_t state[32];
+
+    memcpy(block, addr, SPX_SHA256_ADDR_BYTES);
+    memcpy(block + SPX_SHA256_ADDR_BYTES, in, 16);
+    block[38] = 0x80;
+    block[39] = 0;
+    block[40] = 0;
+    block[41] = 0;
+    block[42] = 0;
+    block[43] = 0;
+    block[44] = 0;
+    block[45] = 0;
+    block[46] = 0;
+    block[47] = 0;
+    block[48] = 0;
+    block[49] = 0;
+    block[50] = 0;
+    block[51] = 0;
+    block[52] = 0;
+    block[53] = 0;
+    block[54] = 0;
+    block[55] = 0;
+    block[56] = 0;
+    block[57] = 0;
+    block[58] = 0;
+    block[59] = 0;
+    block[60] = 0;
+    block[61] = 0;
+    block[62] = 3;
+    block[63] = 48;
+
+    memcpy(state, seeded_state, 32);
+    crypto_hashblocks_sha256(state, block, 64);
+    memcpy(out, state, 16);
+}
 #endif
 
 

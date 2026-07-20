@@ -45,6 +45,10 @@ void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint32_t addr[8],
                                      const uint8_t *in,
                                      unsigned int inblocks);
+void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
+                                           const uint8_t *seeded_state,
+                                           const uint8_t *addr,
+                                           const uint8_t in[16]);
 #endif
 
 
