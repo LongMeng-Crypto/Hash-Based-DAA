@@ -1,2 +1,7 @@
 build*/
 .vscode/
+!builddir_rel/
+!builddir_rel/config.h
+!builddir_rel/parameters.h
+!builddir_rel/faest_*.c
+!builddir_rel/faest_*.h
