@@ -154,6 +154,9 @@ fn main() {
     if opt_level >= 2 {
         build.define("SPHINCS_OPT_128S_LEVEL2", None);
     }
+    if opt_level >= 3 {
+        build.define("SPHINCS_OPT_ZK_WOTS", None);
+    }
 
     // Add all source files
     for &f in core_files.iter().chain(backend_files.iter()) {

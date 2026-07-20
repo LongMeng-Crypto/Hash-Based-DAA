@@ -205,6 +205,47 @@ static void chain_lengths_128s(unsigned int lengths[SPX_WOTS_LEN],
     }
 }
 
+static uint32_t ct_ge_u32_small(uint32_t x, uint32_t y)
+{
+    return 1u ^ (((x - y) >> 31) & 1u);
+}
+
+static void ct_select_n(unsigned char *out, const unsigned char *x,
+                        const unsigned char *y, uint32_t b, unsigned int n)
+{
+    unsigned char mask = (unsigned char)(0u - (b & 1u));
+    for (unsigned int k = 0; k < n; k++) {
+        out[k] = (unsigned char)((x[k] & (unsigned char)~mask) | (y[k] & mask));
+    }
+}
+
+static void zk_fixed_chain_complete_128s(unsigned char *out,
+                                         const unsigned char *sig_elem,
+                                         unsigned int start,
+                                         const spx_ctx *ctx,
+                                         unsigned char addr[32])
+{
+    unsigned char real[SPX_N];
+    unsigned char dummy[SPX_N];
+    unsigned char input[SPX_N];
+    unsigned char hashed[SPX_N];
+
+    memcpy(real, sig_elem, SPX_N);
+    memset(dummy, 0, SPX_N);
+
+    for (unsigned int j = 0; j < SPX_WOTS_W - 1; j++) {
+        uint32_t active = ct_ge_u32_small(j, start);
+        addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
+
+        ct_select_n(input, dummy, real, active, SPX_N);
+        thash_opt(hashed, input, 1, ctx, addr);
+        ct_select_n(real, real, hashed, active, SPX_N);
+        ct_select_n(dummy, hashed, dummy, active, SPX_N);
+    }
+
+    memcpy(out, real, SPX_N);
+}
+
 static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
                                   const unsigned char *msg, const spx_ctx *ctx,
                                   unsigned char addr[32])
@@ -216,13 +257,17 @@ static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
 
     for (unsigned int i = 0; i < SPX_WOTS_LEN; i++) {
         unsigned char *out = pk + i * SPX_N;
-        memcpy(out, sig + i * SPX_N, SPX_N);
         addr[SPX_OFFSET_CHAIN_ADDR] = (unsigned char)i;
 
+#if defined(SPHINCS_OPT_ZK_WOTS)
+        zk_fixed_chain_complete_128s(out, sig + i * SPX_N, lengths[i], ctx, addr);
+#else
+        memcpy(out, sig + i * SPX_N, SPX_N);
         for (unsigned int j = lengths[i]; j < SPX_WOTS_W - 1; j++) {
             addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
             thash_opt(out, out, 1, ctx, addr);
         }
+#endif
     }
 }
 

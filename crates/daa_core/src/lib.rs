@@ -1382,7 +1382,10 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .env("RISC0_PROVER", "local")
         .env("SPHINCS_PARAMS", config.param_spec()?.sphincs_env)
         .env("SPHINCS_THASH", "simple")
-        .env("SPHINCS_OPT_LEVEL", "2")
+        .env(
+            "SPHINCS_OPT_LEVEL",
+            std::env::var("SPHINCS_OPT_LEVEL").unwrap_or_else(|_| "2".to_string()),
+        )
         .env("DAA_DETERMINISTIC", "1")
         .env("RISC0_BACKEND_HASH", &config.backend_hash);
     if let Some(segment_limit_po2) = config.risc0_segment_limit_po2 {
