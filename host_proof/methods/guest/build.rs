@@ -105,6 +105,7 @@ fn main() {
             "utils.c",
             "prf_wrapper.c",
             "sphincs_profile.c",
+            "wots_extreme.c",
         ]
     } else {
         &[
@@ -115,6 +116,7 @@ fn main() {
             "utils.c",
             "prf_wrapper.c",
             "sphincs_profile.c",
+            "wots_extreme.c",
         ]
     };
 

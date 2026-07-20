@@ -146,7 +146,7 @@ fn main() {
     assert!(out.ok);
     assert_eq!(out.sk_i, sk_i);
 
-    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len();
+    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
     println!(
         "done proving, prf prover time = {} ms, prf proof size = {} bytes",
         prove_ms, proof_bytes

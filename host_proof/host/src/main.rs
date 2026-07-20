@@ -263,7 +263,7 @@ fn main() {
     #[cfg(sphincs_profile)]
     print_profile(&journal[4 + hk.len() + pk.len()..]);
 
-    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len();
+    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
     println!(
         "done proving, prover time = {} ms, proof size = {} bytes",
         prove_ms, proof_bytes
