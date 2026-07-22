@@ -2,6 +2,8 @@
 #![no_std]
 
 use risc0_zkvm::guest::env;
+#[cfg(sphincs_opt5_padding)]
+use risc0_zkvm_platform::syscall::sys_sha_buffer;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 
 #[cfg(lambda_128)]
@@ -41,6 +43,9 @@ const fn parse_usize(s: &str) -> usize {
 
 const PK_BYTES: usize = parse_usize(env!("SPHINCS_PK_BYTES"));
 const SIG_BYTES: usize = parse_usize(env!("SPHINCS_SIG_BYTES"));
+
+#[cfg(sphincs_opt5_padding)]
+const OPT5_PAD_BLOCKS: usize = parse_usize(env!("SPHINCS_OPT5_PAD_BLOCKS"));
 
 #[cfg(sphincs_profile)]
 const PROFILE_WORDS: usize = 16;
@@ -101,6 +106,32 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
+
+#[cfg(sphincs_opt5_padding)]
+fn opt5_bin_forcing_padding() {
+    const DIGEST_WORDS: usize = 8;
+    let mut state = [
+        0x6a09e667u32,
+        0xbb67ae85,
+        0x3c6ef372,
+        0xa54ff53a,
+        0x510e527f,
+        0x9b05688c,
+        0x1f83d9ab,
+        0x5be0cd19,
+    ];
+    let mut out = [0u32; DIGEST_WORDS];
+    let mut block = [0u8; 64];
+    let mut i = 0usize;
+    while i < OPT5_PAD_BLOCKS {
+        block[0..8].copy_from_slice(&(i as u64).to_le_bytes());
+        unsafe { sys_sha_buffer(&mut out, &state, block.as_ptr(), 1) };
+        state = out;
+        i += 1;
+    }
+    core::hint::black_box(state);
+}
+
 fn main() {
     let mut pk = [0u8; PK_BYTES];
     let mut sig = [0u8; SIG_BYTES];
@@ -138,6 +169,9 @@ fn main() {
         let hk_calc = aes_hook(&s, &et_u);
         assert!(hk_calc == hk_pub);
     }
+
+    #[cfg(sphincs_opt5_padding)]
+    opt5_bin_forcing_padding();
 
     #[cfg(not(sphincs_profile))]
     {

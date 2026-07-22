@@ -154,10 +154,10 @@ fn main() {
     if opt_level >= 2 {
         build.define("SPHINCS_OPT_128S_LEVEL2", None);
     }
-    if opt_level >= 3 {
+    if opt_level >= 3 && opt_level <= 4 {
         build.define("SPHINCS_OPT_ZK_WOTS", None);
     }
-    if opt_level >= 4 {
+    if opt_level == 4 {
         build.define("SPHINCS_OPT_ZK_WOTS_FAST", None);
     }
 
@@ -212,6 +212,7 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(lambda_256)");
     println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
     println!("cargo::rustc-check-cfg=cfg(skip_aes_check)");
+    println!("cargo::rustc-check-cfg=cfg(sphincs_opt5_padding)");
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
     if profile {
         println!("cargo:rustc-cfg=sphincs_profile");
@@ -219,6 +220,30 @@ fn main() {
     if skip_aes {
         println!("cargo:rustc-cfg=skip_aes_check");
     }
+    if opt_level == 5 {
+        println!("cargo:rustc-cfg=sphincs_opt5_padding");
+    }
+
+    let default_opt5_pad_blocks = if opt_level == 5 {
+        match params.as_str() {
+            // These defaults target a single visible segment-size bin for the
+            // estimated WOTS min/max range. They can be tuned without code
+            // changes via SPHINCS_OPT5_PAD_BLOCKS.
+            "sphincs-sha2-128s" => "4500",
+            "sphincs-sha2-128f" => "52000",
+            "sphincs-sha2-192s" => "11000",
+            "sphincs-sha2-192f" => "39000",
+            "sphincs-sha2-256s" => "0",
+            "sphincs-sha2-256f" => "25000",
+            _ => "0",
+        }
+    } else {
+        "0"
+    };
+    let opt5_pad_blocks = env::var("SPHINCS_OPT5_PAD_BLOCKS")
+        .unwrap_or_else(|_| default_opt5_pad_blocks.to_string());
+    println!("cargo:rerun-if-env-changed=SPHINCS_OPT5_PAD_BLOCKS");
+
     println!("cargo:rustc-env=SPHINCS_N={}", spx_n);
     println!("cargo:rustc-env=SPHINCS_PK_BYTES={}", spx_pk_bytes);
     println!("cargo:rustc-env=SPHINCS_SIG_BYTES={}", spx_sig_bytes);
@@ -230,5 +255,6 @@ fn main() {
     println!("cargo:rustc-env=SPHINCS_PROFILE={}", if profile { "1" } else { "0" });
     println!("cargo:rustc-env=SPHINCS_OPT_LEVEL={}", opt_level);
     println!("cargo:rustc-env=SPHINCS_OPT_128S={}", opt_level);
+    println!("cargo:rustc-env=SPHINCS_OPT5_PAD_BLOCKS={}", opt5_pad_blocks);
     println!("cargo:rustc-env=SPHINCS_SKIP_AES_CHECK={}", if skip_aes { "1" } else { "0" });
 }

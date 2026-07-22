@@ -218,6 +218,10 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(21);
 
+    if seg_po2 > 22 {
+        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+    }
+
     // All values are private witnesses fed to the zkVM guest.
     // The guest reconstructs msg = et_u || gr_u internally — et_u is never exposed.
     // Order must match guest env::read() order exactly.
@@ -387,13 +391,17 @@ fn protocol_prove(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = read_protocol_input(input_path)?;
 
+    let seg_po2 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(21);
+
+    if seg_po2 > 22 {
+        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+    }
+
     let env = ExecutorEnv::builder()
-        .segment_limit_po2(
-            std::env::var("RISC0_SEGMENT_LIMIT_PO2")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(21),
-        )
+        .segment_limit_po2(seg_po2)
         .write_slice(&input.issuer_pk)
         .write_slice(&input.credential_sig)
         .write_slice(&input.hk)
@@ -430,6 +438,14 @@ fn protocol_verify(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = read_protocol_input(input_path)?;
     let receipt = read_receipt_words(receipt_path)?;
+    let seg_po2 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(21);
+
+    if seg_po2 > 22 {
+        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+    }
     let t0 = Instant::now();
     receipt.verify(GUEST_ID)?;
     let verify_ms = t0.elapsed().as_millis();
