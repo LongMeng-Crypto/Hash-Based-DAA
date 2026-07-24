@@ -5,6 +5,7 @@ use std::{env, fs};
 
 use methods::{GUEST_ELF, GUEST_ID};
 use risc0_zkvm::{default_prover, ExecutorEnv, InnerReceipt, ProverOpts, Receipt, ReceiptKind};
+use risc0_zkvm::recursion::identity as recursion_identity;
 
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
 #[cfg(lambda_128)]
@@ -27,6 +28,52 @@ extern "C" {
     fn sphincs_sig_bytes() -> usize;
     fn sphincs_pk_bytes() -> usize;
     fn sphincs_sk_bytes() -> usize;
+}
+
+fn receipt_kind_from_env() -> ReceiptKind {
+    match env::var("RISC0_RECEIPT_KIND")
+        .unwrap_or_else(|_| "composite".to_string())
+        .as_str()
+    {
+        "composite" => ReceiptKind::Composite,
+        "succinct" => ReceiptKind::Succinct,
+        other => panic!(
+            "unsupported RISC0_RECEIPT_KIND={}; expected composite or succinct",
+            other
+        ),
+    }
+}
+
+fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
+    let receipt_kind = receipt_kind_from_env();
+    let opts = match receipt_kind {
+        ReceiptKind::Composite => ProverOpts::composite(),
+        ReceiptKind::Succinct => ProverOpts::succinct(),
+        _ => panic!("unsupported receipt kind for this benchmark"),
+    };
+    opts.with_hashfn(backend_hash).with_receipt_kind(receipt_kind)
+}
+
+fn identity_wrap_enabled() -> bool {
+    matches!(env::var("RISC0_IDENTITY_WRAP").as_deref(), Ok("1") | Ok("true"))
+}
+
+fn maybe_identity_wrap_receipt(receipt: Receipt) -> Receipt {
+    if !identity_wrap_enabled() {
+        return receipt;
+    }
+
+    match receipt.inner {
+        InnerReceipt::Succinct(inner) => {
+            println!("identity wrap = enabled");
+            let wrapped = recursion_identity(&inner).expect("identity recursion wrap failed");
+            Receipt::new(InnerReceipt::Succinct(wrapped), receipt.journal.bytes)
+        }
+        other => panic!(
+            "RISC0_IDENTITY_WRAP requires a succinct receipt, got {:?}",
+            other
+        ),
+    }
 }
 
 #[no_mangle]
@@ -240,9 +287,7 @@ fn main() {
     let prover = default_prover();
     let backend_hash =
         std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
-    let opts = ProverOpts::composite()
-        .with_hashfn(backend_hash.clone())
-        .with_receipt_kind(ReceiptKind::Composite);
+    let opts = prover_opts_from_env(backend_hash.clone());
 
     println!(
         "start proving (seg_po2={}, backend hashfn={})",
@@ -250,10 +295,10 @@ fn main() {
     );
     let t0 = Instant::now();
     let prove_info = prover.prove_with_opts(env, GUEST_ELF, &opts).unwrap();
-    let prove_ms = t0.elapsed().as_millis();
     let stats = prove_info.stats.clone();
 
-    let receipt = prove_info.receipt;
+    let receipt = maybe_identity_wrap_receipt(prove_info.receipt);
+    let prove_ms = t0.elapsed().as_millis();
     print_and_check_segment_hashes(&receipt, &backend_hash);
     let journal = receipt.journal.bytes.as_slice();
     assert_eq!(&journal[..4], &1u32.to_le_bytes());
@@ -564,8 +609,17 @@ fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
             println!("segment hashfn = {}", first_hashfn);
             println!("segment hashfns = {}", hashfns.join(","));
         }
+        InnerReceipt::Succinct(inner) => {
+            println!("receipt kind = succinct");
+            println!("segment hashfn = <hidden by succinct receipt>");
+            println!("segment hashfns = <hidden by succinct receipt>");
+            println!("succinct hashfn = {}", inner.hashfn);
+            println!("succinct control_id = {}", inner.control_id);
+            println!("succinct control_proof_index = {}", inner.control_inclusion_proof.index);
+            println!("succinct control_proof_len = {}", inner.control_inclusion_proof.digests.len());
+        }
         _ => {
-            panic!("expected composite receipt");
+            panic!("expected composite or succinct receipt");
         }
     }
 }

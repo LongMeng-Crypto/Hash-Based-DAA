@@ -389,6 +389,25 @@ pub fn identity_p254(
     })
 }
 
+/// Prove the verification of a recursion receipt using the same Poseidon2 recursion backend.
+///
+/// This normalizes the outer control program to `identity.zkr` without changing the
+/// underlying receipt claim. It is useful for experiments that want to hide whether
+/// the previous recursion pipeline ended in `lift` or `join`.
+pub fn identity(
+    inner: &SuccinctReceipt<ReceiptClaim>,
+) -> Result<SuccinctReceipt<ReceiptClaim>> {
+    tracing::debug!("identity");
+
+    let opts = ProverOpts::succinct();
+    let mut prover = Prover::new_identity(inner, opts)?;
+    let receipt = prover.prover.run()?;
+    let claim =
+        MaybePruned::Value(ReceiptClaim::decode(&mut receipt.out_stream())?).merge(&inner.claim)?;
+
+    make_succinct_receipt(prover, receipt, claim)
+}
+
 /// Prove the specified program identified by the `control_id` using the specified `input`.
 pub fn prove_zkr(
     program: Program,
