@@ -166,17 +166,22 @@ impl<Claim> SuccinctReceipt<Claim> {
             seal_claim.push_back(elem.as_u32())
         }
 
-        // Read the Poseidon2 control root digest from the first 16 words of the output.
+        // Read the control root digest from the first output slot.
         // NOTE: Implemented recursion programs have two output slots, each of size 16 elems.
-        // A SHA2 digest is encoded as 16 half words. Poseidon digests are encoded in 8 elems,
-        // but are interspersed with padding to fill out the whole 16 elems.
-        let control_root: Digest = seal_claim
-            .drain(0..16)
-            .enumerate()
-            .filter_map(|(i, word)| (i & 1 == 0).then_some(word))
-            .collect::<Vec<_>>()
-            .try_into()
-            .map_err(|_| VerificationError::ReceiptFormatError)?;
+        // A SHA-256 digest is encoded as 16 half words. Poseidon2 digests are encoded in 8 elems
+        // interspersed with padding to fill the same 16-elems slot.
+        let control_root = match self.hashfn.as_str() {
+            "sha-256" => read_sha_halfs(&mut seal_claim)
+                .map_err(|_| VerificationError::ReceiptFormatError)?,
+            "poseidon2" => seal_claim
+                .drain(0..16)
+                .enumerate()
+                .filter_map(|(i, word)| (i & 1 == 0).then_some(word))
+                .collect::<Vec<_>>()
+                .try_into()
+                .map_err(|_| VerificationError::ReceiptFormatError)?,
+            _ => return Err(VerificationError::InvalidHashSuite),
+        };
 
         if control_root != params.inner_control_root.unwrap_or(params.control_root) {
             tracing::debug!(
@@ -336,12 +341,18 @@ impl SuccinctReceiptVerifierParameters {
     /// inclusive.
     #[stability::unstable]
     pub fn from_max_po2(po2_max: usize) -> Self {
-        Self {
-            control_root: allowed_control_root("poseidon2", po2_max).unwrap(),
+        Self::from_max_po2_with_hashfn("poseidon2", po2_max).unwrap()
+    }
+
+    /// Construct verifier parameters for a selected recursion hash function.
+    #[stability::unstable]
+    pub fn from_max_po2_with_hashfn(hashfn: &str, po2_max: usize) -> anyhow::Result<Self> {
+        Ok(Self {
+            control_root: allowed_control_root(hashfn.to_string(), po2_max)?,
             inner_control_root: None,
             proof_system_info: PROOF_SYSTEM_INFO,
             circuit_info: CircuitImpl::CIRCUIT_INFO,
-        }
+        })
     }
 
     /// Construct verifier parameters that will accept receipts with control any of the default

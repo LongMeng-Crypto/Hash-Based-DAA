@@ -4,8 +4,10 @@ use std::time::Instant;
 use std::{env, fs};
 
 use methods::{GUEST_ELF, GUEST_ID};
-use risc0_zkvm::{default_prover, ExecutorEnv, InnerReceipt, ProverOpts, Receipt, ReceiptKind};
 use risc0_zkvm::recursion::identity as recursion_identity;
+use risc0_zkvm::{
+    default_prover, ExecutorEnv, InnerReceipt, ProverOpts, Receipt, ReceiptKind, VerifierContext,
+};
 
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
 #[cfg(lambda_128)]
@@ -51,11 +53,20 @@ fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
         ReceiptKind::Succinct => ProverOpts::succinct(),
         _ => panic!("unsupported receipt kind for this benchmark"),
     };
-    opts.with_hashfn(backend_hash).with_receipt_kind(receipt_kind)
+    opts.with_hashfn(backend_hash)
+        .with_receipt_kind(receipt_kind)
+}
+
+fn verifier_context_for_hashfn(backend_hash: &str, seg_po2: u32) -> VerifierContext {
+    VerifierContext::from_max_po2_with_hashfn_public(backend_hash, seg_po2 as usize)
+        .expect("unsupported verifier context hash function")
 }
 
 fn identity_wrap_enabled() -> bool {
-    matches!(env::var("RISC0_IDENTITY_WRAP").as_deref(), Ok("1") | Ok("true"))
+    matches!(
+        env::var("RISC0_IDENTITY_WRAP").as_deref(),
+        Ok("1") | Ok("true")
+    )
 }
 
 fn maybe_identity_wrap_receipt(receipt: Receipt) -> Receipt {
@@ -266,7 +277,10 @@ fn main() {
         .unwrap_or(21);
 
     if seg_po2 > 22 {
-        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+        panic!(
+            "RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22",
+            seg_po2
+        );
     }
 
     // All values are private witnesses fed to the zkVM guest.
@@ -312,7 +326,8 @@ fn main() {
     #[cfg(sphincs_profile)]
     print_profile(&journal[4 + hk.len() + pk.len()..]);
 
-    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
+    let proof_bytes =
+        risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
     println!(
         "done proving, prover time = {} ms, proof size = {} bytes",
         prove_ms, proof_bytes
@@ -327,8 +342,11 @@ fn main() {
     );
 
     // ── 7) Verify ─────────────────────────────────────────────────────────
+    let verifier_ctx = verifier_context_for_hashfn(&backend_hash, seg_po2);
     let t1 = Instant::now();
-    receipt.verify(GUEST_ID).unwrap();
+    receipt
+        .verify_with_context(&verifier_ctx, GUEST_ID)
+        .unwrap();
     let verify_ms = t1.elapsed().as_millis();
     println!("verify ok, verifier time = {} ms", verify_ms);
 }
@@ -442,7 +460,10 @@ fn protocol_prove(
         .unwrap_or(21);
 
     if seg_po2 > 22 {
-        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+        panic!(
+            "RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22",
+            seg_po2
+        );
     }
 
     let env = ExecutorEnv::builder()
@@ -489,10 +510,16 @@ fn protocol_verify(
         .unwrap_or(21);
 
     if seg_po2 > 22 {
-        panic!("RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22", seg_po2);
+        panic!(
+            "RISC0_SEGMENT_LIMIT_PO2={} exceeds CUDA-safe maximum 22",
+            seg_po2
+        );
     }
+    let backend_hash =
+        std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
+    let verifier_ctx = verifier_context_for_hashfn(&backend_hash, seg_po2);
     let t0 = Instant::now();
-    receipt.verify(GUEST_ID)?;
+    receipt.verify_with_context(&verifier_ctx, GUEST_ID)?;
     let verify_ms = t0.elapsed().as_millis();
     check_protocol_journal(&receipt, &input.issuer_pk, &input.hk)?;
     println!("accepted=1");
@@ -615,8 +642,14 @@ fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
             println!("segment hashfns = <hidden by succinct receipt>");
             println!("succinct hashfn = {}", inner.hashfn);
             println!("succinct control_id = {}", inner.control_id);
-            println!("succinct control_proof_index = {}", inner.control_inclusion_proof.index);
-            println!("succinct control_proof_len = {}", inner.control_inclusion_proof.digests.len());
+            println!(
+                "succinct control_proof_index = {}",
+                inner.control_inclusion_proof.index
+            );
+            println!(
+                "succinct control_proof_len = {}",
+                inner.control_inclusion_proof.digests.len()
+            );
         }
         _ => {
             panic!("expected composite or succinct receipt");

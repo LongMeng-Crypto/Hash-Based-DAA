@@ -928,17 +928,34 @@ impl VerifierContext {
     /// inclusive.
     #[stability::unstable]
     pub fn from_max_po2(po2_max: usize) -> Self {
-        Self {
+        Self::from_max_po2_with_hashfn("poseidon2", po2_max).unwrap()
+    }
+
+    /// Construct a verifier context for a selected recursion hash function.
+    #[stability::unstable]
+    pub fn from_max_po2_with_hashfn(hashfn: &str, po2_max: usize) -> anyhow::Result<Self> {
+        Ok(Self {
             suites: Self::default_hash_suites(),
             segment_verifier_parameters: Some(SegmentReceiptVerifierParameters::default()),
-            succinct_verifier_parameters: Some(SuccinctReceiptVerifierParameters::from_max_po2(
-                po2_max,
-            )),
+            succinct_verifier_parameters: Some(
+                SuccinctReceiptVerifierParameters::from_max_po2_with_hashfn(hashfn, po2_max)?,
+            ),
             groth16_verifier_parameters: Some(Groth16ReceiptVerifierParameters::from_max_po2(
                 po2_max,
             )),
             dev_mode: crate::is_dev_mode_enabled_via_environment(),
-        }
+        })
+    }
+
+    /// Construct a public verifier context for a selected recursion hash function.
+    ///
+    /// This mirrors `from_max_po2_with_hashfn` without the stability gate so downstream
+    /// benchmark crates can verify receipts produced by non-default hash suites.
+    pub fn from_max_po2_with_hashfn_public(
+        hashfn: &str,
+        po2_max: usize,
+    ) -> anyhow::Result<Self> {
+        Self::from_max_po2_with_hashfn(hashfn, po2_max)
     }
 
     /// Construct a verifier context that will accept receipts with control any of the default

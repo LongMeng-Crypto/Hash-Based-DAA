@@ -171,10 +171,7 @@ impl ProverOpts {
 
     /// Return [ProverOpts] with the hashfn set to the given value.
     pub fn with_hashfn(self, hashfn: String) -> Self {
-        Self {
-            hashfn: hashfn.to_owned(),
-            ..self
-        }
+        Self { hashfn, ..self }
     }
 
     /// Return [ProverOpts] with prove_guest_errors set to the given value.

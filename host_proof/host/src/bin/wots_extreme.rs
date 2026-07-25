@@ -27,8 +27,17 @@ fn run(mode: u32, seg_po2: u32, backend_hash: &str, real_proof: bool) {
         ProverOpts::fast()
     };
 
-    let label = if mode == 0 { "min-root=ff" } else { "max-root=00" };
-    println!("[{}] start WOTS diagnostic (seg_po2={}, proof_mode={})", label, seg_po2, if real_proof { "real-composite" } else { "fast" });
+    let label = if mode == 0 {
+        "min-root=ff"
+    } else {
+        "max-root=00"
+    };
+    println!(
+        "[{}] start WOTS diagnostic (seg_po2={}, proof_mode={})",
+        label,
+        seg_po2,
+        if real_proof { "real-composite" } else { "fast" }
+    );
 
     let t0 = Instant::now();
     let prove_info = default_prover()
@@ -50,7 +59,8 @@ fn run(mode: u32, seg_po2: u32, backend_hash: &str, real_proof: bool) {
     if real_proof {
         receipt.verify(WOTS_EXTREME_GUEST_ID).unwrap();
     }
-    let proof_bytes = risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
+    let proof_bytes =
+        risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
 
     println!(
         "[{}] params={} n={} d={} wots_len={} thash1_calls={} elapsed_ms={} proof_bytes={}",
@@ -83,7 +93,8 @@ fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(21);
-    let backend_hash = std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
+    let backend_hash =
+        std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
     let real_proof = std::env::var("WOTS_DIAG_REAL_PROOF").ok().as_deref() == Some("1");
 
     println!(

@@ -32,7 +32,7 @@ use risc0_zkp::{
     adapter::{CircuitInfo, PROOF_SYSTEM_INFO},
     core::{
         digest::{Digest, DIGEST_SHORTS},
-        hash::{hash_suite_from_name, poseidon2::Poseidon2HashSuite},
+        hash::hash_suite_from_name,
     },
     field::baby_bear::BabyBearElem,
     verify::ReadIOP,
@@ -72,7 +72,10 @@ pub(crate) static ZKR_REGISTRY: Mutex<ZkrRegistry> = Mutex::new(BTreeMap::new())
 /// used as the input to all other recursion programs (e.g. join, resolve, and identity_p254).
 pub fn lift(segment_receipt: &SegmentReceipt) -> Result<SuccinctReceipt<ReceiptClaim>> {
     tracing::debug!("Proving lift: claim = {:#?}", segment_receipt.claim);
-    let mut prover = Prover::new_lift(segment_receipt, ProverOpts::succinct())?;
+    let mut prover = Prover::new_lift(
+        segment_receipt,
+        recursion_opts_for_hashfn(&segment_receipt.hashfn)?,
+    )?;
 
     let receipt = prover.prover.run()?;
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
@@ -91,7 +94,10 @@ pub fn lift_povw(
     segment_receipt: &SegmentReceipt,
 ) -> Result<SuccinctReceipt<WorkClaim<ReceiptClaim>>> {
     tracing::debug!("Proving lift_povw: claim = {:#?}", segment_receipt.claim);
-    let mut prover = Prover::new_lift_povw(segment_receipt, ProverOpts::succinct())?;
+    let mut prover = Prover::new_lift_povw(
+        segment_receipt,
+        recursion_opts_for_hashfn(&segment_receipt.hashfn)?,
+    )?;
 
     let receipt = prover.prover.run()?;
     let mut out_stream = receipt.out_stream();
@@ -120,7 +126,7 @@ pub fn join(
     tracing::debug!("Proving join: a.claim = {:#?}", a.claim);
     tracing::debug!("Proving join: b.claim = {:#?}", b.claim);
 
-    let mut prover = Prover::new_join(a, b, ProverOpts::succinct())?;
+    let mut prover = Prover::new_join(a, b, recursion_opts_for_hashfn(&a.hashfn)?)?;
     let receipt = prover.prover.run()?;
 
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
@@ -143,7 +149,7 @@ pub fn join_povw(
     tracing::debug!("Proving join_povw: a.claim = {:#?}", a.claim);
     tracing::debug!("Proving join_povw: b.claim = {:#?}", b.claim);
 
-    let mut prover = Prover::new_join_povw(a, b, false, ProverOpts::succinct())?;
+    let mut prover = Prover::new_join_povw(a, b, false, recursion_opts_for_hashfn(&a.hashfn)?)?;
     let receipt = prover.prover.run()?;
 
     let claim_decoded = WorkClaim::<ReceiptClaim>::decode_from_seal(&mut receipt.out_stream())?;
@@ -166,7 +172,7 @@ pub fn join_unwrap_povw(
     tracing::debug!("Proving join_unwrap_povw: a.claim = {:#?}", a.claim);
     tracing::debug!("Proving join_unwrap_povw: b.claim = {:#?}", b.claim);
 
-    let mut prover = Prover::new_join_povw(a, b, true, ProverOpts::succinct())?;
+    let mut prover = Prover::new_join_povw(a, b, true, recursion_opts_for_hashfn(&a.hashfn)?)?;
     let receipt = prover.prover.run()?;
 
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
@@ -201,7 +207,11 @@ pub fn union(
     tracing::debug!("Proving union: left assumption = {:#?}", left_assumption);
     tracing::debug!("Proving union: right assumption = {:#?}", right_assumption);
 
-    let mut prover = Prover::new_union(left_receipt, right_receipt, ProverOpts::succinct())?;
+    let mut prover = Prover::new_union(
+        left_receipt,
+        right_receipt,
+        recursion_opts_for_hashfn(&left_receipt.hashfn)?,
+    )?;
     let receipt = prover.prover.run()?;
 
     let claim = UnionClaim {
@@ -233,7 +243,11 @@ where
         assumption.claim,
     );
 
-    let mut prover = Prover::new_resolve(conditional, assumption, ProverOpts::succinct())?;
+    let mut prover = Prover::new_resolve(
+        conditional,
+        assumption,
+        recursion_opts_for_hashfn(&conditional.hashfn)?,
+    )?;
     let receipt = prover.prover.run()?;
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
     tracing::debug!("Proving resolve finished: decoded claim = {claim_decoded:#?}");
@@ -270,8 +284,12 @@ where
         assumption.claim,
     );
 
-    let mut prover =
-        Prover::new_resolve_povw(conditional, assumption, false, ProverOpts::succinct())?;
+    let mut prover = Prover::new_resolve_povw(
+        conditional,
+        assumption,
+        false,
+        recursion_opts_for_hashfn(&conditional.hashfn)?,
+    )?;
     let receipt = prover.prover.run()?;
     let claim_decoded = WorkClaim::<ReceiptClaim>::decode_from_seal(&mut receipt.out_stream())?;
     tracing::debug!("Proving resolve_povw finished: decoded claim = {claim_decoded:#?}");
@@ -308,8 +326,12 @@ where
         assumption.claim,
     );
 
-    let mut prover =
-        Prover::new_resolve_povw(conditional, assumption, true, ProverOpts::succinct())?;
+    let mut prover = Prover::new_resolve_povw(
+        conditional,
+        assumption,
+        true,
+        recursion_opts_for_hashfn(&conditional.hashfn)?,
+    )?;
     let receipt = prover.prover.run()?;
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
     tracing::debug!("Proving resolve_unwrap_povw finished: decoded claim = {claim_decoded:#?}");
@@ -338,7 +360,7 @@ pub fn unwrap_povw(
 ) -> Result<SuccinctReceipt<ReceiptClaim>> {
     tracing::debug!("Proving unwrap_povw: a.claim = {:#?}", a.claim);
 
-    let mut prover = Prover::new_unwrap_povw(a, ProverOpts::succinct())?;
+    let mut prover = Prover::new_unwrap_povw(a, recursion_opts_for_hashfn(&a.hashfn)?)?;
     let receipt = prover.prover.run()?;
 
     let claim_decoded = ReceiptClaim::decode(&mut receipt.out_stream())?;
@@ -394,12 +416,10 @@ pub fn identity_p254(
 /// This normalizes the outer control program to `identity.zkr` without changing the
 /// underlying receipt claim. It is useful for experiments that want to hide whether
 /// the previous recursion pipeline ended in `lift` or `join`.
-pub fn identity(
-    inner: &SuccinctReceipt<ReceiptClaim>,
-) -> Result<SuccinctReceipt<ReceiptClaim>> {
+pub fn identity(inner: &SuccinctReceipt<ReceiptClaim>) -> Result<SuccinctReceipt<ReceiptClaim>> {
     tracing::debug!("identity");
 
-    let opts = ProverOpts::succinct();
+    let opts = recursion_opts_for_hashfn(&inner.hashfn)?;
     let mut prover = Prover::new_identity(inner, opts)?;
     let receipt = prover.prover.run()?;
     let claim =
@@ -491,14 +511,23 @@ fn make_succinct_receipt<Claim>(
     receipt: RecursionReceipt,
     claim: impl Into<MaybePruned<Claim>>,
 ) -> Result<SuccinctReceipt<Claim>> {
+    let hashfn = prover.opts.hash_suite()?.hashfn;
+    let control_inclusion_proof = prover.control_inclusion_proof()?;
+    let control_root = control_inclusion_proof.root(&prover.control_id, hashfn.as_ref());
+    let params = SuccinctReceiptVerifierParameters {
+        control_root,
+        inner_control_root: None,
+        proof_system_info: PROOF_SYSTEM_INFO,
+        circuit_info: CircuitImpl::CIRCUIT_INFO,
+    };
+
     Ok(SuccinctReceipt {
         seal: receipt.seal,
         hashfn: prover.opts.hashfn.clone(),
         control_id: prover.control_id,
-        control_inclusion_proof: prover.control_inclusion_proof()?,
+        control_inclusion_proof,
         claim: claim.into(),
-        // TODO(victor): This should be derived from the ProverOpts instead of being default.
-        verifier_parameters: SuccinctReceiptVerifierParameters::default().digest(),
+        verifier_parameters: params.digest(),
     })
 }
 
@@ -564,15 +593,24 @@ pub struct Prover {
     opts: ProverOpts,
 }
 
-/// Utility macro to compress repeated checks that a receipt uses the poseidon2 hash.
-macro_rules! ensure_poseidon2 {
-    ($receipt:expr) => {
-        ensure!(
-            $receipt.hashfn == "poseidon2",
-            "recursion programs only supports poseidon2 hashfn; received {}",
-            $receipt.hashfn
-        );
-    };
+fn digest_kind_for_hashfn(hashfn: &str) -> Result<DigestKind> {
+    match hashfn {
+        "poseidon2" => Ok(DigestKind::Poseidon2),
+        "sha-256" => Ok(DigestKind::Sha256),
+        _ => bail!("recursion programs do not support hashfn {hashfn}"),
+    }
+}
+
+fn ensure_recursion_hashfn(hashfn: &str) -> Result<()> {
+    digest_kind_for_hashfn(hashfn).map(|_| ())
+}
+
+fn recursion_opts_for_hashfn(hashfn: &str) -> Result<ProverOpts> {
+    let opts = ProverOpts::succinct().with_hashfn(hashfn.to_string());
+    let control_ids =
+        crate::receipt::succinct::allowed_control_ids(hashfn.to_string(), opts.max_segment_po2)?
+            .collect();
+    Ok(opts.with_control_ids(control_ids))
 }
 
 impl Prover {
@@ -636,7 +674,7 @@ impl Prover {
     /// Instantiate a lift program, with the option of PoVW or not. Note that these programs
     /// produce different output but have the same inputs and so share the same logic here.
     fn new_lift_inner(segment: &SegmentReceipt, opts: ProverOpts, povw: bool) -> Result<Self> {
-        ensure_poseidon2!(segment);
+        ensure_recursion_hashfn(&segment.hashfn)?;
 
         let inner_hash_suite = hash_suite_from_name(&segment.hashfn)
             .ok_or_else(|| anyhow!("unsupported hash function: {}", segment.hashfn))?;
@@ -665,6 +703,8 @@ impl Prover {
         };
         let mut prover = Prover::new(program, control_id, opts);
 
+        // The lift ZKR input ABI expects the RV32IM control root in Poseidon2-style
+        // digest slots, even when the outer recursion proof itself uses SHA-256.
         prover.add_input_digest(&merkle_root, DigestKind::Poseidon2);
         prover.add_input(seal);
 
@@ -681,17 +721,25 @@ impl Prover {
         b: &SuccinctReceipt<Unknown>,
         opts: ProverOpts,
     ) -> Result<Self> {
-        ensure_poseidon2!(a);
-        ensure_poseidon2!(b);
+        ensure_recursion_hashfn(&a.hashfn)?;
+        ensure_recursion_hashfn(&b.hashfn)?;
 
-        let hash_suite = Poseidon2HashSuite::new_suite();
+        ensure!(
+            a.hashfn == b.hashfn,
+            "receipt hash functions differ: {} != {}",
+            a.hashfn,
+            b.hashfn
+        );
+
+        let hash_suite = hash_suite_from_name(&a.hashfn)
+            .ok_or_else(|| anyhow!("unsupported hash function: {}", a.hashfn))?;
         let allowed_ids = MerkleGroup::new(opts.control_ids.clone())?;
         let merkle_root = allowed_ids.calc_root(hash_suite.hashfn.as_ref());
 
         let (program, control_id) = zkr::union(&opts.hashfn)?;
         let mut prover = Prover::new(program, control_id, opts);
 
-        prover.add_input_digest(&merkle_root, DigestKind::Poseidon2);
+        prover.add_input_digest(&merkle_root, digest_kind_for_hashfn(&a.hashfn)?);
         prover.add_succinct_generic_receipt(a)?;
         prover.add_succinct_generic_receipt(b)?;
         Ok(prover)
@@ -707,8 +755,15 @@ impl Prover {
         b: &SuccinctReceipt<ReceiptClaim>,
         opts: ProverOpts,
     ) -> Result<Self> {
-        ensure_poseidon2!(a);
-        ensure_poseidon2!(b);
+        ensure_recursion_hashfn(&a.hashfn)?;
+        ensure_recursion_hashfn(&b.hashfn)?;
+
+        ensure!(
+            a.hashfn == b.hashfn,
+            "receipt hash functions differ: {} != {}",
+            a.hashfn,
+            b.hashfn
+        );
 
         let (program, control_id) = zkr::join(&opts.hashfn)?;
         let mut prover = Prover::new(program, control_id, opts);
@@ -724,7 +779,7 @@ impl Prover {
             b.control_root()?
         );
 
-        prover.add_input_digest(&merkle_root, DigestKind::Poseidon2);
+        prover.add_input_digest(&merkle_root, digest_kind_for_hashfn(&a.hashfn)?);
         prover.add_succinct_rv32im_receipt(a)?;
         prover.add_succinct_rv32im_receipt(b)?;
         Ok(prover)
@@ -741,8 +796,15 @@ impl Prover {
         unwrap: bool,
         opts: ProverOpts,
     ) -> Result<Self> {
-        ensure_poseidon2!(a);
-        ensure_poseidon2!(b);
+        ensure_recursion_hashfn(&a.hashfn)?;
+        ensure_recursion_hashfn(&b.hashfn)?;
+
+        ensure!(
+            a.hashfn == b.hashfn,
+            "receipt hash functions differ: {} != {}",
+            a.hashfn,
+            b.hashfn
+        );
 
         let (program, control_id) = match unwrap {
             false => zkr::join_povw(&opts.hashfn)?,
@@ -761,7 +823,7 @@ impl Prover {
             b.control_root()?
         );
 
-        prover.add_input_digest(&merkle_root, DigestKind::Poseidon2);
+        prover.add_input_digest(&merkle_root, digest_kind_for_hashfn(&a.hashfn)?);
         prover.add_succinct_work_claim_rv32im_receipt(a)?;
         prover.add_succinct_work_claim_rv32im_receipt(b)?;
         Ok(prover)
@@ -781,8 +843,8 @@ impl Prover {
     where
         Claim: risc0_binfmt::Digestible + Debug,
     {
-        ensure_poseidon2!(cond);
-        ensure_poseidon2!(assum);
+        ensure_recursion_hashfn(&cond.hashfn)?;
+        ensure_recursion_hashfn(&assum.hashfn)?;
 
         // Load the resolve predicate as a Program and construct the prover.
         let (program, control_id) = zkr::resolve(&opts.hashfn)?;
@@ -791,7 +853,7 @@ impl Prover {
         // Load the input values needed by the predicate.
         // Resolve predicate needs both seals as input, and the journal and assumptions tail digest
         // to compute the opening of the conditional receipt claim to the first assumption.
-        prover.add_input_digest(&cond.control_root()?, DigestKind::Poseidon2);
+        prover.add_input_digest(&cond.control_root()?, digest_kind_for_hashfn(&cond.hashfn)?);
         prover.add_succinct_rv32im_receipt(cond)?;
 
         let (head, tail, output) = check_resolve_assumption(&cond.claim, &assum.claim)?;
@@ -826,8 +888,8 @@ impl Prover {
     where
         Claim: risc0_binfmt::Digestible + Debug,
     {
-        ensure_poseidon2!(cond);
-        ensure_poseidon2!(assum);
+        ensure_recursion_hashfn(&cond.hashfn)?;
+        ensure_recursion_hashfn(&assum.hashfn)?;
 
         // Load the resolve predicate as a Program and construct the prover.
         let (program, control_id) = match unwrap {
@@ -839,7 +901,7 @@ impl Prover {
         // Load the input values needed by the predicate.
         // Resolve predicate needs both seals as input, and the journal and assumptions tail digest
         // to compute the opening of the conditional receipt claim to the first assumption.
-        prover.add_input_digest(&cond.control_root()?, DigestKind::Poseidon2);
+        prover.add_input_digest(&cond.control_root()?, digest_kind_for_hashfn(&cond.hashfn)?);
         prover.add_succinct_work_claim_rv32im_receipt(cond)?;
 
         let cond_claim = &cond
@@ -870,12 +932,12 @@ impl Prover {
     /// The primary use for this program is to transform the receipt itself, e.g. using a different
     /// hash function for FRI. See [identity_p254] for more information.
     pub fn new_identity(a: &SuccinctReceipt<ReceiptClaim>, opts: ProverOpts) -> Result<Self> {
-        ensure_poseidon2!(a);
+        ensure_recursion_hashfn(&a.hashfn)?;
 
         let (program, control_id) = zkr::identity(&opts.hashfn)?;
         let mut prover = Prover::new(program, control_id, opts);
 
-        prover.add_input_digest(&a.control_root()?, DigestKind::Poseidon2);
+        prover.add_input_digest(&a.control_root()?, digest_kind_for_hashfn(&a.hashfn)?);
         prover.add_succinct_rv32im_receipt(a)?;
         Ok(prover)
     }
@@ -889,12 +951,12 @@ impl Prover {
         a: &SuccinctReceipt<WorkClaim<ReceiptClaim>>,
         opts: ProverOpts,
     ) -> Result<Self> {
-        ensure_poseidon2!(a);
+        ensure_recursion_hashfn(&a.hashfn)?;
 
         let (program, control_id) = zkr::unwrap_povw(&opts.hashfn)?;
         let mut prover = Prover::new(program, control_id, opts);
 
-        prover.add_input_digest(&a.control_root()?, DigestKind::Poseidon2);
+        prover.add_input_digest(&a.control_root()?, digest_kind_for_hashfn(&a.hashfn)?);
         prover.add_succinct_work_claim_rv32im_receipt(a)?;
         Ok(prover)
     }
@@ -914,6 +976,7 @@ impl Prover {
         seal: &[u32],
         control_id: &Digest,
         control_inclusion_proof: &MerkleProof,
+        hashfn: &str,
     ) -> Result<()> {
         tracing::debug!("Control ID = {:?}", control_id);
         self.add_input(seal);
@@ -923,7 +986,7 @@ impl Prover {
         )]));
         for digest in &control_inclusion_proof.digests {
             tracing::debug!("path = {:?}", digest);
-            self.add_input_digest(digest, DigestKind::Poseidon2);
+            self.add_input_digest(digest, digest_kind_for_hashfn(hashfn)?);
         }
         Ok(())
     }
@@ -938,6 +1001,7 @@ impl Prover {
             &receipt.seal,
             &receipt.control_id,
             &receipt.control_inclusion_proof,
+            &receipt.hashfn,
         )?;
         // Resolve program expects an additional boolean to tell it when the control root is zero.
         let zero_root = BabyBearElem::new((assumption.control_root == Digest::ZERO) as u32);
@@ -949,7 +1013,12 @@ impl Prover {
         &mut self,
         a: &SuccinctReceipt<WorkClaim<ReceiptClaim>>,
     ) -> Result<()> {
-        self.add_seal(&a.seal, &a.control_id, &a.control_inclusion_proof)?;
+        self.add_seal(
+            &a.seal,
+            &a.control_id,
+            &a.control_inclusion_proof,
+            &a.hashfn,
+        )?;
         let mut data = Vec::<u32>::new();
         a.claim.as_value()?.encode_to_seal(&mut data)?;
         let data_fp: Vec<BabyBearElem> = data.iter().map(|x| BabyBearElem::new(*x)).collect();
@@ -959,7 +1028,12 @@ impl Prover {
 
     /// Add a receipt covering rv32im execution, and include the first level of ReceiptClaim.
     fn add_succinct_rv32im_receipt(&mut self, a: &SuccinctReceipt<ReceiptClaim>) -> Result<()> {
-        self.add_seal(&a.seal, &a.control_id, &a.control_inclusion_proof)?;
+        self.add_seal(
+            &a.seal,
+            &a.control_id,
+            &a.control_inclusion_proof,
+            &a.hashfn,
+        )?;
         let mut data = Vec::<u32>::new();
         a.claim.as_value()?.encode(&mut data)?;
         let data_fp: Vec<BabyBearElem> = data.iter().map(|x| BabyBearElem::new(*x)).collect();
@@ -969,7 +1043,12 @@ impl Prover {
 
     /// Add a receipt for a succinct receipt
     fn add_succinct_generic_receipt<Claim>(&mut self, a: &SuccinctReceipt<Claim>) -> Result<()> {
-        self.add_seal(&a.seal, &a.control_id, &a.control_inclusion_proof)?;
+        self.add_seal(
+            &a.seal,
+            &a.control_id,
+            &a.control_inclusion_proof,
+            &a.hashfn,
+        )?;
         // Union program expects an additional boolean to indicate that control root is zero.
         let zero_root = BabyBearElem::new((a.control_root()? == Digest::ZERO) as u32);
         self.add_input(bytemuck::cast_slice(&[zero_root]));

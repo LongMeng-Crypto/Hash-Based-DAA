@@ -47,6 +47,13 @@ impl ProverImpl {
     pub fn new(opts: ProverOpts) -> Self {
         Self { opts }
     }
+
+    fn verifier_context_for_hashfn(&self, hashfn: &str) -> Result<VerifierContext> {
+        Ok(
+            VerifierContext::from_max_po2_with_hashfn(hashfn, self.opts.max_segment_po2)?
+                .with_dev_mode(self.opts.dev_mode()),
+        )
+    }
 }
 
 impl ProverServer for ProverImpl {
@@ -228,10 +235,9 @@ impl ProverServer for ProverImpl {
             segment.po2(),
             self.opts.max_segment_po2
         );
-        let inner = risc0_circuit_rv32im::prove::segment_prover_with_hash_suite(
-            self.opts.hash_suite()?,
-        )?
-        .preflight(&segment.inner)?;
+        let inner =
+            risc0_circuit_rv32im::prove::segment_prover_with_hash_suite(self.opts.hash_suite()?)?
+                .preflight(&segment.inner)?;
 
         Ok(PreflightResults {
             inner,
@@ -249,10 +255,9 @@ impl ProverServer for ProverImpl {
         tracing::debug!("prove_segment_core");
 
         let po2 = preflight_results.inner.po2();
-        let seal = risc0_circuit_rv32im::prove::segment_prover_with_hash_suite(
-            self.opts.hash_suite()?,
-        )?
-        .prove_core(preflight_results.inner)?;
+        let seal =
+            risc0_circuit_rv32im::prove::segment_prover_with_hash_suite(self.opts.hash_suite()?)?
+                .prove_core(preflight_results.inner)?;
         let mut claim = ReceiptClaim::decode_from_seal_v2(&seal, Some(po2))?;
         claim.output = preflight_results.output.into();
 
@@ -277,7 +282,10 @@ impl ProverServer for ProverImpl {
 
     fn lift(&self, receipt: &SegmentReceipt) -> Result<SuccinctReceipt<ReceiptClaim>> {
         let receipt = lift(receipt)?;
-        receipt.verify_integrity().context("verify lift")?;
+        let ctx = self.verifier_context_for_hashfn(&receipt.hashfn)?;
+        receipt
+            .verify_integrity_with_context(&ctx)
+            .context("verify lift")?;
         Ok(receipt)
     }
 
@@ -294,7 +302,10 @@ impl ProverServer for ProverImpl {
         b: &SuccinctReceipt<ReceiptClaim>,
     ) -> Result<SuccinctReceipt<ReceiptClaim>> {
         let receipt = join(a, b)?;
-        receipt.verify_integrity().context("verify join")?;
+        let ctx = self.verifier_context_for_hashfn(&receipt.hashfn)?;
+        receipt
+            .verify_integrity_with_context(&ctx)
+            .context("verify join")?;
         Ok(receipt)
     }
 
@@ -320,7 +331,10 @@ impl ProverServer for ProverImpl {
         assumption: &SuccinctReceipt<Unknown>,
     ) -> Result<SuccinctReceipt<ReceiptClaim>> {
         let receipt = resolve(conditional, assumption)?;
-        receipt.verify_integrity().context("verify resolve")?;
+        let ctx = self.verifier_context_for_hashfn(&receipt.hashfn)?;
+        receipt
+            .verify_integrity_with_context(&ctx)
+            .context("verify resolve")?;
         Ok(receipt)
     }
 
