@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef FSPHINCS_VERIFY_ONLY
 extern void randombytes(unsigned char *out, size_t outlen);
+#endif
 /* Supplied by the existing parallel sphincs_ref SHA-256 implementation. */
 void sha256(uint8_t *out, const uint8_t *in, size_t inlen);
 void sha256_inc_init(uint8_t *state);
@@ -120,6 +122,17 @@ static void make_addr(uint8_t out[32], uint8_t domain, uint32_t layer,
     put_u32(out + 24, index);
 }
 
+static void init_hash_prefix(uint8_t *buf, const uint8_t pub_seed[FS_N],
+                             uint8_t domain, uint32_t layer, uint64_t node,
+                             uint32_t tree) {
+    memcpy(buf, pub_seed, FS_N);
+    memset(buf + FS_N, 0, 32);
+    buf[FS_N] = domain;
+    put_u32(buf + FS_N + 4, layer);
+    put_u64(buf + FS_N + 8, node);
+    put_u32(buf + FS_N + 16, tree);
+}
+
 static void hash_parts(uint8_t out[FS_N], uint8_t domain,
                        const uint8_t *a, size_t alen,
                        const uint8_t *b, size_t blen,
@@ -149,6 +162,7 @@ static void expand(uint8_t *out, size_t outlen, uint8_t domain,
     }
 }
 
+#ifndef FSPHINCS_VERIFY_ONLY
 static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
                              uint32_t layer, uint64_t node) {
     uint8_t addr[32];
@@ -163,29 +177,38 @@ static void derive_leaf_secret(uint8_t out[FS_N], const uint8_t node_seed[FS_N],
     make_addr(addr, DOM_LEAF_SECRET, layer, node, tree, 0, leaf);
     hash_parts(out, DOM_LEAF_SECRET, node_seed, FS_N, addr, sizeof(addr), NULL, 0);
 }
+#endif
 
+#ifndef FSPHINCS_VERIFY_ONLY
 static void hash_leaf(uint8_t out[FS_N], const uint8_t secret[FS_N],
                       const uint8_t pub_seed[FS_N], uint32_t layer,
                       uint64_t node, uint32_t tree, uint32_t leaf) {
-    uint8_t addr[32];
-    make_addr(addr, DOM_LEAF_HASH, layer, node, tree, 0, leaf);
-    hash_parts(out, DOM_LEAF_HASH, pub_seed, FS_N, addr, sizeof(addr), secret, FS_N);
+    uint8_t input[FS_N + 32 + FS_N];
+    init_hash_prefix(input, pub_seed, DOM_LEAF_HASH, layer, node, tree);
+    put_u32(input + FS_N + 24, leaf);
+    memcpy(input + FS_N + 32, secret, FS_N);
+    counted_sha256(out, input, sizeof(input), DOM_LEAF_HASH);
 }
 
 static void hash_node(uint8_t out[FS_N], const uint8_t left[FS_N],
                       const uint8_t right[FS_N], const uint8_t pub_seed[FS_N],
                       uint32_t layer, uint64_t node, uint32_t tree,
                       uint32_t height, uint32_t index) {
-    uint8_t addr[32], input[2 * FS_N];
-    make_addr(addr, DOM_TREE_NODE, layer, node, tree, height, index);
-    memcpy(input, left, FS_N); memcpy(input + FS_N, right, FS_N);
-    hash_parts(out, DOM_TREE_NODE, pub_seed, FS_N, addr, sizeof(addr), input, sizeof(input));
+    uint8_t input[FS_N + 32 + 2 * FS_N];
+    init_hash_prefix(input, pub_seed, DOM_TREE_NODE, layer, node, tree);
+    put_u32(input + FS_N + 20, height);
+    put_u32(input + FS_N + 24, index);
+    memcpy(input + FS_N + 32, left, FS_N);
+    memcpy(input + FS_N + 32 + FS_N, right, FS_N);
+    counted_sha256(out, input, sizeof(input), DOM_TREE_NODE);
 }
+#endif
 
 static uint16_t md_index(const uint8_t md[FS_MFORS_MSG_BYTES], uint32_t tree) {
     return (uint16_t)(((uint16_t)md[2 * tree] << 8) | md[2 * tree + 1]);
 }
 
+#ifndef FSPHINCS_VERIFY_ONLY
 static int tree_root_and_auth(uint8_t root[FS_N], uint8_t *auth,
                               const uint8_t node_seed[FS_N],
                               const uint8_t pub_seed[FS_N],
@@ -217,45 +240,69 @@ static int tree_root_and_auth(uint8_t root[FS_N], uint8_t *auth,
     free(nodes);
     return 0;
 }
+#endif
 
 static void root_from_auth(uint8_t root[FS_N], const uint8_t secret[FS_N],
                            const uint8_t *auth, uint32_t target,
                            const uint8_t pub_seed[FS_N], uint32_t layer,
                            uint64_t node, uint32_t tree) {
-    uint8_t cur[FS_N], next[FS_N];
-    hash_leaf(cur, secret, pub_seed, layer, node, tree, target);
+    uint8_t state[2][FS_N];
+    uint8_t leaf_input[FS_N + 32 + FS_N];
+    uint8_t node_input[FS_N + 32 + 2 * FS_N];
+    init_hash_prefix(leaf_input, pub_seed, DOM_LEAF_HASH, layer, node, tree);
+    put_u32(leaf_input + FS_N + 24, target);
+    memcpy(leaf_input + FS_N + 32, secret, FS_N);
+    counted_sha256(state[0], leaf_input, sizeof(leaf_input), DOM_LEAF_HASH);
+
+    init_hash_prefix(node_input, pub_seed, DOM_TREE_NODE, layer, node, tree);
     uint32_t idx = target;
+    uint32_t current = 0;
     for (uint32_t height = 0; height < FS_D; ++height) {
         const uint8_t *sibling = auth + (size_t)height * FS_N;
-        if ((idx & 1u) == 0)
-            hash_node(next, cur, sibling, pub_seed, layer, node, tree,
-                      height + 1, idx >> 1);
-        else
-            hash_node(next, sibling, cur, pub_seed, layer, node, tree,
-                      height + 1, idx >> 1);
-        memcpy(cur, next, FS_N);
+        uint8_t *children = node_input + FS_N + 32;
+        put_u32(node_input + FS_N + 20, height + 1);
+        put_u32(node_input + FS_N + 24, idx >> 1);
+        if ((idx & 1u) == 0) {
+            memcpy(children, state[current], FS_N);
+            memcpy(children + FS_N, sibling, FS_N);
+        } else {
+            memcpy(children, sibling, FS_N);
+            memcpy(children + FS_N, state[current], FS_N);
+        }
+        current ^= 1u;
+        counted_sha256(state[current], node_input, sizeof(node_input),
+                       DOM_TREE_NODE);
         idx >>= 1;
     }
-    memcpy(root, cur, FS_N);
+    memcpy(root, state[current], FS_N);
 }
 
 static void aggregate_roots(uint8_t root[FS_N], const uint8_t *roots,
                             const uint8_t pub_seed[FS_N],
                             uint32_t layer, uint64_t node) {
-    uint8_t nodes[64 * FS_N], addr[32];
+    uint8_t nodes[FS_AGG_LEAVES * FS_N];
+    uint8_t pad_input[FS_N + 32];
+    uint8_t node_input[FS_N + 32 + 2 * FS_N];
     memcpy(nodes, roots, FS_K * FS_N);
-    for (uint32_t i = FS_K; i < 64; ++i) {
-        make_addr(addr, DOM_PAD_ROOT, layer, node, i, 0, 0);
-        hash_parts(nodes + (size_t)i * FS_N, DOM_PAD_ROOT, pub_seed, FS_N,
-                   addr, sizeof(addr), NULL, 0);
+    init_hash_prefix(pad_input, pub_seed, DOM_PAD_ROOT, layer, node, FS_K);
+    for (uint32_t i = FS_K; i < FS_AGG_LEAVES; ++i) {
+        put_u32(pad_input + FS_N + 16, i);
+        counted_sha256(nodes + (size_t)i * FS_N, pad_input,
+                       sizeof(pad_input), DOM_PAD_ROOT);
     }
-    uint32_t count = 64;
+    init_hash_prefix(node_input, pub_seed, DOM_TREE_NODE, layer, node, FS_K);
+    uint32_t count = FS_AGG_LEAVES;
     for (uint32_t height = 0; count > 1; ++height) {
-        for (uint32_t i = 0; i < count / 2; ++i)
-            hash_node(nodes + (size_t)i * FS_N,
-                      nodes + (size_t)(2 * i) * FS_N,
-                      nodes + (size_t)(2 * i + 1) * FS_N,
-                      pub_seed, layer, node, FS_K, height + 1, i);
+        put_u32(node_input + FS_N + 20, height + 1);
+        for (uint32_t i = 0; i < count / 2; ++i) {
+            put_u32(node_input + FS_N + 24, i);
+            memcpy(node_input + FS_N + 32,
+                   nodes + (size_t)(2 * i) * FS_N, FS_N);
+            memcpy(node_input + FS_N + 32 + FS_N,
+                   nodes + (size_t)(2 * i + 1) * FS_N, FS_N);
+            counted_sha256(nodes + (size_t)i * FS_N, node_input,
+                           sizeof(node_input), DOM_TREE_NODE);
+        }
         count >>= 1;
     }
     memcpy(root, nodes, FS_N);
@@ -270,6 +317,7 @@ static void root_to_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
     expand(pk, FS_MFORS_MSG_BYTES, DOM_H2, seed, addr);
 }
 
+#ifndef FSPHINCS_VERIFY_ONLY
 static int mfors_gen_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
                         const uint8_t master_seed[FS_N],
                         const uint8_t pub_seed[FS_N],
@@ -303,6 +351,7 @@ int fs_mfors_sign(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     root_to_pk(pk, aggregate, pub_seed, layer, node);
     return 0;
 }
+#endif
 
 int fs_mfors_recover(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
                      const uint8_t md[FS_MFORS_MSG_BYTES],
@@ -358,6 +407,7 @@ size_t fsphincs_secretkeybytes(void) { return FS_SK_BYTES; }
 size_t fsphincs_signaturebytes(void) { return FS_SIG_BYTES; }
 size_t fsphincs_seedbytes(void) { return FS_SEED_BYTES; }
 
+#ifndef FSPHINCS_VERIFY_ONLY
 int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed) {
     uint8_t master[FS_N], pub_seed[FS_N], root_pk[FS_MFORS_MSG_BYTES];
     uint8_t tag = DOM_KEY_SEED;
@@ -409,11 +459,31 @@ int fsphincs_sign_signature(uint8_t *sig, size_t *siglen,
     return fsphincs_sign_signature_with_randomizer(sig, siglen, msg, msglen,
                                                     sk, randomizer);
 }
+#endif
 
 static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len) {
     uint8_t diff = 0;
     for (size_t i = 0; i < len; ++i) diff |= a[i] ^ b[i];
     return diff == 0;
+}
+
+void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
+                           uint64_t *leaf_index,
+                           const uint8_t randomizer[FS_N],
+                           const uint8_t *msg, size_t msglen) {
+    h3(value, leaf_index, randomizer, msg, msglen);
+}
+
+int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
+                          const uint8_t layer_sig[FS_MFORS_SIG_BYTES],
+                          const uint8_t pub_seed[FS_N],
+                          uint32_t layer, uint64_t node) {
+    return fs_mfors_recover(value, layer_sig, value, pub_seed, layer, node);
+}
+
+int fsphincs_verify_finish(const uint8_t value[FS_MFORS_MSG_BYTES],
+                           const uint8_t pk[FS_PK_BYTES]) {
+    return ct_equal(value, pk + FS_N, FS_MFORS_MSG_BYTES) ? 0 : -1;
 }
 
 int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *

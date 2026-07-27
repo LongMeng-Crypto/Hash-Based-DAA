@@ -12,6 +12,7 @@ void randombytes(unsigned char *out, size_t outlen) {
     abort();
 }
 
+#if FSPHINCS_SECURITY == 128
 static const char EXPECT_PK[] =
     "21f47631058e5d333b92a1f5c78c1cb868913cca60c896fad61e24166dc497eb";
 static const char EXPECT_SK[] =
@@ -28,6 +29,24 @@ static const char *EXPECT_LAYER[FS_H + 1u] = {
     "87ec9636252b67e577868eccd64535c08dc358d445e9214a0a91d48527fcc6e8",
 };
 static const uint64_t EXPECT_INDEX = UINT64_C(373729149056017821);
+#else
+static const char EXPECT_PK[] =
+    "b3c2df74bad3447d8a68eac61f97c24dc400d70fd0c86c2d92fe4004fb8df0f5";
+static const char EXPECT_SK[] =
+    "ce6739830f56fa2d5060f55e4156472069c4a79b0caa4dc0e13fd93e7456b2c8";
+static const char EXPECT_SIG[] =
+    "dd951a563c105ec742554dbd15b7599dc80ebe5513139df31afac519a85c2dba";
+static const char *EXPECT_LAYER[FS_H + 1u] = {
+    "2d4dbeaccf32c3280d61362aa41b834398c2516f83a14d915e1284213a4c46c1",
+    "1a55e71ad9f8e84f0a53f659db76061504b641e28a6ce300b99013c04819daa2",
+    "e4031bc5473d6d48fcf6bbc9d6a540112aee2f8297d810db88e3b37b5a2f93ed",
+    "25052754c9749448228dd5f390f131ea793aa692c5903752eeac1a6e30498a9c",
+    "ea0a3a894f602ad2e2e3a26cfe166f2afe5f3aca24d1a05b0120b4e19fdb6a72",
+    "9e0a1d3e12b17f3913f9e95565d8f99fef80fb85b721adbc630a42e4c91f0d4a",
+    "830d81c8ae5bfece63ddb64e7e5f7d572c108b6b173c2eca398409f881d93e30",
+};
+static const uint64_t EXPECT_INDEX = UINT64_C(273450963243707641);
+#endif
 
 void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {
     out[0] = (unsigned char)(in >> 24);
@@ -89,7 +108,7 @@ int main(void) {
     hex_digest(digest, sig, siglen);
     failed |= check("signature_sha256", digest, EXPECT_SIG);
     printf("leaf_index = %llu\n", (unsigned long long)index);
-    if (index != EXPECT_INDEX) {
+    if (EXPECT_INDEX != 0 && index != EXPECT_INDEX) {
         fprintf(stderr, "leaf index KAT mismatch\n");
         failed = 1;
     }

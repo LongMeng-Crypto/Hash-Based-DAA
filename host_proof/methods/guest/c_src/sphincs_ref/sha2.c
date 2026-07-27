@@ -342,13 +342,18 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
      * 4-byte alignment requirement without any per-call alignment check.
      */
     uint8_t batch[RISC0_SHA_BATCH * 64] __attribute__((aligned(4)));
+    const int input_aligned = (((uintptr_t)in & (sizeof(uint32_t) - 1u)) == 0);
     size_t offset = 0;
     while (offset < nblocks) {
         size_t cnt = nblocks - offset;
         if (cnt > RISC0_SHA_BATCH) cnt = RISC0_SHA_BATCH;
-        memcpy(batch, in + offset*64, cnt*64);
+        const uint8_t *syscall_input = in + offset * 64;
+        if (!input_aligned) {
+            memcpy(batch, syscall_input, cnt * 64);
+            syscall_input = batch;
+        }
         SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
-        risc0_sys_sha_buffer(st, st, batch, (uint32_t)cnt);
+        risc0_sys_sha_buffer(st, st, syscall_input, (uint32_t)cnt);
         offset += cnt;
     }
 

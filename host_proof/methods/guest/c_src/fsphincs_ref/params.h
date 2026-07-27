@@ -1,12 +1,27 @@
 #ifndef FSPHINCS_PARAMS_H
 #define FSPHINCS_PARAMS_H
 
-/* PQCrypto 2023, Hash-Based Direct Anonymous Attestation, concrete
- * 128-bit F-SPHINCS+ example: d=16, k=35, q=1024, h=6.
- * SHA-256 replaces the paper implementation's LowMC instantiation. */
+/* PQCrypto 2023, Hash-Based Direct Anonymous Attestation. The paper gives
+ * k=35 and k=70 concrete proof-security configurations. Select one at compile
+ * time; the hash/secret length remains 256 bits in both configurations. */
+#ifndef FSPHINCS_SECURITY
+#define FSPHINCS_SECURITY 128
+#endif
+
+#if FSPHINCS_SECURITY == 128
+#define FS_K 35u
+#define FS_AGG_LEAVES 64u
+#define FS_PARAM_ID "FSPX1281"
+#elif FSPHINCS_SECURITY == 256
+#define FS_K 70u
+#define FS_AGG_LEAVES 128u
+#define FS_PARAM_ID "FSPX2561"
+#else
+#error "FSPHINCS_SECURITY must be 128 or 256"
+#endif
+
 #define FS_N 32u
 #define FS_D 16u
-#define FS_K 35u
 #define FS_Q 1024u
 #define FS_H 6u
 #define FS_LOGQ 10u

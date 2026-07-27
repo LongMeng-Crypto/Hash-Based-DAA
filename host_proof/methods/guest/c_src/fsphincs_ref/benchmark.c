@@ -80,15 +80,32 @@ int main(void) {
         printf(" L%u=%llu", layer,
                (unsigned long long)prof.mfors_layer[layer]);
     printf("\n");
-    if (prof.total != 4841 || prof.compression_blocks != 14043 ||
-        prof.leaf_hash != 245 ||
-        prof.tree_node != 4361 || prof.padding_root != 203 ||
-        prof.h2 != 28 || prof.h3 != 4) {
+    const uint64_t per_layer =
+        FS_K + FS_K * FS_D + (FS_AGG_LEAVES - FS_K) +
+        (FS_AGG_LEAVES - 1u) + 1u +
+        (FS_MFORS_MSG_BYTES + FS_N - 1u) / FS_N;
+    const uint64_t expected_leaf = (FS_H + 1u) * FS_K;
+    const uint64_t expected_tree =
+        (FS_H + 1u) * (FS_K * FS_D + FS_AGG_LEAVES - 1u);
+    const uint64_t expected_pad =
+        (FS_H + 1u) * (FS_AGG_LEAVES - FS_K);
+    const uint64_t expected_h2 =
+        (FS_H + 1u) * (1u + (FS_MFORS_MSG_BYTES + FS_N - 1u) / FS_N);
+    const uint64_t expected_h3 =
+        1u + (FS_H3_BYTES + FS_N - 1u) / FS_N;
+    const uint64_t expected_blocks =
+        expected_leaf * 2u + expected_tree * 3u + expected_pad * 2u +
+        expected_h2 * 2u + expected_h3 * 2u;
+    if (prof.total != (FS_H + 1u) * per_layer + expected_h3 ||
+        prof.compression_blocks != expected_blocks ||
+        prof.leaf_hash != expected_leaf ||
+        prof.tree_node != expected_tree || prof.padding_root != expected_pad ||
+        prof.h2 != expected_h2 || prof.h3 != expected_h3) {
         fprintf(stderr, "unexpected verifier SHA-256 workload\n");
         return 10;
     }
     for (uint32_t layer = 0; layer <= FS_H; ++layer) {
-        if (prof.mfors_layer[layer] != 691) {
+        if (prof.mfors_layer[layer] != per_layer) {
             fprintf(stderr, "unexpected M-FORS layer workload\n");
             return 11;
         }

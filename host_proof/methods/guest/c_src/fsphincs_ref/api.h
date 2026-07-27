@@ -39,6 +39,19 @@ int fsphincs_sign_signature_with_randomizer(uint8_t *sig, size_t *siglen,
 int fsphincs_verify(const uint8_t *sig, size_t siglen,
                     const uint8_t *msg, size_t msglen,
                     const uint8_t *pk);
+/* Streaming verifier API for constrained guests. begin() derives the first
+ * M-FORS message and leaf index; layer() consumes exactly one M-FORS layer
+ * and updates value in place; finish() checks the recovered root key. */
+void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
+                           uint64_t *leaf_index,
+                           const uint8_t randomizer[FS_N],
+                           const uint8_t *msg, size_t msglen);
+int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
+                          const uint8_t layer_sig[FS_MFORS_SIG_BYTES],
+                          const uint8_t pub_seed[FS_N],
+                          uint32_t layer, uint64_t node);
+int fsphincs_verify_finish(const uint8_t value[FS_MFORS_MSG_BYTES],
+                           const uint8_t pk[FS_PK_BYTES]);
 void fsphincs_profile_reset(void);
 void fsphincs_profile_get(fsphincs_profile *out);
 int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *

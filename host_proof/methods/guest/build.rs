@@ -39,6 +39,11 @@ fn main() {
     let thash = env::var("SPHINCS_THASH")
         .unwrap_or_else(|_| "simple".to_string());
     let profile = env::var("SPHINCS_PROFILE").unwrap_or_default() == "1";
+    let fs_security = env::var("FSPHINCS_SECURITY")
+        .unwrap_or_else(|_| "128".to_string());
+    if fs_security != "128" && fs_security != "256" {
+        panic!("FSPHINCS_SECURITY must be 128 or 256");
+    }
     let skip_aes = env::var("SPHINCS_SKIP_AES_CHECK").unwrap_or_default() == "1";
     let opt_level_from_new = env::var("SPHINCS_OPT_LEVEL")
         .ok()
@@ -179,6 +184,23 @@ fn main() {
     );
     build.file(&thash_path);
 
+    // F-SPHINCS+ guest archive: verification only. Host-only key generation,
+    // signing, 2 MiB tree buffers, and randombytes references are excluded.
+    // Compile before sphincs_ref so its SHA-256 references resolve from the
+    // following archive under static link ordering.
+    let fs_dir = "c_src/fsphincs_ref";
+    let mut fs_build = cc::Build::new();
+    fs_build
+        .include(fs_dir)
+        .include(dir)
+        .define("FSPHINCS_VERIFY_ONLY", None)
+        .define("FSPHINCS_SECURITY", fs_security.as_str())
+        .opt_level(3)
+        .warnings(true)
+        .file(format!("{}/fsphincs.c", fs_dir))
+        .compile("fsphincs_ref");
+    println!("cargo:rerun-if-changed={}", fs_dir);
+
     build.compile("sphincs_ref");
 
     // Rebuild triggers
@@ -190,6 +212,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SPHINCS_OPT_LEVEL");
     println!("cargo:rerun-if-env-changed=SPHINCS_OPT_128S");
     println!("cargo:rerun-if-env-changed=SPHINCS_SKIP_AES_CHECK");
+    println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
 
     // Security level → cfg flag + SPHINCS_N byte count
     let sec_level = if params.contains("-128") { "128" }
@@ -213,6 +236,7 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
     println!("cargo::rustc-check-cfg=cfg(skip_aes_check)");
     println!("cargo::rustc-check-cfg=cfg(sphincs_opt5_padding)");
+    println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
     if profile {
         println!("cargo:rustc-cfg=sphincs_profile");
@@ -222,6 +246,9 @@ fn main() {
     }
     if opt_level == 5 {
         println!("cargo:rustc-cfg=sphincs_opt5_padding");
+    }
+    if fs_security == "256" {
+        println!("cargo:rustc-cfg=fsphincs_256");
     }
 
     let default_opt5_pad_blocks = if opt_level == 5 {
@@ -257,4 +284,5 @@ fn main() {
     println!("cargo:rustc-env=SPHINCS_OPT_128S={}", opt_level);
     println!("cargo:rustc-env=SPHINCS_OPT5_PAD_BLOCKS={}", opt5_pad_blocks);
     println!("cargo:rustc-env=SPHINCS_SKIP_AES_CHECK={}", if skip_aes { "1" } else { "0" });
+    println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
 }

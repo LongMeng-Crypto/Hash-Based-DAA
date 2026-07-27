@@ -12,6 +12,11 @@ fn main() {
     let params = env::var("SPHINCS_PARAMS").unwrap_or_else(|_| "sphincs-sha2-128s".to_string());
     let thash = env::var("SPHINCS_THASH").unwrap_or_else(|_| "simple".to_string());
     let profile = env::var("SPHINCS_PROFILE").unwrap_or_default() == "1";
+    let fs_security = env::var("FSPHINCS_SECURITY")
+        .unwrap_or_else(|_| "128".to_string());
+    if fs_security != "128" && fs_security != "256" {
+        panic!("FSPHINCS_SECURITY must be 128 or 256");
+    }
 
     const VALID_PARAMS: &[&str] = &[
         "sphincs-sha2-128f",
@@ -120,6 +125,7 @@ fn main() {
     fs_build
         .include(fs_dir)
         .include(dir)
+        .define("FSPHINCS_SECURITY", fs_security.as_str())
         .opt_level(3)
         .warnings(true)
         .file(format!("{}/fsphincs.c", fs_dir))
@@ -134,6 +140,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SPHINCS_PARAMS");
     println!("cargo:rerun-if-env-changed=SPHINCS_THASH");
     println!("cargo:rerun-if-env-changed=SPHINCS_PROFILE");
+    println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
 
     // Security level → cfg flag + SPHINCS_N byte count
     let sec_level = if params.contains("-128") {
@@ -154,9 +161,13 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(lambda_192)");
     println!("cargo::rustc-check-cfg=cfg(lambda_256)");
     println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
+    println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
     if profile {
         println!("cargo:rustc-cfg=sphincs_profile");
+    }
+    if fs_security == "256" {
+        println!("cargo:rustc-cfg=fsphincs_256");
     }
     println!("cargo:rustc-env=SPHINCS_N={}", spx_n);
 
@@ -168,4 +179,5 @@ fn main() {
         "cargo:rustc-env=SPHINCS_PROFILE={}",
         if profile { "1" } else { "0" }
     );
+    println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
 }
