@@ -13,6 +13,34 @@ The proof-system backend hash suite defaults to `sha-256` through:
 RISC0_BACKEND_HASH=sha-256
 ```
 
+## Native F-SPHINCS+-SHA256 benchmark
+
+An experimental implementation of the F-SPHINCS+/M-FORS construction from
+the PQCrypto 2023 hash-based DAA paper is maintained next to `sphincs_ref`:
+
+```text
+methods/guest/c_src/fsphincs_ref/
+```
+
+It uses the paper's concrete `n=256, d=16, k=35, q=1024, h=6` parameters and
+instantiates the abstract hash/PRF interfaces with domain-separated SHA-256.
+Run its native key-generation, signing, and verification benchmark without
+building the RISC0 prover:
+
+```bash
+make -C methods/guest/c_src/fsphincs_ref benchmark
+```
+
+The benchmark also requires a one-bit signature mutation, a changed message,
+a changed public key, and a truncated signature to be rejected.
+
+Run the deterministic known-answer and full native regression tests with:
+
+```bash
+make -C methods/guest/c_src/fsphincs_ref kat
+make -C methods/guest/c_src/fsphincs_ref test
+```
+
 Full DAA benchmark commands are documented in `../README.md`.
 
 ## One-Variant CUDA Benchmark

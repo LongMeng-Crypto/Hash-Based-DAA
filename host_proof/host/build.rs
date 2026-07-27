@@ -110,6 +110,23 @@ fn main() {
     );
     build.file(&thash_path);
 
+    // Experimental F-SPHINCS+-SHA256 implementation from the PQCrypto 2023
+    // hash-based DAA paper. It is compiled in parallel with SPHINCS+ and uses
+    // the portable SHA-256 implementation linked immediately after it.
+    // Compile this archive first so static-link ordering resolves its sha256
+    // reference from sphincs_ref.
+    let fs_dir = "../methods/guest/c_src/fsphincs_ref";
+    let mut fs_build = cc::Build::new();
+    fs_build
+        .include(fs_dir)
+        .include(dir)
+        .opt_level(3)
+        .warnings(true)
+        .file(format!("{}/fsphincs.c", fs_dir))
+        .file("c_src/fsphincs_consts.c")
+        .compile("fsphincs_ref");
+    println!("cargo:rerun-if-changed={}", fs_dir);
+
     build.compile("sphincs_ref");
 
     println!("cargo:rerun-if-changed={}", dir);
