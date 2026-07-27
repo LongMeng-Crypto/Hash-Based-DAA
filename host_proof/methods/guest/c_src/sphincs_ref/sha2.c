@@ -444,6 +444,64 @@ void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
     crypto_hashblocks_sha256(state, block, 64);
     memcpy(out, state, 16);
 }
+
+void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
+                                    const uint8_t seeded_state[32],
+                                    const uint8_t addr[32],
+                                    const uint8_t sig_elem[16],
+                                    unsigned int start)
+{
+    uint8_t block[64] __attribute__((aligned(4))) = {0};
+    uint32_t real[4], dummy[4] = {0};
+    uint32_t hash_state[8] __attribute__((aligned(4)));
+#ifdef RISC0_SHA_SYSCALL
+    uint32_t seed_state[8] __attribute__((aligned(4)));
+    memcpy(seed_state, seeded_state, sizeof(seed_state));
+#endif
+
+    memcpy(real, sig_elem, sizeof(real));
+    memcpy(block, addr, SPX_SHA256_ADDR_BYTES);
+    block[38] = 0x80;
+    block[62] = 0x03;
+    block[63] = 0x30;
+
+    for (unsigned int j = 0; j < 15; ++j) {
+        const uint32_t active =
+            1u ^ ((((uint32_t)j - (uint32_t)start) >> 31) & 1u);
+        const uint32_t mask = 0u - active;
+        block[SPX_OFFSET_HASH_ADDR] = (uint8_t)j;
+
+        for (unsigned int k = 0; k < 4; ++k) {
+            const uint32_t selected =
+                (dummy[k] & ~mask) | (real[k] & mask);
+            memcpy(block + SPX_SHA256_ADDR_BYTES + 4 * k,
+                   &selected, sizeof(selected));
+        }
+
+        SPX_PROFILE_INC(SPX_PROF_THASH, 1);
+        SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
+        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
+        SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
+#ifdef RISC0_SHA_SYSCALL
+        SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, 1);
+        SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
+        risc0_sys_sha_buffer(hash_state, seed_state, block, 1);
+#else
+        uint8_t state[32];
+        memcpy(state, seeded_state, sizeof(state));
+        crypto_hashblocks_sha256(state, block, sizeof(block));
+        memcpy(hash_state, state, 16);
+#endif
+
+        for (unsigned int k = 0; k < 4; ++k) {
+            const uint32_t hashed = hash_state[k];
+            real[k] = (real[k] & ~mask) | (hashed & mask);
+            dummy[k] = (hashed & ~mask) | (dummy[k] & mask);
+        }
+    }
+
+    memcpy(out, real, sizeof(real));
+}
 #endif
 
 

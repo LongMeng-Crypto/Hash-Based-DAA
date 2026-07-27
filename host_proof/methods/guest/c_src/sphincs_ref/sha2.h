@@ -49,6 +49,11 @@ void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
                                            const uint8_t *seeded_state,
                                            const uint8_t *addr,
                                            const uint8_t in[16]);
+void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
+                                    const uint8_t seeded_state[32],
+                                    const uint8_t addr[32],
+                                    const uint8_t sig_elem[16],
+                                    unsigned int start);
 #endif
 
 

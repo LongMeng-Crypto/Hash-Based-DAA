@@ -225,6 +225,10 @@ static void zk_fixed_chain_complete_128s(unsigned char *out,
                                          const spx_ctx *ctx,
                                          unsigned char addr[32])
 {
+#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && SPX_N == 16 && !SPX_SHA512
+    sha256_zk_wots_fixed_chain_128(out, ctx->state_seeded, addr,
+                                  sig_elem, start);
+#else
     unsigned char real[SPX_N];
     unsigned char dummy[SPX_N];
     unsigned char input[SPX_N];
@@ -238,19 +242,13 @@ static void zk_fixed_chain_complete_128s(unsigned char *out,
         addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
 
         ct_select_n(input, dummy, real, active, SPX_N);
-#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && SPX_N == 16 && !SPX_SHA512
-        SPX_PROFILE_INC(SPX_PROF_THASH, 1);
-        SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
-        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
-        sha256_seeded_thash1_zk_wots_fast_128(hashed, ctx->state_seeded, addr, input);
-#else
         thash_opt(hashed, input, 1, ctx, addr);
-#endif
         ct_select_n(real, real, hashed, active, SPX_N);
         ct_select_n(dummy, hashed, dummy, active, SPX_N);
     }
 
     memcpy(out, real, SPX_N);
+#endif
 }
 
 static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
