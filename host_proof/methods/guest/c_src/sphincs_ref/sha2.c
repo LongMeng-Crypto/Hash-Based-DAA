@@ -445,25 +445,28 @@ void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
     memcpy(out, state, 16);
 }
 
-void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
-                                    const uint8_t seeded_state[32],
-                                    const uint8_t addr[32],
-                                    const uint8_t sig_elem[16],
-                                    unsigned int start)
+void sha256_zk_wots_fixed_chain(uint8_t *out,
+                                const uint8_t seeded_state[32],
+                                const uint8_t addr[32],
+                                const uint8_t *sig_elem,
+                                unsigned int start)
 {
     uint8_t block[64] __attribute__((aligned(4))) = {0};
-    uint32_t real[4], dummy[4] = {0};
+    uint32_t real[SPX_N / 4], dummy[SPX_N / 4] = {0};
     uint32_t hash_state[8] __attribute__((aligned(4)));
+    const unsigned int words = SPX_N / 4;
+    const unsigned int data_bytes = SPX_SHA256_ADDR_BYTES + SPX_N;
+    const unsigned int total_bytes = SPX_SHA256_BLOCK_BYTES + data_bytes;
 #ifdef RISC0_SHA_SYSCALL
     uint32_t seed_state[8] __attribute__((aligned(4)));
     memcpy(seed_state, seeded_state, sizeof(seed_state));
 #endif
 
-    memcpy(real, sig_elem, sizeof(real));
+    memcpy(real, sig_elem, SPX_N);
     memcpy(block, addr, SPX_SHA256_ADDR_BYTES);
-    block[38] = 0x80;
-    block[62] = 0x03;
-    block[63] = 0x30;
+    block[data_bytes] = 0x80;
+    block[62] = (uint8_t)(total_bytes >> 5);
+    block[63] = (uint8_t)(total_bytes << 3);
 
     for (unsigned int j = 0; j < 15; ++j) {
         const uint32_t active =
@@ -471,7 +474,7 @@ void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
         const uint32_t mask = 0u - active;
         block[SPX_OFFSET_HASH_ADDR] = (uint8_t)j;
 
-        for (unsigned int k = 0; k < 4; ++k) {
+        for (unsigned int k = 0; k < words; ++k) {
             const uint32_t selected =
                 (dummy[k] & ~mask) | (real[k] & mask);
             memcpy(block + SPX_SHA256_ADDR_BYTES + 4 * k,
@@ -481,7 +484,9 @@ void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
         SPX_PROFILE_INC(SPX_PROF_THASH, 1);
         SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
         SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
-        SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
+        if (SPX_N == 16) {
+            SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
+        }
 #ifdef RISC0_SHA_SYSCALL
         SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, 1);
         SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
@@ -490,17 +495,17 @@ void sha256_zk_wots_fixed_chain_128(uint8_t out[16],
         uint8_t state[32];
         memcpy(state, seeded_state, sizeof(state));
         crypto_hashblocks_sha256(state, block, sizeof(block));
-        memcpy(hash_state, state, 16);
+        memcpy(hash_state, state, SPX_N);
 #endif
 
-        for (unsigned int k = 0; k < 4; ++k) {
+        for (unsigned int k = 0; k < words; ++k) {
             const uint32_t hashed = hash_state[k];
             real[k] = (real[k] & ~mask) | (hashed & mask);
             dummy[k] = (hashed & ~mask) | (dummy[k] & mask);
         }
     }
 
-    memcpy(out, real, sizeof(real));
+    memcpy(out, real, SPX_N);
 }
 #endif
 

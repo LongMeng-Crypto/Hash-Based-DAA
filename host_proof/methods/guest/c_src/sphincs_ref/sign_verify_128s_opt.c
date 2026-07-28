@@ -225,9 +225,10 @@ static void zk_fixed_chain_complete_128s(unsigned char *out,
                                          const spx_ctx *ctx,
                                          unsigned char addr[32])
 {
-#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && SPX_N == 16 && !SPX_SHA512
-    sha256_zk_wots_fixed_chain_128(out, ctx->state_seeded, addr,
-                                  sig_elem, start);
+#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && \
+    (SPX_N == 16 || SPX_N == 24 || SPX_N == 32)
+    sha256_zk_wots_fixed_chain(out, ctx->state_seeded, addr,
+                              sig_elem, start);
 #else
     unsigned char real[SPX_N];
     unsigned char dummy[SPX_N];
