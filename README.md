@@ -245,188 +245,189 @@ protocol step metrics emitted by the wrapper, not the top-level `wall time`.
 ### Paper-Facing Summary
 
 These tables are the canonical source for the compact performance tables in
-`Paper/main.tex`. Key-generation and host-sign times are in seconds unless
-otherwise stated. Sizes labeled KB use `bytes / 1024`.
+`Paper/main.tex`. All time values in this summary are seconds. Values below one
+second use three decimal places; slower results use two. Sizes labeled KB use
+`bytes / 1024`.
 
 #### Credential Scheme Setup
 
 | Variant | Keygen (s) | Public key (B) | Secret key (B) |
 |---|---:|---:|---:|
-| 128s | 0.04958 | 32 | 64 |
-| 128f | 0.00063 | 32 | 64 |
-| 192s | 0.06191 | 48 | 96 |
-| 192f | 0.00097 | 48 | 96 |
-| 256s | 0.03842 | 64 | 128 |
-| 256f | 0.00249 | 64 | 128 |
-| F-128 | 2.166085 | 102 | 134 |
-| F-256 | 4.232139 | 172 | 204 |
+| 128s | 0.050 | 32 | 64 |
+| 128f | 0.001 | 32 | 64 |
+| 192s | 0.062 | 48 | 96 |
+| 192f | 0.001 | 48 | 96 |
+| 256s | 0.038 | 64 | 128 |
+| 256f | 0.002 | 64 | 128 |
+| F-128 | 2.17 | 102 | 134 |
+| F-256 | 4.23 | 172 | 204 |
 
 #### Join Protocol
 
-Time values are milliseconds and size values are KB.
+Time values are seconds and size values are KB.
 
 | Variant | Join prove | Join verify | Credential sign | Join total | Join proof | Credential |
 |---|---:|---:|---:|---:|---:|---:|
-| 128s | 17.00 | 14.21 | 286.00 | 317.21 | 4.40 | 7.69 |
-| 128f | 7.46 | 5.69 | 14.00 | 27.15 | 5.79 | 16.70 |
-| 192s | 64.84 | 52.36 | 516.00 | 633.20 | 11.00 | 15.88 |
-| 192f | 36.40 | 25.86 | 22.00 | 84.26 | 14.60 | 34.86 |
-| 256s | 102.03 | 88.00 | 455.00 | 645.03 | 20.21 | 29.12 |
-| 256f | 47.46 | 35.04 | 46.00 | 128.50 | 25.93 | 48.72 |
-| F-128 | 17.00 | 14.21 | 14,887.73 | 14,918.94 | 4.40 | 130.20 |
-| F-256 | 102.03 | 88.00 | 29,275.29 | 29,465.32 | 20.21 | 260.38 |
+| 128s | 0.017 | 0.014 | 0.286 | 0.317 | 4.40 | 7.69 |
+| 128f | 0.007 | 0.006 | 0.014 | 0.027 | 5.79 | 16.70 |
+| 192s | 0.065 | 0.052 | 0.516 | 0.633 | 11.00 | 15.88 |
+| 192f | 0.036 | 0.026 | 0.022 | 0.084 | 14.60 | 34.86 |
+| 256s | 0.102 | 0.088 | 0.455 | 0.645 | 20.21 | 29.12 |
+| 256f | 0.047 | 0.035 | 0.046 | 0.129 | 25.93 | 48.72 |
+| F-128 | 0.017 | 0.014 | 14.89 | 14.92 | 4.40 | 130.20 |
+| F-256 | 0.102 | 0.088 | 29.28 | 29.47 | 20.21 | 260.38 |
 
 #### Signing Protocol
 
-The SHA-256 composite backend uses segment size `2^22`. TPM time is in
-milliseconds; host and total time are in seconds; sizes are KB.
+The SHA-256 composite backend uses segment size `2^22`. All times are seconds
+and sizes are KB.
 
 | Variant | TPM sign | Host sign | Sign total | TPM signature | Host signature | Remaining | DAA signature total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| 128s | 27.61 | 26.89 | 26.92 | 7.41 | 299.28 | 0.05 | 306.74 |
-| 128f | 17.77 | 87.30 | 87.32 | 10.16 | 312.28 | 0.05 | 322.49 |
-| 192s | 133.86 | 140.33 | 140.46 | 20.37 | 624.31 | 0.09 | 644.77 |
-| 192f | 97.02 | 229.81 | 229.91 | 28.66 | 1234.86 | 0.09 | 1263.61 |
-| 256s | 186.03 | 209.74 | 209.93 | 35.77 | 936.21 | 0.09 | 972.07 |
-| 256f | 122.57 | 292.29 | 292.41 | 48.55 | 1522.70 | 0.09 | 1571.34 |
-| F-128 | 27.61 | 101.61 | 101.63 | 7.41 | 587.54 | 0.05 | 595.00 |
-| F-256 | 186.03 | 179.02 | 179.20 | 35.77 | 924.05 | 0.09 | 959.91 |
+| 128s | 0.028 | 26.89 | 26.92 | 7.41 | 299.28 | 0.05 | 306.74 |
+| 128f | 0.018 | 87.30 | 87.32 | 10.16 | 312.28 | 0.05 | 322.49 |
+| 192s | 0.134 | 140.33 | 140.46 | 20.37 | 624.31 | 0.09 | 644.77 |
+| 192f | 0.097 | 229.81 | 229.91 | 28.66 | 1234.86 | 0.09 | 1263.61 |
+| 256s | 0.186 | 209.74 | 209.93 | 35.77 | 936.21 | 0.09 | 972.07 |
+| 256f | 0.123 | 292.29 | 292.41 | 48.55 | 1522.70 | 0.09 | 1571.34 |
+| F-128 | 0.028 | 101.61 | 101.63 | 7.41 | 587.54 | 0.05 | 595.00 |
+| F-256 | 0.186 | 179.02 | 179.20 | 35.77 | 924.05 | 0.09 | 959.91 |
 
 #### Verification Algorithm
 
-All values are milliseconds.
+All values are seconds.
 
 | Variant | TPM verify | Host verify | Total verify |
 |---|---:|---:|---:|
-| 128s | 22.44 | 0.00 | 22.44 |
-| 128f | 13.40 | 1.00 | 14.40 |
-| 192s | 98.80 | 2.00 | 100.80 |
-| 192f | 67.16 | 3.00 | 70.16 |
-| 256s | 151.43 | 3.00 | 154.43 |
-| 256f | 88.12 | 5.00 | 93.12 |
-| F-128 | 22.44 | 2.00 | 24.44 |
-| F-256 | 151.43 | 3.00 | 154.43 |
+| 128s | 0.022 | 0.000 | 0.022 |
+| 128f | 0.013 | 0.001 | 0.014 |
+| 192s | 0.099 | 0.002 | 0.101 |
+| 192f | 0.067 | 0.003 | 0.070 |
+| 256s | 0.151 | 0.003 | 0.154 |
+| 256f | 0.088 | 0.005 | 0.093 |
+| F-128 | 0.022 | 0.002 | 0.024 |
+| F-256 | 0.151 | 0.003 | 0.154 |
 
 #### Fixed-Work ZK-WOTS and F-SPHINCS+ Host Proof
 
-| Credential | Segment size | Chunks | Host sign (s) | Host verify (ms) | Host signature (KB) |
+| Credential | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
 |---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 26.89 | 0.00 | 299.28 |
-| 128f | `2^22` | 1 | 87.30 | 1.00 | 312.28 |
-| 192s | `2^22` | 2 | 140.33 | 2.00 | 624.31 |
-| 192f | `2^22` | 4 | 229.81 | 3.00 | 1234.86 |
-| 256s | `2^22` | 3 | 209.74 | 3.00 | 936.21 |
-| 256f | `2^22` | 5 | 292.29 | 5.00 | 1522.70 |
-| F-128 | `2^22` | 2 | 101.61 | 2.00 | 587.54 |
-| F-256 | `2^22` | 3 | 179.02 | 3.00 | 924.05 |
-| 128s | `2^21` | 1 | 27.30 | 0.00 | 299.28 |
-| 128f | `2^21` | 2 | 54.91 | 1.00 | 598.06 |
-| 192s | `2^21` | 4 | 87.44 | 3.00 | 1195.86 |
-| 192f | `2^21` | 7 | 150.59 | 7.00 | 2092.20 |
-| 256s | `2^21` | 6 | 126.76 | 5.00 | 1793.54 |
-| 256f | `2^21` | 9 | 173.94 | 8.00 | 2665.81 |
-| 128s | `2^20` | 2 | 4.56 | 2.00 | 513.62 |
-| 128f | `2^20` | 4 | 11.39 | 4.00 | 1063.05 |
-| 192s | `2^20` | 8 | 27.89 | 9.00 | 2198.47 |
-| 192f | `2^20` | 15 | 50.05 | 18.00 | 4062.66 |
-| 256s | `2^20` | 12 | 41.00 | 14.00 | 3284.52 |
-| 256f | `2^20` | 18 | 61.75 | 21.00 | 4932.81 |
+| 128s | `2^22` | 1 | 26.89 | 0.000 | 299.28 |
+| 128f | `2^22` | 1 | 87.30 | 0.001 | 312.28 |
+| 192s | `2^22` | 2 | 140.33 | 0.002 | 624.31 |
+| 192f | `2^22` | 4 | 229.81 | 0.003 | 1234.86 |
+| 256s | `2^22` | 3 | 209.74 | 0.003 | 936.21 |
+| 256f | `2^22` | 5 | 292.29 | 0.005 | 1522.70 |
+| F-128 | `2^22` | 2 | 101.61 | 0.002 | 587.54 |
+| F-256 | `2^22` | 3 | 179.02 | 0.003 | 924.05 |
+| 128s | `2^21` | 1 | 27.30 | 0.000 | 299.28 |
+| 128f | `2^21` | 2 | 54.91 | 0.001 | 598.06 |
+| 192s | `2^21` | 4 | 87.44 | 0.003 | 1195.86 |
+| 192f | `2^21` | 7 | 150.59 | 0.007 | 2092.20 |
+| 256s | `2^21` | 6 | 126.76 | 0.005 | 1793.54 |
+| 256f | `2^21` | 9 | 173.94 | 0.008 | 2665.81 |
+| 128s | `2^20` | 2 | 4.56 | 0.002 | 513.62 |
+| 128f | `2^20` | 4 | 11.39 | 0.004 | 1063.05 |
+| 192s | `2^20` | 8 | 27.89 | 0.009 | 2198.47 |
+| 192f | `2^20` | 15 | 50.05 | 0.018 | 4062.66 |
+| 256s | `2^20` | 12 | 41.00 | 0.014 | 3284.52 |
+| 256f | `2^20` | 18 | 61.75 | 0.021 | 4932.81 |
 
 #### Poseidon2 Succinct Host Proof
 
-| SPHINCS+ | Segment size | Underlying chunks | Host sign (s) | Host verify (ms) | Host signature (KB) |
+| SPHINCS+ | Segment size | Underlying chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
 |---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 27.37 | 9.00 | 218.38 |
-| 128f | `2^22` | 2 | 88.84 | 9.00 | 218.38 |
-| 192s | `2^22` | 3 | 140.68 | 9.00 | 218.63 |
-| 192f | `2^22` | 4 | 269.26 | 9.00 | 218.63 |
-| 256s | `2^22` | 3 | 205.20 | 9.00 | 218.76 |
-| 256f | `2^22` | 5 | 292.52 | 9.00 | 218.76 |
+| 128s | `2^22` | 1 | 27.37 | 0.009 | 218.38 |
+| 128f | `2^22` | 2 | 88.84 | 0.009 | 218.38 |
+| 192s | `2^22` | 3 | 140.68 | 0.009 | 218.63 |
+| 192f | `2^22` | 4 | 269.26 | 0.009 | 218.63 |
+| 256s | `2^22` | 3 | 205.20 | 0.009 | 218.76 |
+| 256f | `2^22` | 5 | 292.52 | 0.009 | 218.76 |
 
 #### Variable-WOTS Poseidon2 Composite Host Proof
 
-| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (ms) | Host signature (KB) |
+| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
 |---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 26.93 | 12.00 | 299.29 |
-| 128f | `2^22` | 2 | 93.23 | 22.00 | 550.69 |
-| 192s | `2^22` | 3 | 147.01 | 36.00 | 874.16 |
-| 192f | `2^22` | 4 | 298.10 | 55.00 | 1247.88 |
-| 256s | `2^22` | 3 | 225.17 | 38.00 | 936.22 |
-| 256f | `2^22` | 5 | 304.96 | 64.00 | 1546.79 |
-| 128s | `2^21` | 1 | 29.04 | 12.00 | 299.29 |
-| 128f | `2^21` | 3 | 48.06 | 33.00 | 847.91 |
-| 192s | `2^21` | 5 | 88.23 | 55.00 | 1457.66 |
-| 192f | `2^21` | 8 | 156.03 | 98.00 | 2391.00 |
-| 256s | `2^21` | 6 | 121.95 | 71.00 | 1793.57 |
-| 256f | `2^21` | 9 | 176.32 | 102.00 | 2689.91 |
-| 128s | `2^20` | 2 | 5.82 | 21.00 | 537.00 |
-| 128f | `2^20` | 5 | 16.78 | 56.00 | 1361.16 |
-| 192s | `2^20` | 9 | 32.90 | 99.00 | 2473.22 |
-| 192f | `2^20` | 17 | 60.76 | 184.00 | 4658.04 |
-| 256s | `2^20` | 13 | 45.08 | 141.00 | 3535.91 |
-| 256f | `2^20` | 19 | 67.62 | 206.00 | 5207.60 |
+| 128s | `2^22` | 1 | 26.93 | 0.012 | 299.29 |
+| 128f | `2^22` | 2 | 93.23 | 0.022 | 550.69 |
+| 192s | `2^22` | 3 | 147.01 | 0.036 | 874.16 |
+| 192f | `2^22` | 4 | 298.10 | 0.055 | 1247.88 |
+| 256s | `2^22` | 3 | 225.17 | 0.038 | 936.22 |
+| 256f | `2^22` | 5 | 304.96 | 0.064 | 1546.79 |
+| 128s | `2^21` | 1 | 29.04 | 0.012 | 299.29 |
+| 128f | `2^21` | 3 | 48.06 | 0.033 | 847.91 |
+| 192s | `2^21` | 5 | 88.23 | 0.055 | 1457.66 |
+| 192f | `2^21` | 8 | 156.03 | 0.098 | 2391.00 |
+| 256s | `2^21` | 6 | 121.95 | 0.071 | 1793.57 |
+| 256f | `2^21` | 9 | 176.32 | 0.102 | 2689.91 |
+| 128s | `2^20` | 2 | 5.82 | 0.021 | 537.00 |
+| 128f | `2^20` | 5 | 16.78 | 0.056 | 1361.16 |
+| 192s | `2^20` | 9 | 32.90 | 0.099 | 2473.22 |
+| 192f | `2^20` | 17 | 60.76 | 0.184 | 4658.04 |
+| 256s | `2^20` | 13 | 45.08 | 0.141 | 3535.91 |
+| 256f | `2^20` | 19 | 67.62 | 0.206 | 5207.60 |
 
 #### Variable-WOTS SHA-256 Composite Host Proof
 
-| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (ms) | Host signature (KB) |
+| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
 |---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 28.14 | 1.00 | 299.28 |
-| 128f | `2^22` | 2 | 109.19 | 2.00 | 550.68 |
-| 192s | `2^22` | 3 | 166.12 | 3.00 | 874.15 |
-| 192f | `2^22` | 4 | 290.53 | 4.00 | 1247.86 |
-| 256s | `2^22` | 3 | 232.81 | 3.00 | 936.21 |
-| 256f | `2^22` | 5 | 315.82 | 5.00 | 1546.77 |
-| 128s | `2^21` | 1 | 27.66 | 1.00 | 299.28 |
-| 128f | `2^21` | 3 | 55.84 | 3.00 | 847.90 |
-| 192s | `2^21` | 5 | 88.92 | 5.00 | 1457.64 |
-| 192f | `2^21` | 8 | 159.06 | 8.00 | 2390.97 |
-| 256s | `2^21` | 6 | 127.46 | 6.00 | 1793.54 |
-| 256f | `2^21` | 9 | 176.98 | 9.00 | 2689.88 |
-| 128s | `2^20` | 2 | 5.72 | 2.00 | 537.00 |
-| 128f | `2^20` | 5 | 16.14 | 6.00 | 1361.14 |
-| 192s | `2^20` | 9 | 30.90 | 11.00 | 2473.19 |
-| 192f | `2^20` | 17 | 57.39 | 20.00 | 4657.97 |
-| 256s | `2^20` | 13 | 42.61 | 15.00 | 3535.86 |
-| 256f | `2^20` | 19 | 64.78 | 23.00 | 5207.52 |
+| 128s | `2^22` | 1 | 28.14 | 0.001 | 299.28 |
+| 128f | `2^22` | 2 | 109.19 | 0.002 | 550.68 |
+| 192s | `2^22` | 3 | 166.12 | 0.003 | 874.15 |
+| 192f | `2^22` | 4 | 290.53 | 0.004 | 1247.86 |
+| 256s | `2^22` | 3 | 232.81 | 0.003 | 936.21 |
+| 256f | `2^22` | 5 | 315.82 | 0.005 | 1546.77 |
+| 128s | `2^21` | 1 | 27.66 | 0.001 | 299.28 |
+| 128f | `2^21` | 3 | 55.84 | 0.003 | 847.90 |
+| 192s | `2^21` | 5 | 88.92 | 0.005 | 1457.64 |
+| 192f | `2^21` | 8 | 159.06 | 0.008 | 2390.97 |
+| 256s | `2^21` | 6 | 127.46 | 0.006 | 1793.54 |
+| 256f | `2^21` | 9 | 176.98 | 0.009 | 2689.88 |
+| 128s | `2^20` | 2 | 5.72 | 0.002 | 537.00 |
+| 128f | `2^20` | 5 | 16.14 | 0.006 | 1361.14 |
+| 192s | `2^20` | 9 | 30.90 | 0.011 | 2473.19 |
+| 192f | `2^20` | 17 | 57.39 | 0.020 | 4657.97 |
+| 256s | `2^20` | 13 | 42.61 | 0.015 | 3535.86 |
+| 256f | `2^20` | 19 | 64.78 | 0.023 | 5207.52 |
 
 #### Native F-SPHINCS+-SHA256 Credential
 
-| Configuration | k | Keygen (s) | Sign (s) | Verify (ms) | PK (B) | SK (B) | Signature (KB) | SHA-256 calls | SHA-256 blocks |
+| Configuration | k | Keygen (s) | Sign (s) | Verify (s) | PK (B) | SK (B) | Signature (KB) | SHA-256 calls | SHA-256 blocks |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| F-128 | 35 | 2.166085 | 14.887733 | 1.873482 | 102 | 134 | 130.19 | 4,841 | 14,043 |
-| F-256 | 70 | 4.232139 | 29.275291 | 3.647400 | 172 | 204 | 260.34 | 9,673 | 28,075 |
+| F-128 | 35 | 2.17 | 14.89 | 0.002 | 102 | 134 | 130.19 | 4,841 | 14,043 |
+| F-256 | 70 | 4.23 | 29.28 | 0.004 | 172 | 204 | 260.34 | 9,673 | 28,075 |
 
 #### Detailed F-SPHINCS+ RISC0 Counters
 
-| Configuration | k | Chunks | Prover (s) | Verifier (ms) | Receipt (KB) | Seal (KB) | User cycles | Total cycles | Paging | Reserved |
+| Configuration | k | Chunks | Prover (s) | Verifier (s) | Receipt (KB) | Seal (KB) | User cycles | Total cycles | Paging | Reserved |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| F-128 | 35 | 2 | 101.605 | 2 | 587.54 | 586.14 | 4,749,081 | 5,242,880 | 62,216 | 431,583 |
-| F-256 | 70 | 3 | 179.018 | 3 | 924.05 | 921.80 | 9,397,101 | 10,485,760 | 123,741 | 964,918 |
+| F-128 | 35 | 2 | 101.61 | 0.002 | 587.54 | 586.14 | 4,749,081 | 5,242,880 | 62,216 | 431,583 |
+| F-256 | 70 | 3 | 179.02 | 0.003 | 924.05 | 921.80 | 9,397,101 | 10,485,760 | 123,741 | 964,918 |
 
 ### Full Protocol Trace
 
 This table omits top-level wall time and reports protocol step metrics only.
-Small steps are shown in milliseconds; long-running totals and host proving are
-shown in seconds to keep the numbers readable. RISC0 segment `1` is the default
+All time values are shown in seconds. Values below one second use three decimal
+places; slower operations use two decimal places. RISC0 segment `1` is the default
 segment setting, and segment `2` is `--segment-po2 20`.
 
 <table>
 <thead>
-<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>setup.total (ms)</th><th>join.host (ms)</th><th>join.tpm.keygen_owf (ms)</th><th>join.tpm.pi_join_prove (ms)</th><th>join.issuer.commit_check (ms)</th><th>join.issuer.pi_join_verify (ms)</th><th>join.issuer.credential_sign (ms)</th><th>join.total (ms)</th><th>sign.tpm.3aes (ms)</th><th>sign.tpm.pi_tpm_prove (ms)</th><th>sign.host.precompute (ms)</th><th>sign.host.pi_host_prove (s)</th><th>sign.total (s)</th><th>revoke.update_state (ms)</th><th>revoke.total (ms)</th><th>verify.revocation_check (ms)</th><th>verify.pi_tpm_verify (ms)</th><th>verify.pi_host_verify (ms)</th><th>verify.total (ms)</th><th>link.slt_compare (ms)</th><th>link.total (ms)</th></tr>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>setup.total (s)</th><th>join.host (s)</th><th>join.tpm.keygen_owf (s)</th><th>join.tpm.pi_join_prove (s)</th><th>join.issuer.commit_check (s)</th><th>join.issuer.pi_join_verify (s)</th><th>join.issuer.credential_sign (s)</th><th>join.total (s)</th><th>sign.tpm.3aes (s)</th><th>sign.tpm.pi_tpm_prove (s)</th><th>sign.host.precompute (s)</th><th>sign.host.pi_host_prove (s)</th><th>sign.total (s)</th><th>revoke.update_state (s)</th><th>revoke.total (s)</th><th>verify.revocation_check (s)</th><th>verify.pi_tpm_verify (s)</th><th>verify.pi_host_verify (s)</th><th>verify.total (s)</th><th>link.slt_compare (s)</th><th>link.total (s)</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">38.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">17.00</td><td align="right">0.00</td><td align="right">14.21</td><td align="right">286.00</td><td align="right">317.21</td><td align="right">0.00</td><td align="right">27.61</td><td align="right">0.01</td><td align="right">27.66</td><td align="right">27.69</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">22.44</td><td align="right">1.00</td><td align="right">23.44</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">39.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">17.00</td><td align="right">0.00</td><td align="right">14.21</td><td align="right">286.00</td><td align="right">317.21</td><td align="right">0.00</td><td align="right">27.61</td><td align="right">0.01</td><td align="right">5.72</td><td align="right">5.75</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">22.44</td><td align="right">2.00</td><td align="right">24.44</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">7.46</td><td align="right">0.00</td><td align="right">5.69</td><td align="right">14.00</td><td align="right">27.15</td><td align="right">0.00</td><td align="right">17.77</td><td align="right">0.01</td><td align="right">55.84</td><td align="right">55.86</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">13.40</td><td align="right">3.00</td><td align="right">16.40</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">7.46</td><td align="right">0.00</td><td align="right">5.69</td><td align="right">14.00</td><td align="right">27.15</td><td align="right">0.00</td><td align="right">17.77</td><td align="right">0.01</td><td align="right">16.14</td><td align="right">16.16</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">13.40</td><td align="right">6.00</td><td align="right">19.40</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">55.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">64.84</td><td align="right">0.00</td><td align="right">52.36</td><td align="right">516.00</td><td align="right">633.20</td><td align="right">0.03</td><td align="right">133.86</td><td align="right">0.04</td><td align="right">88.92</td><td align="right">89.05</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">98.80</td><td align="right">5.00</td><td align="right">103.80</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">55.00</td><td align="right">0.01</td><td align="right">0.01</td><td align="right">64.84</td><td align="right">0.00</td><td align="right">52.36</td><td align="right">516.00</td><td align="right">633.22</td><td align="right">0.03</td><td align="right">133.86</td><td align="right">0.03</td><td align="right">30.90</td><td align="right">31.03</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">98.80</td><td align="right">11.00</td><td align="right">109.80</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">36.40</td><td align="right">0.00</td><td align="right">25.86</td><td align="right">22.00</td><td align="right">84.26</td><td align="right">0.03</td><td align="right">97.02</td><td align="right">0.03</td><td align="right">159.06</td><td align="right">159.16</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">67.16</td><td align="right">8.00</td><td align="right">75.16</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">36.40</td><td align="right">0.00</td><td align="right">25.86</td><td align="right">22.00</td><td align="right">84.26</td><td align="right">0.03</td><td align="right">97.02</td><td align="right">0.03</td><td align="right">57.39</td><td align="right">57.49</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">67.16</td><td align="right">20.00</td><td align="right">87.16</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">38.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">102.03</td><td align="right">0.00</td><td align="right">88.00</td><td align="right">455.00</td><td align="right">645.03</td><td align="right">0.03</td><td align="right">186.03</td><td align="right">0.04</td><td align="right">127.46</td><td align="right">127.65</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">151.43</td><td align="right">6.00</td><td align="right">157.43</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">36.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">102.03</td><td align="right">0.00</td><td align="right">88.00</td><td align="right">455.00</td><td align="right">645.03</td><td align="right">0.03</td><td align="right">186.03</td><td align="right">0.04</td><td align="right">42.61</td><td align="right">42.80</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">151.43</td><td align="right">15.00</td><td align="right">166.43</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">2.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">47.46</td><td align="right">0.00</td><td align="right">35.04</td><td align="right">46.00</td><td align="right">128.50</td><td align="right">0.04</td><td align="right">122.57</td><td align="right">0.04</td><td align="right">176.98</td><td align="right">177.10</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">88.12</td><td align="right">9.00</td><td align="right">97.12</td><td align="right">0.00</td><td align="right">0.00</td></tr>
-<tr><td align="center">2</td><td align="right">2.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">47.46</td><td align="right">0.00</td><td align="right">35.04</td><td align="right">46.00</td><td align="right">128.50</td><td align="right">0.04</td><td align="right">122.57</td><td align="right">0.05</td><td align="right">64.78</td><td align="right">64.90</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">88.12</td><td align="right">23.00</td><td align="right">111.12</td><td align="right">0.00</td><td align="right">0.00</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">0.038</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.017</td><td align="right">0.000</td><td align="right">0.014</td><td align="right">0.286</td><td align="right">0.317</td><td align="right">0.000</td><td align="right">0.028</td><td align="right">0.000</td><td align="right">27.66</td><td align="right">27.69</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.022</td><td align="right">0.001</td><td align="right">0.023</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.039</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.017</td><td align="right">0.000</td><td align="right">0.014</td><td align="right">0.286</td><td align="right">0.317</td><td align="right">0.000</td><td align="right">0.028</td><td align="right">0.000</td><td align="right">5.72</td><td align="right">5.75</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.022</td><td align="right">0.002</td><td align="right">0.024</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.007</td><td align="right">0.000</td><td align="right">0.006</td><td align="right">0.014</td><td align="right">0.027</td><td align="right">0.000</td><td align="right">0.018</td><td align="right">0.000</td><td align="right">55.84</td><td align="right">55.86</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.013</td><td align="right">0.003</td><td align="right">0.016</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.007</td><td align="right">0.000</td><td align="right">0.006</td><td align="right">0.014</td><td align="right">0.027</td><td align="right">0.000</td><td align="right">0.018</td><td align="right">0.000</td><td align="right">16.14</td><td align="right">16.16</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.013</td><td align="right">0.006</td><td align="right">0.019</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">0.055</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.065</td><td align="right">0.000</td><td align="right">0.052</td><td align="right">0.516</td><td align="right">0.633</td><td align="right">0.000</td><td align="right">0.134</td><td align="right">0.000</td><td align="right">88.92</td><td align="right">89.05</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.099</td><td align="right">0.005</td><td align="right">0.104</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.055</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.065</td><td align="right">0.000</td><td align="right">0.052</td><td align="right">0.516</td><td align="right">0.633</td><td align="right">0.000</td><td align="right">0.134</td><td align="right">0.000</td><td align="right">30.90</td><td align="right">31.03</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.099</td><td align="right">0.011</td><td align="right">0.110</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.036</td><td align="right">0.000</td><td align="right">0.026</td><td align="right">0.022</td><td align="right">0.084</td><td align="right">0.000</td><td align="right">0.097</td><td align="right">0.000</td><td align="right">159.06</td><td align="right">159.16</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.067</td><td align="right">0.008</td><td align="right">0.075</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.036</td><td align="right">0.000</td><td align="right">0.026</td><td align="right">0.022</td><td align="right">0.084</td><td align="right">0.000</td><td align="right">0.097</td><td align="right">0.000</td><td align="right">57.39</td><td align="right">57.49</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.067</td><td align="right">0.020</td><td align="right">0.087</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">0.038</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.102</td><td align="right">0.000</td><td align="right">0.088</td><td align="right">0.455</td><td align="right">0.645</td><td align="right">0.000</td><td align="right">0.186</td><td align="right">0.000</td><td align="right">127.46</td><td align="right">127.65</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.151</td><td align="right">0.006</td><td align="right">0.157</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.036</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.102</td><td align="right">0.000</td><td align="right">0.088</td><td align="right">0.455</td><td align="right">0.645</td><td align="right">0.000</td><td align="right">0.186</td><td align="right">0.000</td><td align="right">42.61</td><td align="right">42.80</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.151</td><td align="right">0.015</td><td align="right">0.166</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">0.002</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.047</td><td align="right">0.000</td><td align="right">0.035</td><td align="right">0.046</td><td align="right">0.129</td><td align="right">0.000</td><td align="right">0.123</td><td align="right">0.000</td><td align="right">176.98</td><td align="right">177.10</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.088</td><td align="right">0.009</td><td align="right">0.097</td><td align="right">0.000</td><td align="right">0.000</td></tr>
+<tr><td align="center">2</td><td align="right">0.002</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.047</td><td align="right">0.000</td><td align="right">0.035</td><td align="right">0.046</td><td align="right">0.129</td><td align="right">0.000</td><td align="right">0.123</td><td align="right">0.000</td><td align="right">64.78</td><td align="right">64.90</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.000</td><td align="right">0.088</td><td align="right">0.023</td><td align="right">0.111</td><td align="right">0.000</td><td align="right">0.000</td></tr>
 </tbody>
 </table>
 
@@ -444,18 +445,18 @@ reports the serialized RISC0 receipt from the full DAA signature.
 
 | FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt |
 |---|---|---:|---:|---:|---:|---:|
-| 128s | 128s | 1 | 27.66 s | 1.00 ms | 1.00x | 299.28 |
-| 128s | 128s | 2 | 5.72 s | 2.00 ms | 4.83x | 537.00 |
-| 128f | 128f | 1 | 55.84 s | 3.00 ms | 1.00x | 847.90 |
-| 128f | 128f | 2 | 16.14 s | 6.00 ms | 3.46x | 1361.14 |
-| 192s | 192s | 1 | 88.92 s | 5.00 ms | 1.00x | 1457.64 |
-| 192s | 192s | 2 | 30.90 s | 11.00 ms | 2.88x | 2473.19 |
-| 192f | 192f | 1 | 159.06 s | 8.00 ms | 1.00x | 2390.97 |
-| 192f | 192f | 2 | 57.39 s | 20.00 ms | 2.77x | 4657.97 |
-| 256s | 256s | 1 | 127.46 s | 6.00 ms | 1.00x | 1793.54 |
-| 256s | 256s | 2 | 42.61 s | 15.00 ms | 2.99x | 3535.86 |
-| 256f | 256f | 1 | 176.98 s | 9.00 ms | 1.00x | 2689.88 |
-| 256f | 256f | 2 | 64.78 s | 23.00 ms | 2.73x | 5207.52 |
+| 128s | 128s | 1 | 27.66 s | 0.001 s | 1.00x | 299.28 |
+| 128s | 128s | 2 | 5.72 s | 0.002 s | 4.83x | 537.00 |
+| 128f | 128f | 1 | 55.84 s | 0.003 s | 1.00x | 847.90 |
+| 128f | 128f | 2 | 16.14 s | 0.006 s | 3.46x | 1361.14 |
+| 192s | 192s | 1 | 88.92 s | 0.005 s | 1.00x | 1457.64 |
+| 192s | 192s | 2 | 30.90 s | 0.011 s | 2.88x | 2473.19 |
+| 192f | 192f | 1 | 159.06 s | 0.008 s | 1.00x | 2390.97 |
+| 192f | 192f | 2 | 57.39 s | 0.020 s | 2.77x | 4657.97 |
+| 256s | 256s | 1 | 127.46 s | 0.006 s | 1.00x | 1793.54 |
+| 256s | 256s | 2 | 42.61 s | 0.015 s | 2.99x | 3535.86 |
+| 256f | 256f | 1 | 176.98 s | 0.009 s | 1.00x | 2689.88 |
+| 256f | 256f | 2 | 64.78 s | 0.023 s | 2.73x | 5207.52 |
 
 #### Poseidon2 Backend Host Proof
 
@@ -464,18 +465,18 @@ reports the serialized RISC0 receipt from the full DAA signature.
 
 | FAEST security | SPHINCS+ security | RISC0 segments | Host prove | Host verify | Prove speedup vs segment 1 | Serialized receipt |
 |---|---|---:|---:|---:|---:|---:|
-| 128s | 128s | 1 | 29.04 s | 12.00 ms | 1.00x | 299.29 |
-| 128s | 128s | 2 | 5.82 s | 21.00 ms | 4.99x | 537.00 |
-| 128f | 128f | 1 | 48.06 s | 33.00 ms | 1.00x | 847.91 |
-| 128f | 128f | 2 | 16.78 s | 56.00 ms | 2.86x | 1361.16 |
-| 192s | 192s | 1 | 88.23 s | 55.00 ms | 1.00x | 1457.66 |
-| 192s | 192s | 2 | 32.90 s | 99.00 ms | 2.68x | 2473.22 |
-| 192f | 192f | 1 | 156.03 s | 98.00 ms | 1.00x | 2391.00 |
-| 192f | 192f | 2 | 60.76 s | 184.00 ms | 2.57x | 4658.04 |
-| 256s | 256s | 1 | 121.95 s | 71.00 ms | 1.00x | 1793.57 |
-| 256s | 256s | 2 | 45.08 s | 141.00 ms | 2.71x | 3535.91 |
-| 256f | 256f | 1 | 176.32 s | 102.00 ms | 1.00x | 2689.91 |
-| 256f | 256f | 2 | 67.62 s | 206.00 ms | 2.61x | 5207.60 |
+| 128s | 128s | 1 | 29.04 s | 0.012 s | 1.00x | 299.29 |
+| 128s | 128s | 2 | 5.82 s | 0.021 s | 4.99x | 537.00 |
+| 128f | 128f | 1 | 48.06 s | 0.033 s | 1.00x | 847.91 |
+| 128f | 128f | 2 | 16.78 s | 0.056 s | 2.86x | 1361.16 |
+| 192s | 192s | 1 | 88.23 s | 0.055 s | 1.00x | 1457.66 |
+| 192s | 192s | 2 | 32.90 s | 0.099 s | 2.68x | 2473.22 |
+| 192f | 192f | 1 | 156.03 s | 0.098 s | 1.00x | 2391.00 |
+| 192f | 192f | 2 | 60.76 s | 0.184 s | 2.57x | 4658.04 |
+| 256s | 256s | 1 | 121.95 s | 0.071 s | 1.00x | 1793.57 |
+| 256s | 256s | 2 | 45.08 s | 0.141 s | 2.71x | 3535.91 |
+| 256f | 256f | 1 | 176.32 s | 0.102 s | 1.00x | 2689.91 |
+| 256f | 256f | 2 | 67.62 s | 0.206 s | 2.61x | 5207.60 |
 
 Across both backends, `seg20` substantially reduces host proving time but
 increases proof size. The Poseidon2 verifier is noticeably slower than the
@@ -486,25 +487,25 @@ The serialized receipt sizes are nearly identical across the two backends.
 
 The TPM/issuer-side costs do not depend on the RISC0 segment setting, but both
 rows are recorded because each full benchmark run measures them independently.
-All values are milliseconds.
+All time values are seconds.
 
 <table>
 <thead>
-<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove (ms)</th><th>Join verify (ms)</th><th>TPM sign prove (ms)</th><th>TPM verify (ms)</th><th>Credential sign (ms)</th></tr>
+<tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>Join prove (s)</th><th>Join verify (s)</th><th>TPM sign prove (s)</th><th>TPM verify (s)</th><th>Credential sign (s)</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">17.00</td><td align="right">14.21</td><td align="right">27.61</td><td align="right">22.44</td><td align="right">286.00</td></tr>
-<tr><td align="center">2</td><td align="right">17.00</td><td align="right">14.21</td><td align="right">27.61</td><td align="right">22.44</td><td align="right">286.00</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">7.46</td><td align="right">5.69</td><td align="right">17.77</td><td align="right">13.40</td><td align="right">14.00</td></tr>
-<tr><td align="center">2</td><td align="right">7.46</td><td align="right">5.69</td><td align="right">17.77</td><td align="right">13.40</td><td align="right">14.00</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">64.84</td><td align="right">52.36</td><td align="right">133.86</td><td align="right">98.80</td><td align="right">516.00</td></tr>
-<tr><td align="center">2</td><td align="right">64.84</td><td align="right">52.36</td><td align="right">133.86</td><td align="right">98.80</td><td align="right">516.00</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">36.40</td><td align="right">25.86</td><td align="right">97.02</td><td align="right">67.16</td><td align="right">22.00</td></tr>
-<tr><td align="center">2</td><td align="right">36.40</td><td align="right">25.86</td><td align="right">97.02</td><td align="right">67.16</td><td align="right">22.00</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">102.03</td><td align="right">88.00</td><td align="right">186.03</td><td align="right">151.43</td><td align="right">455.00</td></tr>
-<tr><td align="center">2</td><td align="right">102.03</td><td align="right">88.00</td><td align="right">186.03</td><td align="right">151.43</td><td align="right">455.00</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">47.46</td><td align="right">35.04</td><td align="right">122.57</td><td align="right">88.12</td><td align="right">46.00</td></tr>
-<tr><td align="center">2</td><td align="right">47.46</td><td align="right">35.04</td><td align="right">122.57</td><td align="right">88.12</td><td align="right">46.00</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">0.017</td><td align="right">0.014</td><td align="right">0.028</td><td align="right">0.022</td><td align="right">0.286</td></tr>
+<tr><td align="center">2</td><td align="right">0.017</td><td align="right">0.014</td><td align="right">0.028</td><td align="right">0.022</td><td align="right">0.286</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">0.007</td><td align="right">0.006</td><td align="right">0.018</td><td align="right">0.013</td><td align="right">0.014</td></tr>
+<tr><td align="center">2</td><td align="right">0.007</td><td align="right">0.006</td><td align="right">0.018</td><td align="right">0.013</td><td align="right">0.014</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">0.065</td><td align="right">0.052</td><td align="right">0.134</td><td align="right">0.099</td><td align="right">0.516</td></tr>
+<tr><td align="center">2</td><td align="right">0.065</td><td align="right">0.052</td><td align="right">0.134</td><td align="right">0.099</td><td align="right">0.516</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">0.036</td><td align="right">0.026</td><td align="right">0.097</td><td align="right">0.067</td><td align="right">0.022</td></tr>
+<tr><td align="center">2</td><td align="right">0.036</td><td align="right">0.026</td><td align="right">0.097</td><td align="right">0.067</td><td align="right">0.022</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">0.102</td><td align="right">0.088</td><td align="right">0.186</td><td align="right">0.151</td><td align="right">0.455</td></tr>
+<tr><td align="center">2</td><td align="right">0.102</td><td align="right">0.088</td><td align="right">0.186</td><td align="right">0.151</td><td align="right">0.455</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">0.047</td><td align="right">0.035</td><td align="right">0.123</td><td align="right">0.088</td><td align="right">0.046</td></tr>
+<tr><td align="center">2</td><td align="right">0.047</td><td align="right">0.035</td><td align="right">0.123</td><td align="right">0.088</td><td align="right">0.046</td></tr>
 </tbody>
 </table>
 
@@ -527,18 +528,18 @@ seal payload from receipt serialization overhead.
 <tr><th>FAEST security</th><th>SPHINCS+ security</th><th>RISC0 segments</th><th>pi_join FAEST (KB)</th><th>Issuer credential (KB)</th><th>pi_TPM FAEST (KB)</th><th>pi_host serialized receipt (KB)</th><th>Signature remaining (KB)</th><th>DAA signature total (KB)</th></tr>
 </thead>
 <tbody>
-<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">4.40</td><td align="right">7.69</td><td align="right">7.41</td><td align="right">299.28</td><td align="right">0.05</td><td align="right">306.74</td></tr>
-<tr><td align="center">2</td><td align="right">4.40</td><td align="right">7.69</td><td align="right">7.41</td><td align="right">537.00</td><td align="right">0.05</td><td align="right">544.45</td></tr>
-<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">5.79</td><td align="right">16.70</td><td align="right">10.16</td><td align="right">847.90</td><td align="right">0.05</td><td align="right">858.11</td></tr>
-<tr><td align="center">2</td><td align="right">5.79</td><td align="right">16.70</td><td align="right">10.16</td><td align="right">1361.14</td><td align="right">0.05</td><td align="right">1371.35</td></tr>
-<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">11.00</td><td align="right">15.88</td><td align="right">20.37</td><td align="right">1457.64</td><td align="right">0.09</td><td align="right">1478.10</td></tr>
-<tr><td align="center">2</td><td align="right">11.00</td><td align="right">15.88</td><td align="right">20.37</td><td align="right">2473.19</td><td align="right">0.09</td><td align="right">2493.64</td></tr>
-<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">14.60</td><td align="right">34.86</td><td align="right">28.66</td><td align="right">2390.97</td><td align="right">0.09</td><td align="right">2419.72</td></tr>
-<tr><td align="center">2</td><td align="right">14.60</td><td align="right">34.86</td><td align="right">28.66</td><td align="right">4657.97</td><td align="right">0.09</td><td align="right">4686.71</td></tr>
-<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">20.21</td><td align="right">29.12</td><td align="right">35.77</td><td align="right">1793.54</td><td align="right">0.09</td><td align="right">1829.40</td></tr>
-<tr><td align="center">2</td><td align="right">20.21</td><td align="right">29.12</td><td align="right">35.77</td><td align="right">3535.86</td><td align="right">0.09</td><td align="right">3571.72</td></tr>
-<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">25.93</td><td align="right">48.72</td><td align="right">48.55</td><td align="right">2689.88</td><td align="right">0.09</td><td align="right">2738.52</td></tr>
-<tr><td align="center">2</td><td align="right">25.93</td><td align="right">48.72</td><td align="right">48.55</td><td align="right">5207.52</td><td align="right">0.09</td><td align="right">5256.17</td></tr>
+<tr><td rowspan="2" align="center">128s</td><td rowspan="2" align="center">128s</td><td align="center">1</td><td align="right">0.004</td><td align="right">0.008</td><td align="right">0.007</td><td align="right">0.299</td><td align="right">0.000</td><td align="right">0.307</td></tr>
+<tr><td align="center">2</td><td align="right">0.004</td><td align="right">0.008</td><td align="right">0.007</td><td align="right">0.537</td><td align="right">0.000</td><td align="right">0.544</td></tr>
+<tr><td rowspan="2" align="center">128f</td><td rowspan="2" align="center">128f</td><td align="center">1</td><td align="right">0.006</td><td align="right">0.017</td><td align="right">0.010</td><td align="right">0.848</td><td align="right">0.000</td><td align="right">0.858</td></tr>
+<tr><td align="center">2</td><td align="right">0.006</td><td align="right">0.017</td><td align="right">0.010</td><td align="right">1.361</td><td align="right">0.000</td><td align="right">1.371</td></tr>
+<tr><td rowspan="2" align="center">192s</td><td rowspan="2" align="center">192s</td><td align="center">1</td><td align="right">0.011</td><td align="right">0.016</td><td align="right">0.020</td><td align="right">1.458</td><td align="right">0.000</td><td align="right">1.478</td></tr>
+<tr><td align="center">2</td><td align="right">0.011</td><td align="right">0.016</td><td align="right">0.020</td><td align="right">2.473</td><td align="right">0.000</td><td align="right">2.494</td></tr>
+<tr><td rowspan="2" align="center">192f</td><td rowspan="2" align="center">192f</td><td align="center">1</td><td align="right">0.015</td><td align="right">0.035</td><td align="right">0.029</td><td align="right">2.391</td><td align="right">0.000</td><td align="right">2.420</td></tr>
+<tr><td align="center">2</td><td align="right">0.015</td><td align="right">0.035</td><td align="right">0.029</td><td align="right">4.658</td><td align="right">0.000</td><td align="right">4.687</td></tr>
+<tr><td rowspan="2" align="center">256s</td><td rowspan="2" align="center">256s</td><td align="center">1</td><td align="right">0.020</td><td align="right">0.029</td><td align="right">0.036</td><td align="right">1.794</td><td align="right">0.000</td><td align="right">1.829</td></tr>
+<tr><td align="center">2</td><td align="right">0.020</td><td align="right">0.029</td><td align="right">0.036</td><td align="right">3.536</td><td align="right">0.000</td><td align="right">3.572</td></tr>
+<tr><td rowspan="2" align="center">256f</td><td rowspan="2" align="center">256f</td><td align="center">1</td><td align="right">0.026</td><td align="right">0.049</td><td align="right">0.049</td><td align="right">2.690</td><td align="right">0.000</td><td align="right">2.739</td></tr>
+<tr><td align="center">2</td><td align="right">0.026</td><td align="right">0.049</td><td align="right">0.049</td><td align="right">5.208</td><td align="right">0.000</td><td align="right">5.256</td></tr>
 </tbody>
 </table>
 
