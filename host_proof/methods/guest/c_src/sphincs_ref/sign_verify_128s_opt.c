@@ -261,20 +261,17 @@ static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
     unsigned int lengths[SPX_WOTS_LEN];
     chain_lengths_128s(lengths, msg);
 
+#if !defined(SPHINCS_OPT_ZK_WOTS)
+    sha256_wots_variable_pk_from_sig(pk, ctx->state_seeded, addr, sig,
+                                     lengths);
+#else
     for (unsigned int i = 0; i < SPX_WOTS_LEN; i++) {
         unsigned char *out = pk + i * SPX_N;
         addr[SPX_OFFSET_CHAIN_ADDR] = (unsigned char)i;
 
-#if defined(SPHINCS_OPT_ZK_WOTS)
         zk_fixed_chain_complete_128s(out, sig + i * SPX_N, lengths[i], ctx, addr);
-#else
-        memcpy(out, sig + i * SPX_N, SPX_N);
-        for (unsigned int j = lengths[i]; j < SPX_WOTS_W - 1; j++) {
-            addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
-            thash_opt(out, out, 1, ctx, addr);
-        }
-#endif
     }
+#endif
 }
 
 int crypto_sign_verify(const uint8_t *sig, size_t siglen,

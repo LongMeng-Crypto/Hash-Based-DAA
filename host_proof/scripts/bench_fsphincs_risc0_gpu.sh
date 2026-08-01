@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DAA_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${DAA_ROOT}"
 
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/risc0-fsphincs-cuda}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 export FSPHINCS_SECURITY="${FSPHINCS_SECURITY:-128}"
 export DAA_DETERMINISTIC="${DAA_DETERMINISTIC:-1}"
 export RISC0_PROVER="${RISC0_PROVER:-local}"

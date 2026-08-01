@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FORK_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${FORK_ROOT}"
 
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/risc0-sha256-daa-cuda-small-segment}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 
 variants=(
   sphincs-sha2-128s

@@ -75,7 +75,7 @@ Full host-proof benchmarks invoke the vendored RISC0 runner as an external
 Cargo command. If `CARGO_TARGET_DIR` is not set, `daa_core` sets it to:
 
 ```text
-/tmp/sedaa-risc0-shared-target
+${HOME}/.cache/sedaa-risc0-shared-target
 ```
 
 This lets default-segment and `--segment-po2 20` runs share CUDA/RISC0/Cargo
@@ -87,7 +87,7 @@ For a clean standalone benchmark session, run from this project root and set it 
 ```sh
 # If this directory is still inside the larger SEDAA checkout, first run:
 # cd DAA_FULL
-export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
+export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
 ```
 
 The first real RISC0/CUDA run can be much slower than the reported protocol
@@ -135,7 +135,7 @@ This is the main full-protocol benchmark path used by the SHA-256 backend
 results below:
 
 ```sh
-export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
+export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
 
 cargo run -p daa_cli -- bench \
   --params sha2-128s \
@@ -173,7 +173,7 @@ Each parameter has two host-proof segment settings:
 Run all six SHA2 parameter sets with both segment settings:
 
 ```sh
-export CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target
+export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
 scripts/run_all_benchmarks.sh --backend sha-256
 ```
 
@@ -344,51 +344,28 @@ All values are seconds.
 | 256s | `2^22` | 3 | 205.20 | 0.009 | 218.76 |
 | 256f | `2^22` | 5 | 292.52 | 0.009 | 218.76 |
 
-#### Variable-WOTS Poseidon2 Composite Host Proof
-
-| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
-|---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 26.93 | 0.012 | 299.29 |
-| 128f | `2^22` | 2 | 93.23 | 0.022 | 550.69 |
-| 192s | `2^22` | 3 | 147.01 | 0.036 | 874.16 |
-| 192f | `2^22` | 4 | 298.10 | 0.055 | 1247.88 |
-| 256s | `2^22` | 3 | 225.17 | 0.038 | 936.22 |
-| 256f | `2^22` | 5 | 304.96 | 0.064 | 1546.79 |
-| 128s | `2^21` | 1 | 29.04 | 0.012 | 299.29 |
-| 128f | `2^21` | 3 | 48.06 | 0.033 | 847.91 |
-| 192s | `2^21` | 5 | 88.23 | 0.055 | 1457.66 |
-| 192f | `2^21` | 8 | 156.03 | 0.098 | 2391.00 |
-| 256s | `2^21` | 6 | 121.95 | 0.071 | 1793.57 |
-| 256f | `2^21` | 9 | 176.32 | 0.102 | 2689.91 |
-| 128s | `2^20` | 2 | 5.82 | 0.021 | 537.00 |
-| 128f | `2^20` | 5 | 16.78 | 0.056 | 1361.16 |
-| 192s | `2^20` | 9 | 32.90 | 0.099 | 2473.22 |
-| 192f | `2^20` | 17 | 60.76 | 0.184 | 4658.04 |
-| 256s | `2^20` | 13 | 45.08 | 0.141 | 3535.91 |
-| 256f | `2^20` | 19 | 67.62 | 0.206 | 5207.60 |
-
 #### Variable-WOTS SHA-256 Composite Host Proof
 
 | SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
 |---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 28.14 | 0.001 | 299.28 |
-| 128f | `2^22` | 2 | 109.19 | 0.002 | 550.68 |
-| 192s | `2^22` | 3 | 166.12 | 0.003 | 874.15 |
-| 192f | `2^22` | 4 | 290.53 | 0.004 | 1247.86 |
-| 256s | `2^22` | 3 | 232.81 | 0.003 | 936.21 |
-| 256f | `2^22` | 5 | 315.82 | 0.005 | 1546.77 |
-| 128s | `2^21` | 1 | 27.66 | 0.001 | 299.28 |
-| 128f | `2^21` | 3 | 55.84 | 0.003 | 847.90 |
-| 192s | `2^21` | 5 | 88.92 | 0.005 | 1457.64 |
-| 192f | `2^21` | 8 | 159.06 | 0.008 | 2390.97 |
-| 256s | `2^21` | 6 | 127.46 | 0.006 | 1793.54 |
-| 256f | `2^21` | 9 | 176.98 | 0.009 | 2689.88 |
-| 128s | `2^20` | 2 | 5.72 | 0.002 | 537.00 |
-| 128f | `2^20` | 5 | 16.14 | 0.006 | 1361.14 |
-| 192s | `2^20` | 9 | 30.90 | 0.011 | 2473.19 |
-| 192f | `2^20` | 17 | 57.39 | 0.020 | 4657.97 |
-| 256s | `2^20` | 13 | 42.61 | 0.015 | 3535.86 |
-| 256f | `2^20` | 19 | 64.78 | 0.023 | 5207.52 |
+| 128s | `2^22` | 1 | 3.632 | 0.001 | 275.22 |
+| 128f | `2^22` | 1 | 27.84 | 0.001 | 299.28 |
+| 192s | `2^22` | 2 | 155.98 | 0.002 | 624.31 |
+| 192f | `2^22` | 3 | 234.22 | 0.003 | 936.09 |
+| 256s | `2^22` | 3 | 180.13 | 0.003 | 923.21 |
+| 256f | `2^22` | 4 | 232.42 | 0.004 | 1210.93 |
+| 128s | `2^21` | 1 | 3.640 | 0.001 | 275.22 |
+| 128f | `2^21` | 1 | 29.84 | 0.000 | 299.28 |
+| 192s | `2^21` | 4 | 80.31 | 0.004 | 1171.80 |
+| 192f | `2^21` | 6 | 120.99 | 0.006 | 1756.42 |
+| 256s | `2^21` | 5 | 117.93 | 0.004 | 1494.77 |
+| 256f | `2^21` | 7 | 145.12 | 0.007 | 2068.26 |
+| 128s | `2^20` | 1 | 3.562 | 0.001 | 275.22 |
+| 128f | `2^20` | 2 | 5.782 | 0.002 | 537.00 |
+| 192s | `2^20` | 7 | 24.55 | 0.008 | 1923.76 |
+| 192f | `2^20` | 11 | 38.63 | 0.013 | 3022.62 |
+| 256s | `2^20` | 10 | 33.13 | 0.012 | 2735.09 |
+| 256f | `2^20` | 14 | 46.28 | 0.017 | 3822.01 |
 
 #### Native F-SPHINCS+-SHA256 Credential
 

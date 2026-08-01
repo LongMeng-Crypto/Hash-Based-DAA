@@ -54,6 +54,11 @@ void sha256_zk_wots_fixed_chain(uint8_t *out,
                                 const uint8_t addr[32],
                                 const uint8_t *sig_elem,
                                 unsigned int start);
+void sha256_wots_variable_pk_from_sig(uint8_t *pk,
+                                      const uint8_t seeded_state[32],
+                                      const uint8_t addr[32],
+                                      const uint8_t *sig,
+                                      const unsigned int *lengths);
 #endif
 
 

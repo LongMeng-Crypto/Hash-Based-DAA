@@ -81,7 +81,7 @@ Full DAA benchmark commands are documented in `../README.md`.
 ```bash
 cd DAA_FULL
 
-CARGO_TARGET_DIR=/tmp/risc0-sha256-daa-cuda \
+CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target" \
 RISC0_PROVER=local \
 RISC0_BACKEND_HASH=sha-256 \
 DAA_DETERMINISTIC=1 \

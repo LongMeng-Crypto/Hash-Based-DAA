@@ -16,7 +16,7 @@ Runs all 12 real DAA host-proof benchmarks:
 Defaults:
   --backend poseidon2
   --iterations 1
-  CARGO_TARGET_DIR=/tmp/sedaa-risc0-shared-target unless already set
+  CARGO_TARGET_DIR=${HOME}/.cache/sedaa-risc0-shared-target unless already set
 
 Examples:
   scripts/run_all_benchmarks.sh
@@ -55,7 +55,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 workspace_dir="$(cd -- "${script_dir}/.." && pwd)"
 cd "${workspace_dir}"
 
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/sedaa-risc0-shared-target}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 mkdir -p results
 
 if [[ -z "${result_prefix}" ]]; then

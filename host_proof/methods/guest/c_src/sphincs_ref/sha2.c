@@ -507,6 +507,60 @@ void sha256_zk_wots_fixed_chain(uint8_t *out,
 
     memcpy(out, real, SPX_N);
 }
+
+/* Recover a complete WOTS+ public key using the standard variable chain
+ * lengths, but keep the hot thash_1 loop on the direct SHA compression path.
+ * The seeded state, compressed-address template, and SHA padding block are
+ * shared by every chain in this WOTS instance. */
+void sha256_wots_variable_pk_from_sig(uint8_t *pk,
+                                      const uint8_t seeded_state[32],
+                                      const uint8_t addr[32],
+                                      const uint8_t *sig,
+                                      const unsigned int *lengths)
+{
+    uint8_t block[64] __attribute__((aligned(4))) = {0};
+    uint32_t hash_state[8] __attribute__((aligned(4)));
+    const unsigned int data_bytes = SPX_SHA256_ADDR_BYTES + SPX_N;
+    const unsigned int total_bytes = SPX_SHA256_BLOCK_BYTES + data_bytes;
+#ifdef RISC0_SHA_SYSCALL
+    uint32_t seed_state[8] __attribute__((aligned(4)));
+    memcpy(seed_state, seeded_state, sizeof(seed_state));
+#endif
+
+    memcpy(block, addr, SPX_SHA256_ADDR_BYTES);
+    block[data_bytes] = 0x80;
+    block[62] = (uint8_t)(total_bytes >> 5);
+    block[63] = (uint8_t)(total_bytes << 3);
+
+    for (unsigned int i = 0; i < SPX_WOTS_LEN; ++i) {
+        const uint8_t *chain_state = sig + (size_t)i * SPX_N;
+        block[SPX_OFFSET_CHAIN_ADDR] = (uint8_t)i;
+
+        for (unsigned int j = lengths[i]; j < SPX_WOTS_W - 1; ++j) {
+            block[SPX_OFFSET_HASH_ADDR] = (uint8_t)j;
+            memcpy(block + SPX_SHA256_ADDR_BYTES, chain_state, SPX_N);
+
+            SPX_PROFILE_INC(SPX_PROF_THASH, 1);
+            SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
+            SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
+            if (SPX_N == 16) {
+                SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
+            }
+#ifdef RISC0_SHA_SYSCALL
+            SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, 1);
+            SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
+            risc0_sys_sha_buffer(hash_state, seed_state, block, 1);
+#else
+            memcpy(hash_state, seeded_state, sizeof(hash_state));
+            crypto_hashblocks_sha256((uint8_t *)hash_state, block,
+                                     sizeof(block));
+#endif
+            chain_state = (const uint8_t *)hash_state;
+        }
+
+        memcpy(pk + (size_t)i * SPX_N, chain_state, SPX_N);
+    }
+}
 #endif
 
 
