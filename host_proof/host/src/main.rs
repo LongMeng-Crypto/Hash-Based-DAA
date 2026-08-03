@@ -7,6 +7,7 @@ use methods::{GUEST_ELF, GUEST_ID};
 use risc0_zkvm::recursion::identity as recursion_identity;
 use risc0_zkvm::{
     default_prover, ExecutorEnv, InnerReceipt, ProverOpts, Receipt, ReceiptKind, VerifierContext,
+    DEFAULT_MAX_PO2,
 };
 
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
@@ -57,8 +58,10 @@ fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
         .with_receipt_kind(receipt_kind)
 }
 
-fn verifier_context_for_hashfn(backend_hash: &str, seg_po2: u32) -> VerifierContext {
-    VerifierContext::from_max_po2_with_hashfn_public(backend_hash, seg_po2 as usize)
+fn verifier_context_for_hashfn(backend_hash: &str, _seg_po2: u32) -> VerifierContext {
+    // Succinct and identity receipts commit to the complete default control
+    // set, independently of the execution segment limit selected for a run.
+    VerifierContext::from_max_po2_with_hashfn_public(backend_hash, DEFAULT_MAX_PO2)
         .expect("unsupported verifier context hash function")
 }
 

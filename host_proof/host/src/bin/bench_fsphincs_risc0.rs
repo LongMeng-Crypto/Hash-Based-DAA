@@ -8,6 +8,7 @@ use aes::Aes256;
 use methods::{FSPHINCS_GUEST_ELF, FSPHINCS_GUEST_ID};
 use risc0_zkvm::{
     default_prover, ExecutorEnv, InnerReceipt, ProverOpts, ReceiptKind, VerifierContext,
+    DEFAULT_MAX_PO2,
 };
 
 #[cfg(not(fsphincs_256))]
@@ -194,7 +195,7 @@ fn main() {
     let receipt = prove_info.receipt;
 
     let verifier_context =
-        VerifierContext::from_max_po2_with_hashfn_public(&backend, seg_po2 as usize)
+        VerifierContext::from_max_po2_with_hashfn_public(&backend, DEFAULT_MAX_PO2)
             .expect("unsupported verifier context");
     let verify_start = Instant::now();
     receipt

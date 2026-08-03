@@ -3650,8 +3650,7 @@ dependencies = [
 [[package]]
 name = "risc0-circuit-recursion"
 version = "4.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2347e909c6b2a65584b5898f3802eec5b8c1b4b45329edfdd8587b6a04dd3357"
+source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git?rev=b09ed4ff754a83455a2971a3c0ec13aaee790b24#b09ed4ff754a83455a2971a3c0ec13aaee790b24"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3689,6 +3688,7 @@ dependencies = [
 [[package]]
 name = "risc0-circuit-rv32im"
 version = "4.0.4"
+source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git?rev=b09ed4ff754a83455a2971a3c0ec13aaee790b24#b09ed4ff754a83455a2971a3c0ec13aaee790b24"
 dependencies = [
  "anyhow",
  "bit-vec",
@@ -3815,6 +3815,7 @@ dependencies = [
 [[package]]
 name = "risc0-zkp"
 version = "3.0.4"
+source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git?rev=b09ed4ff754a83455a2971a3c0ec13aaee790b24#b09ed4ff754a83455a2971a3c0ec13aaee790b24"
 dependencies = [
  "anyhow",
  "blake2",
@@ -3845,6 +3846,7 @@ dependencies = [
 [[package]]
 name = "risc0-zkvm"
 version = "3.0.4"
+source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git?rev=b09ed4ff754a83455a2971a3c0ec13aaee790b24#b09ed4ff754a83455a2971a3c0ec13aaee790b24"
 dependencies = [
  "addr2line",
  "anyhow",

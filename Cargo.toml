@@ -11,10 +11,15 @@ resolver = "2"
 edition = "2021"
 license = "MIT"
 
+# Consume the standalone RISC0 v3.0.4 backend. This fork retains the stock
+# Poseidon2 path and adds end-to-end SHA-256 Composite/Succinct recursion.
+# Keep these four revisions together: succinct receipts bind to the recursion
+# artifacts and control IDs shipped by the same backend checkout.
 [patch.crates-io]
-risc0-zkvm = { path = "vendor/risc0_sha256_backend/crates/risc0-zkvm" }
-risc0-zkp = { path = "vendor/risc0_sha256_backend/crates/risc0-zkp" }
-risc0-circuit-rv32im = { path = "vendor/risc0_sha256_backend/crates/risc0-circuit-rv32im" }
+risc0-zkvm = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
+risc0-zkp = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
+risc0-circuit-rv32im = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
+risc0-circuit-recursion = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256-3.0.4.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
 
 # Always optimize; building and running the guests takes much longer without optimization.
 [profile.dev]

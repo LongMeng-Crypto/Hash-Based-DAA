@@ -6,14 +6,13 @@ shared protocol variable flow instead of independent proof-of-concept inputs.
 
 ## Repository Layout
 
-`DAA_FULL` is self-contained for the full benchmarked DAA prototype. The
-TPM-side FAEST/AES implementation, the RISC0 host-side SPHINCS+ proof runner,
-and the patched RISC0 SHA-256 backend crates are vendored inside this directory.
-The project does not need sibling `TPM_AES` or `DAA_HOST` directories to build
-or run.
+`DAA_FULL` contains the full benchmarked DAA protocol and its guests. The
+TPM-side FAEST/AES implementation remains vendored here, while the RISC0
+proving stack is consumed from a pinned `RISC0-SHA256-3.0.4` Git revision.
+This keeps DAA protocol code separate from the reusable backend.
 
 ```text
-Cargo.toml                         standalone workspace and local RISC0 patches
+Cargo.toml                         workspace and external RISC0 backend patches
 Cargo.lock                         locked dependency graph for reproducible builds
 crates/daa_core/                   protocol state machine, timing trace, FFI glue
 crates/daa_cli/                    command-line runner and benchmark wrapper
@@ -21,9 +20,12 @@ host_proof/                        RISC0 host-side SPHINCS+ proof runner
 host_proof/host/                   native host binary used by daa_core
 host_proof/methods/guest/          RISC0 guest program and SPHINCS+ verifier C code
 vendor/TPM_AES/                    vendored FAEST/AES TPM proof implementation
-vendor/risc0_sha256_backend/       patched RISC0 crates for SHA-256 composite receipts
 scripts/                           full-protocol benchmark helpers
 ```
+
+The four `[patch.crates-io]` entries in `Cargo.toml` are pinned to the same
+backend commit. Prover and verifier must use that same revision because
+Succinct and Identity receipts bind to its recursion artifacts and control IDs.
 
 `vendor/TPM_AES/builddir_rel/` intentionally contains only the generated FAEST
 C/header files needed by `daa_core/build.rs`; it does not contain Meson/Ninja
@@ -57,7 +59,9 @@ host_proof/
 ```
 
 The wrapper defaults to the SHA-256 RISC0 backend and can also run the
-Poseidon2 backend through `--backend poseidon2`. It records the internal
+Poseidon2 backend through `--backend poseidon2`. SHA-256 supports Composite,
+Succinct, and optional Identity wrapping through `RISC0_RECEIPT_KIND` and
+`RISC0_IDENTITY_WRAP`. The runner records the internal
 `prover_ms` / `verifier_ms` metrics emitted by the host runner. The top-level
 `wall time` includes Cargo/RISC0 wrapper overhead, so use the benchmark step
 table for protocol analysis.
