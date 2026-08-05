@@ -8,7 +8,7 @@ shared protocol variable flow instead of independent proof-of-concept inputs.
 
 `DAA_FULL` contains the full benchmarked DAA protocol and its guests. The
 TPM-side FAEST/AES implementation remains vendored here, while the RISC0
-proving stack is consumed from a pinned `RISC0-SHA256-3.0.4` Git revision.
+proving stack is consumed from a pinned `RISC0-SHA256` Git revision.
 This keeps DAA protocol code separate from the reusable backend.
 
 ```text
