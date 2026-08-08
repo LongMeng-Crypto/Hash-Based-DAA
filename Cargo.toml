@@ -16,10 +16,10 @@ license = "MIT"
 # Keep these four revisions together: succinct receipts bind to the recursion
 # artifacts and control IDs shipped by the same backend checkout.
 [patch.crates-io]
-risc0-zkvm = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
-risc0-zkp = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
-risc0-circuit-rv32im = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
-risc0-circuit-recursion = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "b09ed4ff754a83455a2971a3c0ec13aaee790b24" }
+risc0-zkvm = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "0079fe1882b123ff7239e0356ce5d8fb47f63795" }
+risc0-zkp = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "0079fe1882b123ff7239e0356ce5d8fb47f63795" }
+risc0-circuit-rv32im = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "0079fe1882b123ff7239e0356ce5d8fb47f63795" }
+risc0-circuit-recursion = { git = "https://github.com/LongMeng-Crypto/RISC0-SHA256.git", rev = "0079fe1882b123ff7239e0356ce5d8fb47f63795" }
 
 # Always optimize; building and running the guests takes much longer without optimization.
 [profile.dev]
