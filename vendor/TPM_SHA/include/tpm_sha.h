@@ -15,6 +15,11 @@ typedef enum daa_tpm_sha_level {
   DAA_TPM_SHA_256 = 256,
 } daa_tpm_sha_level;
 
+typedef enum daa_tpm_sha_profile {
+  DAA_TPM_SHA_SMALL = 1,
+  DAA_TPM_SHA_FAST = 2,
+} daa_tpm_sha_profile;
+
 typedef enum daa_tpm_sha_status {
   DAA_TPM_SHA_OK = 0,
   DAA_TPM_SHA_INVALID_ARGUMENT = 1,
@@ -36,13 +41,17 @@ size_t daa_tpm_sha_key_bytes(daa_tpm_sha_level level);
 size_t daa_tpm_sha_digest_bytes(daa_tpm_sha_level level);
 
 /* Lazily constructs and prepares both circuits for level. */
-int daa_tpm_sha_prepare(daa_tpm_sha_level level);
+int daa_tpm_sha_prepare(daa_tpm_sha_level level, daa_tpm_sha_profile profile);
 int daa_tpm_sha_join_stats(daa_tpm_sha_level level,
+                           daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* stats_out);
 int daa_tpm_sha_sign_stats(daa_tpm_sha_level level,
+                           daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* stats_out);
-size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level);
-size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level);
+size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level,
+                                    daa_tpm_sha_profile profile);
+size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level,
+                                    daa_tpm_sha_profile profile);
 
 int daa_tpm_sha_evaluate_join(
     daa_tpm_sha_level level,
@@ -67,7 +76,7 @@ int daa_tpm_sha_evaluate_sign(
  * randomness must contain exactly 32 caller-provided bytes.
  */
 int daa_tpm_sha_join_prove(
-    daa_tpm_sha_level level,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
     const uint8_t* gid, size_t gid_len,
     const uint8_t* et, size_t et_len,
@@ -76,7 +85,7 @@ int daa_tpm_sha_join_prove(
     uint8_t* proof_out, size_t* proof_len);
 
 int daa_tpm_sha_join_verify(
-    daa_tpm_sha_level level,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* gid, size_t gid_len,
     const uint8_t* et, size_t et_len,
     const uint8_t* context, size_t context_len,
@@ -84,7 +93,7 @@ int daa_tpm_sha_join_verify(
 
 /* et is an internal wire: only lid, gid, slt and hk form the public statement. */
 int daa_tpm_sha_sign_prove(
-    daa_tpm_sha_level level,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
     const uint8_t* s, size_t s_len,
     const uint8_t* lid, size_t lid_len,
@@ -96,7 +105,7 @@ int daa_tpm_sha_sign_prove(
     uint8_t* proof_out, size_t* proof_len);
 
 int daa_tpm_sha_sign_verify(
-    daa_tpm_sha_level level,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* lid, size_t lid_len,
     const uint8_t* gid, size_t gid_len,
     const uint8_t* slt, size_t slt_len,

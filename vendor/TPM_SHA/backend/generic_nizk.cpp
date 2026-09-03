@@ -311,7 +311,7 @@ bool verify(const QuicksilverRelation& relation, const PublicStatement& statemen
 namespace parameterized_nizk {
 namespace {
 
-constexpr char parameterized_domain[] = "VOLE-BINARY-CIRCUIT-NIZK-v2";
+constexpr char parameterized_domain[] = "VOLE-BINARY-CIRCUIT-NIZK-v3";
 
 struct Fields {
   std::vector<std::uint8_t> corrections;
@@ -325,8 +325,10 @@ struct Fields {
   std::uint32_t counter = 0;
 };
 
-std::array<std::uint8_t, 8> magic(SecurityLevel security) {
-  return {'V', 'B', 'C', 'Z', 'K', 2, security_level_code(security), 0};
+std::array<std::uint8_t, 8> magic(SecurityLevel security,
+                                  VoleProfile profile) {
+  return {'V', 'B', 'C', 'Z', 'K', 3, security_level_code(security),
+          vole_profile_code(profile)};
 }
 
 bool valid_statement(const PreparedBinaryCircuit& circuit, const PublicStatement& statement) {
@@ -338,24 +340,28 @@ bool valid_statement(const PreparedBinaryCircuit& circuit, const PublicStatement
          std::all_of(statement.expected_outputs.begin(), statement.expected_outputs.end(), valid_bit);
 }
 
-void domain_update(H2_context_t* hash, SecurityLevel security) {
+void domain_update(H2_context_t* hash, SecurityLevel security,
+                   VoleProfile profile) {
   H2_update(hash, reinterpret_cast<const std::uint8_t*>(parameterized_domain),
             sizeof(parameterized_domain) - 1);
   const auto code = security_level_code(security);
   H2_update(hash, &code, 1);
+  const auto profile_code = vole_profile_code(profile);
+  H2_update(hash, &profile_code, 1);
 }
 
 std::vector<std::uint8_t> statement_hash(
     const PreparedBinaryCircuit& circuit, SecurityLevel security,
-    const PublicStatement& statement, std::span<const std::uint8_t> context) {
+    VoleProfile profile, const PublicStatement& statement,
+    std::span<const std::uint8_t> context) {
   if (!valid_statement(circuit, statement)) throw std::invalid_argument("invalid public statement");
   if (context.size() > std::numeric_limits<std::uint32_t>::max())
     throw std::invalid_argument("context too long");
-  const auto& parameters = security_parameters(security);
-  const auto id = circuit.identifier(security);
+  const auto& parameters = security_parameters(security, profile);
+  const auto id = circuit.identifier(security, profile);
   H2_context_t hash;
   H2_init(&hash, parameters.lambda_bits);
-  domain_update(&hash, security);
+  domain_update(&hash, security, profile);
   H2_update(&hash, id.data(), id.size());
   H2_update_u32_le(&hash, static_cast<std::uint32_t>(statement.public_inputs.size()));
   if (!statement.public_inputs.empty())
@@ -373,17 +379,19 @@ std::vector<std::uint8_t> statement_hash(
 void derive_seed(std::span<const std::uint8_t> witness,
                  std::span<const std::uint8_t> mu,
                  const ProverRandomness& randomness,
-                 SecurityLevel security,
+                 SecurityLevel security, VoleProfile profile,
                  std::vector<std::uint8_t>& root,
                  std::array<std::uint8_t, 16>& iv_pre,
                  std::array<std::uint8_t, 16>& iv) {
-  const auto& parameters = security_parameters(security);
+  const auto& parameters = security_parameters(security, profile);
   H3_context_t hash;
   H3_init(&hash, parameters.lambda_bits);
   H3_update(&hash, reinterpret_cast<const std::uint8_t*>(parameterized_domain),
             sizeof(parameterized_domain) - 1);
   const auto code = security_level_code(security);
   H3_update(&hash, &code, 1);
+  const auto profile_code = vole_profile_code(profile);
+  H3_update(&hash, &profile_code, 1);
   if (!witness.empty()) H3_update(&hash, witness.data(), witness.size());
   H3_update(&hash, mu.data(), mu.size());
   H3_update(&hash, randomness.data(), randomness.size());
@@ -454,9 +462,10 @@ std::vector<std::uint8_t> finish_challenge_3(SecurityLevel security,
   return out;
 }
 
-bool grinding(SecurityLevel security, std::span<const std::uint8_t> challenge) {
-  const auto& level = security_parameters(security);
-  const auto parameters = faest_vole_parameters(security);
+bool grinding(SecurityLevel security, VoleProfile profile,
+              std::span<const std::uint8_t> challenge) {
+  const auto& level = security_parameters(security, profile);
+  const auto parameters = faest_vole_parameters(security, profile);
   if (challenge.size() != level.lambda_bytes) return false;
   for (std::size_t bit = level.lambda_bits - parameters.w_grind;
        bit != level.lambda_bits; ++bit) {
@@ -465,23 +474,26 @@ bool grinding(SecurityLevel security, std::span<const std::uint8_t> challenge) {
   return true;
 }
 
-std::size_t proof_bytes(const PreparedBinaryCircuit& circuit, SecurityLevel security) {
-  const auto& parameters = security_parameters(security);
+std::size_t proof_bytes(const PreparedBinaryCircuit& circuit,
+                        SecurityLevel security, VoleProfile profile) {
+  const auto& parameters = security_parameters(security, profile);
   const auto witness_bits = circuit.layout().vole_bits;
-  const auto vole = vole_layout(witness_bits, security);
-  return magic(security).size() + vole.correction_bytes + parameters.utilde_bytes() +
-         (witness_bits + 7) / 8 + 2 * parameters.lambda_bytes +
-         vole_opening_size(security) + parameters.lambda_bytes + 16 + 4;
+  const auto vole = vole_layout(witness_bits, security, profile);
+  return magic(security, profile).size() + vole.correction_bytes +
+         parameters.utilde_bytes() + (witness_bits + 7) / 8 +
+         2 * parameters.lambda_bytes + vole_opening_size(security, profile) +
+         parameters.lambda_bytes + 16 + 4;
 }
 
 std::vector<std::uint8_t> serialize(const PreparedBinaryCircuit& circuit,
-                                    SecurityLevel security, const Fields& fields) {
+                                    SecurityLevel security, VoleProfile profile,
+                                    const Fields& fields) {
   std::vector<std::uint8_t> out;
-  out.reserve(proof_bytes(circuit, security));
+  out.reserve(proof_bytes(circuit, security, profile));
   const auto append = [&out](const auto& value) {
     out.insert(out.end(), value.begin(), value.end());
   };
-  append(magic(security));
+  append(magic(security, profile));
   append(fields.corrections);
   append(fields.u_tilde);
   append(fields.d);
@@ -492,18 +504,19 @@ std::vector<std::uint8_t> serialize(const PreparedBinaryCircuit& circuit,
   append(fields.iv_pre);
   for (unsigned int shift = 0; shift != 32; shift += 8)
     out.push_back(static_cast<std::uint8_t>(fields.counter >> shift));
-  if (out.size() != proof_bytes(circuit, security))
+  if (out.size() != proof_bytes(circuit, security, profile))
     throw std::logic_error("parameterized proof size mismatch");
   return out;
 }
 
 bool deserialize(const PreparedBinaryCircuit& circuit, SecurityLevel security,
-                 std::span<const std::uint8_t> input, Fields& fields) {
-  const auto& parameters = security_parameters(security);
+                 VoleProfile profile, std::span<const std::uint8_t> input,
+                 Fields& fields) {
+  const auto& parameters = security_parameters(security, profile);
   const auto witness_bits = circuit.layout().vole_bits;
-  const auto vole = vole_layout(witness_bits, security);
-  const auto expected_magic = magic(security);
-  if (input.size() != proof_bytes(circuit, security) ||
+  const auto vole = vole_layout(witness_bits, security, profile);
+  const auto expected_magic = magic(security, profile);
+  if (input.size() != proof_bytes(circuit, security, profile) ||
       !std::equal(expected_magic.begin(), expected_magic.end(), input.begin()))
     return false;
   fields.corrections.resize(vole.correction_bytes);
@@ -511,7 +524,7 @@ bool deserialize(const PreparedBinaryCircuit& circuit, SecurityLevel security,
   fields.d.resize((witness_bits + 7) / 8);
   fields.a1.resize(parameters.lambda_bytes);
   fields.a2.resize(parameters.lambda_bytes);
-  fields.opening.resize(vole_opening_size(security));
+  fields.opening.resize(vole_opening_size(security, profile));
   fields.challenge_3.resize(parameters.lambda_bytes);
   std::size_t offset = expected_magic.size();
   const auto take = [&input, &offset](auto& value) {
@@ -535,12 +548,13 @@ bool deserialize(const PreparedBinaryCircuit& circuit, SecurityLevel security,
 } // namespace
 
 std::size_t serialized_proof_bytes(const PreparedBinaryCircuit& circuit,
-                                   SecurityLevel security) {
-  return proof_bytes(circuit, security);
+                                   SecurityLevel security,
+                                   VoleProfile profile) {
+  return proof_bytes(circuit, security, profile);
 }
 
 std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
-                                SecurityLevel security,
+                                SecurityLevel security, VoleProfile profile,
                                 std::span<const std::uint8_t> private_inputs,
                                 const PublicStatement& statement,
                                 std::span<const std::uint8_t> context,
@@ -553,12 +567,14 @@ std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
   const auto witness_bits = circuit.layout().vole_bits;
   if (witness.size() != (witness_bits + 7) / 8)
     throw std::logic_error("binary relation returned wrong witness size");
-  const auto& parameters = security_parameters(security);
-  const auto mu = statement_hash(circuit, security, statement, context);
+  const auto& parameters = security_parameters(security, profile);
+  const auto mu =
+      statement_hash(circuit, security, profile, statement, context);
   std::vector<std::uint8_t> root;
   std::array<std::uint8_t, 16> iv_pre{}, iv{};
-  derive_seed(witness, mu, randomness, security, root, iv_pre, iv);
-  ParameterizedFaestVoleCommitment commitment(security, root, iv, witness_bits);
+  derive_seed(witness, mu, randomness, security, profile, root, iv_pre, iv);
+  ParameterizedFaestVoleCommitment commitment(
+      security, profile, root, iv, witness_bits);
   auto v = commitment.v_columns();
   const auto c1 = challenge_1(security, mu, commitment.commitment_hash(),
                               commitment.corrections(), iv);
@@ -585,35 +601,37 @@ std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
   auto c3_hash = challenge_3_prefix(security, c2, qs.a0, qs.a1, qs.a2);
   for (std::uint32_t counter = 0;; ++counter) {
     fields.challenge_3 = finish_challenge_3(security, c3_hash, counter);
-    if (!grinding(security, fields.challenge_3) ||
+    if (!grinding(security, profile, fields.challenge_3) ||
         !commitment.open(fields.challenge_3, fields.opening))
       continue;
     fields.counter = counter;
     break;
   }
   hash_clear(&c3_hash);
-  return serialize(circuit, security, fields);
+  return serialize(circuit, security, profile, fields);
 }
 
 bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
-            const PublicStatement& statement,
+            VoleProfile profile, const PublicStatement& statement,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> proof) {
   try {
     if (!valid_statement(circuit, statement)) return false;
-    const auto& parameters = security_parameters(security);
+    const auto& parameters = security_parameters(security, profile);
     const auto witness_bits = circuit.layout().vole_bits;
     Fields fields;
-    if (!deserialize(circuit, security, proof, fields) ||
-        !grinding(security, fields.challenge_3))
+    if (!deserialize(circuit, security, profile, proof, fields) ||
+        !grinding(security, profile, fields.challenge_3))
       return false;
     std::array<std::uint8_t, 16> iv{};
     H4(iv.data(), fields.iv_pre.data(), parameters.lambda_bits);
     ParameterizedReconstructedVole reconstructed;
-    if (!reconstruct_vole(security, iv, fields.challenge_3, fields.opening,
+    if (!reconstruct_vole(security, profile, iv, fields.challenge_3,
+                          fields.opening,
                           fields.corrections, witness_bits, reconstructed))
       return false;
-    const auto mu = statement_hash(circuit, security, statement, context);
+    const auto mu =
+        statement_hash(circuit, security, profile, statement, context);
     const auto c1 = challenge_1(security, mu, reconstructed.commitment_hash,
                                 fields.corrections, iv);
     auto c2_hash = challenge_2_prefix(security, c1, fields.u_tilde);
@@ -653,7 +671,13 @@ std::size_t serialized_proof_bytes(const BinaryCircuit& circuit,
 
 std::size_t serialized_proof_bytes(const PreparedBinaryCircuit& circuit,
                                    SecurityLevel security) {
-  return parameterized_nizk::serialized_proof_bytes(circuit, security);
+  return serialized_proof_bytes(circuit, security, VoleProfile::Small);
+}
+
+std::size_t serialized_proof_bytes(const PreparedBinaryCircuit& circuit,
+                                   SecurityLevel security,
+                                   VoleProfile profile) {
+  return parameterized_nizk::serialized_proof_bytes(circuit, security, profile);
 }
 
 std::size_t serialized_proof_bytes(const BinaryCircuit& circuit) {
@@ -677,7 +701,17 @@ std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
                                 const PublicStatement& statement,
                                 std::span<const std::uint8_t> context,
                                 const ProverRandomness& randomness) {
-  return parameterized_nizk::prove(circuit, security, private_inputs,
+  return prove(circuit, security, VoleProfile::Small, private_inputs,
+               statement, context, randomness);
+}
+
+std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
+                                SecurityLevel security, VoleProfile profile,
+                                std::span<const std::uint8_t> private_inputs,
+                                const PublicStatement& statement,
+                                std::span<const std::uint8_t> context,
+                                const ProverRandomness& randomness) {
+  return parameterized_nizk::prove(circuit, security, profile, private_inputs,
                                    statement, context, randomness);
 }
 
@@ -702,12 +736,20 @@ bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
             const PublicStatement& statement,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> proof) {
-  if (parameterized_nizk::verify(circuit, security, statement, context, proof))
+  if (verify(circuit, security, VoleProfile::Small, statement, context, proof))
     return true;
   if (security != SecurityLevel::Bits128) return false;
   const LegacyBinaryRelation legacy(circuit.circuit());
   return verify(static_cast<const QuicksilverRelation&>(legacy), statement,
                 context, proof);
+}
+
+bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
+            VoleProfile profile, const PublicStatement& statement,
+            std::span<const std::uint8_t> context,
+            std::span<const std::uint8_t> proof) {
+  return parameterized_nizk::verify(circuit, security, profile, statement,
+                                    context, proof);
 }
 
 bool verify(const BinaryCircuit& circuit, const PublicStatement& statement,

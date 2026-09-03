@@ -28,6 +28,14 @@ vole_backend::SecurityLevel level_from_c(daa_tpm_sha_level level) {
   throw std::invalid_argument("invalid TPM SHA security level");
 }
 
+vole_backend::VoleProfile profile_from_c(daa_tpm_sha_profile profile) {
+  switch (profile) {
+  case DAA_TPM_SHA_SMALL: return vole_backend::VoleProfile::Small;
+  case DAA_TPM_SHA_FAST: return vole_backend::VoleProfile::Fast;
+  }
+  throw std::invalid_argument("invalid TPM SHA VOLE profile");
+}
+
 struct CachedRelation {
   explicit CachedRelation(vole_backend::SecurityLevel level,
                           daa::tpm_sha::RelationKind kind)
@@ -161,7 +169,9 @@ int write_proof(std::span<const std::uint8_t> proof,
   return DAA_TPM_SHA_OK;
 }
 
-void fill_stats(const CachedRelation& cached, daa_tpm_sha_stats* output) {
+void fill_stats(const CachedRelation& cached,
+                vole_backend::VoleProfile profile,
+                daa_tpm_sha_stats* output) {
   if (output == nullptr) throw std::invalid_argument("stats_out is null");
   const auto stats = cached.prepared.statistics();
   output->private_input_bits = stats.private_inputs;
@@ -171,7 +181,7 @@ void fill_stats(const CachedRelation& cached, daa_tpm_sha_stats* output) {
   output->xor_gates = stats.xor_gates;
   output->total_nodes = stats.total_nodes;
   output->proof_bytes = vole_backend::serialized_proof_bytes(
-      cached.prepared, cached.relation.level());
+      cached.prepared, cached.relation.level(), profile);
 }
 
 } // namespace
@@ -199,32 +209,41 @@ size_t daa_tpm_sha_digest_bytes(daa_tpm_sha_level level) {
   return 0;
 }
 
-int daa_tpm_sha_prepare(daa_tpm_sha_level level) {
+int daa_tpm_sha_prepare(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
   return ffi([&] {
+    static_cast<void>(profile_from_c(profile));
     static_cast<void>(join_cache(level));
     static_cast<void>(sign_cache(level));
   });
 }
 
 int daa_tpm_sha_join_stats(daa_tpm_sha_level level,
+                           daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* output) {
-  return ffi([&] { fill_stats(join_cache(level), output); });
+  return ffi([&] {
+    fill_stats(join_cache(level), profile_from_c(profile), output);
+  });
 }
 
 int daa_tpm_sha_sign_stats(daa_tpm_sha_level level,
+                           daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* output) {
-  return ffi([&] { fill_stats(sign_cache(level), output); });
+  return ffi([&] {
+    fill_stats(sign_cache(level), profile_from_c(profile), output);
+  });
 }
 
-size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level) {
+size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level,
+                                    daa_tpm_sha_profile profile) {
   daa_tpm_sha_stats stats{};
-  return daa_tpm_sha_join_stats(level, &stats) == DAA_TPM_SHA_OK
+  return daa_tpm_sha_join_stats(level, profile, &stats) == DAA_TPM_SHA_OK
              ? stats.proof_bytes : 0;
 }
 
-size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level) {
+size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level,
+                                    daa_tpm_sha_profile profile) {
   daa_tpm_sha_stats stats{};
-  return daa_tpm_sha_sign_stats(level, &stats) == DAA_TPM_SHA_OK
+  return daa_tpm_sha_sign_stats(level, profile, &stats) == DAA_TPM_SHA_OK
              ? stats.proof_bytes : 0;
 }
 
@@ -256,7 +275,8 @@ int daa_tpm_sha_evaluate_sign(
 }
 
 int daa_tpm_sha_join_prove(
-    daa_tpm_sha_level level, const uint8_t* sk, size_t sk_len,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sk, size_t sk_len,
     const uint8_t* gid, size_t gid_len, const uint8_t* et, size_t et_len,
     const uint8_t* context, size_t context_len,
     const uint8_t* randomness, size_t randomness_len,
@@ -269,7 +289,7 @@ int daa_tpm_sha_join_prove(
         cached.relation, input_span(gid, gid_len, "gid"),
         input_span(et, et_len, "et"));
     const auto proof = vole_backend::prove(
-        cached.prepared, cached.relation.level(),
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
         cached.relation.private_bits(sk_span), statement,
         input_span(context, context_len, "context"),
         prover_randomness(randomness, randomness_len));
@@ -287,7 +307,8 @@ int daa_tpm_sha_join_prove(
 }
 
 int daa_tpm_sha_join_verify(
-    daa_tpm_sha_level level, const uint8_t* gid, size_t gid_len,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* gid, size_t gid_len,
     const uint8_t* et, size_t et_len, const uint8_t* context,
     size_t context_len, const uint8_t* proof, size_t proof_len) {
   last_error.clear();
@@ -297,8 +318,8 @@ int daa_tpm_sha_join_verify(
         cached.relation, input_span(gid, gid_len, "gid"),
         input_span(et, et_len, "et"));
     const bool valid = vole_backend::verify(
-        cached.prepared, cached.relation.level(), statement,
-        input_span(context, context_len, "context"),
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
+        statement, input_span(context, context_len, "context"),
         input_span(proof, proof_len, "proof"));
     if (!valid) last_error = "invalid TPM SHA Join proof";
     return valid ? DAA_TPM_SHA_OK : DAA_TPM_SHA_INVALID_ARGUMENT;
@@ -312,7 +333,8 @@ int daa_tpm_sha_join_verify(
 }
 
 int daa_tpm_sha_sign_prove(
-    daa_tpm_sha_level level, const uint8_t* sk, size_t sk_len,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sk, size_t sk_len,
     const uint8_t* s, size_t s_len, const uint8_t* lid, size_t lid_len,
     const uint8_t* gid, size_t gid_len, const uint8_t* slt, size_t slt_len,
     const uint8_t* hk, size_t hk_len, const uint8_t* context,
@@ -326,7 +348,7 @@ int daa_tpm_sha_sign_prove(
         input_span(gid, gid_len, "gid"), input_span(slt, slt_len, "slt"),
         input_span(hk, hk_len, "hk"));
     const auto proof = vole_backend::prove(
-        cached.prepared, cached.relation.level(),
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
         cached.relation.private_bits(input_span(sk, sk_len, "sk"),
                                      input_span(s, s_len, "s")),
         statement, input_span(context, context_len, "context"),
@@ -345,7 +367,8 @@ int daa_tpm_sha_sign_prove(
 }
 
 int daa_tpm_sha_sign_verify(
-    daa_tpm_sha_level level, const uint8_t* lid, size_t lid_len,
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* lid, size_t lid_len,
     const uint8_t* gid, size_t gid_len, const uint8_t* slt, size_t slt_len,
     const uint8_t* hk, size_t hk_len, const uint8_t* context,
     size_t context_len, const uint8_t* proof, size_t proof_len) {
@@ -357,8 +380,8 @@ int daa_tpm_sha_sign_verify(
         input_span(gid, gid_len, "gid"), input_span(slt, slt_len, "slt"),
         input_span(hk, hk_len, "hk"));
     const bool valid = vole_backend::verify(
-        cached.prepared, cached.relation.level(), statement,
-        input_span(context, context_len, "context"),
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
+        statement, input_span(context, context_len, "context"),
         input_span(proof, proof_len, "proof"));
     if (!valid) last_error = "invalid TPM SHA signing proof";
     return valid ? DAA_TPM_SHA_OK : DAA_TPM_SHA_INVALID_ARGUMENT;

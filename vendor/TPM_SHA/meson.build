@@ -82,7 +82,7 @@ tpm_sha_dep = declare_dependency(
 tpm_sha_tests = executable(
   'tpm_sha_tests', files('tests/tpm_sha_tests.cpp'),
   dependencies: [tpm_sha_dep, openssl],
-  cpp_args: prefix_args,
+  cpp_args: prefix_args + ['-DFAEST_TESTS'],
 )
 
 tpm_sha_benchmark = executable(

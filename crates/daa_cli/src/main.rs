@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use daa_core::{
     benchmark_tpm_sha, run_full, BenchmarkTrace, ProofMode, ProtocolConfig, SecurityLevel,
-    TpmBackend,
+    TpmBackend, TpmShaProfile,
 };
 
 /// Starts the CLI and prints fatal errors.
@@ -37,13 +37,19 @@ fn real_main() -> Result<(), String> {
 
 /// Benchmarks only the prepared TPM-SHA Join and joint signing proofs.
 fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
-    let levels: Vec<SecurityLevel> = match opts.params.as_str() {
+    let variants: Vec<(SecurityLevel, TpmShaProfile)> = match opts.params.as_str() {
         "all" | "sha2-all" => vec![
-            SecurityLevel::L128,
-            SecurityLevel::L192,
-            SecurityLevel::L256,
+            (SecurityLevel::L128, TpmShaProfile::Small),
+            (SecurityLevel::L128, TpmShaProfile::Fast),
+            (SecurityLevel::L192, TpmShaProfile::Small),
+            (SecurityLevel::L192, TpmShaProfile::Fast),
+            (SecurityLevel::L256, TpmShaProfile::Small),
+            (SecurityLevel::L256, TpmShaProfile::Fast),
         ],
-        name => vec![SecurityLevel::from_name(name)],
+        name => vec![(
+            SecurityLevel::from_name(name),
+            TpmShaProfile::from_name(name),
+        )],
     };
     let iterations = opts.iterations.max(1);
 
@@ -51,8 +57,9 @@ fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
     println!("iterations={iterations}");
     println!();
     println!(
-        "{:<9} {:>11} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}",
+        "{:<9} {:<7} {:>11} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}",
         "hash",
+        "profile",
         "prepare_ms",
         "join_p_ms",
         "join_v_ms",
@@ -61,12 +68,12 @@ fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
         "sign_v_ms",
         "sign_bytes"
     );
-    println!("{:-<108}", "");
+    println!("{:-<116}", "");
 
-    for level in levels {
+    for (level, profile) in variants {
         let mut samples = Vec::with_capacity(iterations);
         for _ in 0..iterations {
-            samples.push(benchmark_tpm_sha(level).map_err(|err| err.to_string())?);
+            samples.push(benchmark_tpm_sha(level, profile).map_err(|err| err.to_string())?);
         }
         let first = &samples[0];
         let average_ms = |pick: fn(&daa_core::TpmShaBenchmark) -> std::time::Duration| {
@@ -77,8 +84,9 @@ fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
                 / samples.len() as f64
         };
         println!(
-            "{:<9} {:>11.3} {:>12.3} {:>12.3} {:>12} {:>12.3} {:>12.3} {:>12}",
+            "{:<9} {:<7} {:>11.3} {:>12.3} {:>12.3} {:>12} {:>12.3} {:>12.3} {:>12}",
             first.hash_name,
+            first.profile.name(),
             first.prepare.as_secs_f64() * 1000.0,
             average_ms(|sample| sample.join_prove),
             average_ms(|sample| sample.join_verify),
@@ -378,7 +386,7 @@ fn print_help() {
     println!("  bench-tpm-sha Benchmark SHA-256/384/512 Join and joint TPM proofs only");
     println!();
     println!("Options:");
-    println!("  --params NAME       SPHINCS/security label, default sha2-128s");
+    println!("  --params NAME       security/profile label (e.g. sha2-128s or sha2-128f)");
     println!("  --backend NAME      host proof backend label, default sha-256");
     println!("  --tpm-backend NAME  TPM primitive: aes (default) or sha2");
     println!(

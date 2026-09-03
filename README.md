@@ -151,28 +151,30 @@ will be `64` bytes. Use this mode only for TPM/issuer plumbing and FAEST timing.
 
 ### TPM-SHA Join and Signing Benchmark
 
-Benchmark the SHA-256, SHA-384, and SHA-512 VOLEith circuits together, without
-running SPHINCS+ or RISC0:
+Benchmark the SHA-256, SHA-384, and SHA-512 VOLEith circuits in both S
+(small-proof) and F (fast-proof) profiles, without running SPHINCS+ or RISC0:
 
 ```sh
 export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
 scripts/benchmark_tpm_sha.sh
 ```
 
-The default is 10 measured proofs per level. Override it with
-`ITERATIONS=1 scripts/benchmark_tpm_sha.sh` for a quick smoke test. The output
-reports circuit preparation separately, followed by average Join prove/verify
-time, joint TPM-signing prove/verify time, both proof sizes, and gate counts.
-To run one level directly:
+The default is 10 measured proofs for each of the six variants. Override it
+with `ITERATIONS=1 scripts/benchmark_tpm_sha.sh` for a quick smoke test. The
+output reports circuit preparation separately, followed by average Join
+prove/verify time, joint TPM-signing prove/verify time, both proof sizes, and
+gate counts. To run one variant directly:
 
 ```sh
 cargo run --release -p daa_cli -- \
   bench-tpm-sha --params sha2-128s --iterations 10
 ```
 
-Replace `sha2-128s` with `sha2-192s` or `sha2-256s` as needed. A complete DAA
-run using the SHA path through Join, TPM signing, and the host hook is selected
-with `--tpm-backend sha2`; the legacy path remains `--tpm-backend aes`.
+Use any of `sha2-128s`, `sha2-128f`, `sha2-192s`, `sha2-192f`,
+`sha2-256s`, or `sha2-256f`. The suffix selects the TPM-SHA VOLE profile as
+well as the matching issuer parameter label. A complete DAA run using the SHA
+path through Join, TPM signing, and the host hook is selected with
+`--tpm-backend sha2`; the legacy path remains `--tpm-backend aes`.
 
 ### Full DAA Benchmark With RISC0-SHA256 Host Proof
 

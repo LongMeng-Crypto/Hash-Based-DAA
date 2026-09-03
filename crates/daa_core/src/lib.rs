@@ -66,6 +66,37 @@ impl SecurityLevel {
     }
 }
 
+/// Selects the FAEST-style size/speed tradeoff at a fixed security level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TpmShaProfile {
+    Small,
+    Fast,
+}
+
+impl TpmShaProfile {
+    pub fn from_name(name: &str) -> Self {
+        if name.ends_with('f') {
+            Self::Fast
+        } else {
+            Self::Small
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Small => "s",
+            Self::Fast => "f",
+        }
+    }
+
+    fn code(self) -> u32 {
+        match self {
+            Self::Small => 1,
+            Self::Fast => 2,
+        }
+    }
+}
+
 /// Selects the legacy AES/FAEST TPM relation or the SHA-2/VOLEith relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TpmBackend {
@@ -98,6 +129,7 @@ pub struct ProtocolConfig {
     pub deterministic_seed: u64,
     pub proof_mode: ProofMode,
     pub tpm_backend: TpmBackend,
+    pub tpm_sha_profile: TpmShaProfile,
     pub risc0_segment_limit_po2: Option<u32>,
 }
 
@@ -112,6 +144,7 @@ impl Default for ProtocolConfig {
             deterministic_seed: 0xdaa5_eeda_2026_0705,
             proof_mode: ProofMode::Real128s,
             tpm_backend: TpmBackend::Aes,
+            tpm_sha_profile: TpmShaProfile::Small,
             risc0_segment_limit_po2: None,
         }
     }
@@ -122,6 +155,7 @@ impl ProtocolConfig {
     pub fn with_params(mut self, params: impl Into<String>) -> Self {
         self.sphincs_params = normalize_param_name(&params.into());
         self.security = SecurityLevel::from_name(&self.sphincs_params);
+        self.tpm_sha_profile = TpmShaProfile::from_name(&self.sphincs_params);
         self
     }
 
@@ -140,6 +174,12 @@ impl ProtocolConfig {
     /// Selects the TPM primitive independently from the RISC0 receipt hash.
     pub fn with_tpm_backend(mut self, tpm_backend: TpmBackend) -> Self {
         self.tpm_backend = tpm_backend;
+        self
+    }
+
+    /// Selects the TPM-SHA VOLE size/speed profile explicitly.
+    pub fn with_tpm_sha_profile(mut self, profile: TpmShaProfile) -> Self {
+        self.tpm_sha_profile = profile;
         self
     }
 
@@ -481,6 +521,7 @@ pub struct TpmShaCircuitStats {
 #[derive(Debug, Clone)]
 pub struct TpmShaBenchmark {
     pub security: SecurityLevel,
+    pub profile: TpmShaProfile,
     pub hash_name: &'static str,
     pub key_bytes: usize,
     pub digest_bytes: usize,
@@ -522,11 +563,17 @@ impl std::error::Error for DaaError {}
 pub type DaaResult<T> = Result<T, DaaError>;
 
 /// Benchmarks prepared TPM-SHA Join and signing circuits without SPHINCS+/RISC0 work.
-pub fn benchmark_tpm_sha(security: SecurityLevel) -> DaaResult<TpmShaBenchmark> {
-    let params = match security {
-        SecurityLevel::L128 => "sha2-128s",
-        SecurityLevel::L192 => "sha2-192s",
-        SecurityLevel::L256 => "sha2-256s",
+pub fn benchmark_tpm_sha(
+    security: SecurityLevel,
+    profile: TpmShaProfile,
+) -> DaaResult<TpmShaBenchmark> {
+    let params = match (security, profile) {
+        (SecurityLevel::L128, TpmShaProfile::Small) => "sha2-128s",
+        (SecurityLevel::L128, TpmShaProfile::Fast) => "sha2-128f",
+        (SecurityLevel::L192, TpmShaProfile::Small) => "sha2-192s",
+        (SecurityLevel::L192, TpmShaProfile::Fast) => "sha2-192f",
+        (SecurityLevel::L256, TpmShaProfile::Small) => "sha2-256s",
+        (SecurityLevel::L256, TpmShaProfile::Fast) => "sha2-256f",
     };
     let config = ProtocolConfig::default()
         .with_params(params)
@@ -534,7 +581,7 @@ pub fn benchmark_tpm_sha(security: SecurityLevel) -> DaaResult<TpmShaBenchmark> 
         .with_proof_mode(ProofMode::RealTpm);
 
     let prepare_started = Instant::now();
-    if unsafe { daa_tpm_sha_prepare(security.bits()) } != 0 {
+    if unsafe { daa_tpm_sha_prepare(security.bits(), profile.code()) } != 0 {
         return Err(DaaError::InvalidTpmProof);
     }
     let prepare = prepare_started.elapsed();
@@ -572,10 +619,11 @@ pub fn benchmark_tpm_sha(security: SecurityLevel) -> DaaResult<TpmShaBenchmark> 
     }
     let sign_verify = sign_verify_started.elapsed();
 
-    let join_stats = tpm_sha_stats(security, false)?;
-    let sign_stats = tpm_sha_stats(security, true)?;
+    let join_stats = tpm_sha_stats(security, profile, false)?;
+    let sign_stats = tpm_sha_stats(security, profile, true)?;
     Ok(TpmShaBenchmark {
         security,
+        profile,
         hash_name: sha2_name(security),
         key_bytes,
         digest_bytes,
@@ -592,13 +640,17 @@ pub fn benchmark_tpm_sha(security: SecurityLevel) -> DaaResult<TpmShaBenchmark> 
 }
 
 /// Converts the stable C ABI statistics structure into the public Rust type.
-fn tpm_sha_stats(security: SecurityLevel, signing: bool) -> DaaResult<TpmShaCircuitStats> {
+fn tpm_sha_stats(
+    security: SecurityLevel,
+    profile: TpmShaProfile,
+    signing: bool,
+) -> DaaResult<TpmShaCircuitStats> {
     let mut raw = DaaTpmShaStats::default();
     let ret = unsafe {
         if signing {
-            daa_tpm_sha_sign_stats(security.bits(), &mut raw)
+            daa_tpm_sha_sign_stats(security.bits(), profile.code(), &mut raw)
         } else {
-            daa_tpm_sha_join_stats(security.bits(), &mut raw)
+            daa_tpm_sha_join_stats(security.bits(), profile.code(), &mut raw)
         }
     };
     if ret != 0 {
@@ -619,7 +671,9 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
     let mut rng = DeterministicRng::new(config.deterministic_seed);
     if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
         trace.scoped("setup.tpm_sha.prepare", || {
-            let ret = unsafe { daa_tpm_sha_prepare(config.security.bits()) };
+            let ret = unsafe {
+                daa_tpm_sha_prepare(config.security.bits(), config.tpm_sha_profile.code())
+            };
             assert_eq!(ret, 0, "TPM_SHA circuit preparation failed");
         });
     }
@@ -1452,7 +1506,8 @@ fn prove_join_sha_real(
     context: &[u8],
 ) -> DaaResult<ProofArtifact> {
     let level = config.security.bits();
-    let proof_cap = unsafe { daa_tpm_sha_join_proof_bytes(level) };
+    let profile = config.tpm_sha_profile.code();
+    let proof_cap = unsafe { daa_tpm_sha_join_proof_bytes(level, profile) };
     if proof_cap == 0 {
         return Err(DaaError::InvalidJoinProof);
     }
@@ -1462,6 +1517,7 @@ fn prove_join_sha_real(
     let ret = unsafe {
         daa_tpm_sha_join_prove(
             level,
+            profile,
             sk.as_ptr(),
             sk.len(),
             gid.as_ptr(),
@@ -1482,7 +1538,11 @@ fn prove_join_sha_real(
     proof.truncate(proof_len);
     Ok(ProofArtifact {
         kind: "pi_join".to_string(),
-        backend: format!("voleith-{}-join", sha2_name(config.security)),
+        backend: format!(
+            "voleith-{}{}-join",
+            sha2_name(config.security),
+            config.tpm_sha_profile.name()
+        ),
         statement_hash: sha2_hash(SecurityLevel::L128, &[gid, et, context]),
         proof_bytes: proof,
         seal_bytes: None,
@@ -1500,6 +1560,7 @@ fn verify_join_sha_real(
     unsafe {
         daa_tpm_sha_join_verify(
             config.security.bits(),
+            config.tpm_sha_profile.code(),
             gid.as_ptr(),
             gid.len(),
             et.as_ptr(),
@@ -1529,7 +1590,8 @@ fn prove_tpm_sha_real(
         return Err(DaaError::InvalidTpmProof);
     }
     let level = config.security.bits();
-    let proof_cap = unsafe { daa_tpm_sha_sign_proof_bytes(level) };
+    let profile = config.tpm_sha_profile.code();
+    let proof_cap = unsafe { daa_tpm_sha_sign_proof_bytes(level, profile) };
     if proof_cap == 0 {
         return Err(DaaError::InvalidTpmProof);
     }
@@ -1539,6 +1601,7 @@ fn prove_tpm_sha_real(
     let ret = unsafe {
         daa_tpm_sha_sign_prove(
             level,
+            profile,
             sk.as_ptr(),
             sk.len(),
             s.as_ptr(),
@@ -1565,7 +1628,11 @@ fn prove_tpm_sha_real(
     proof.truncate(proof_len);
     Ok(ProofArtifact {
         kind: "pi_tpm".to_string(),
-        backend: format!("voleith-{}-3sha2", sha2_name(config.security)),
+        backend: format!(
+            "voleith-{}{}-3sha2",
+            sha2_name(config.security),
+            config.tpm_sha_profile.name()
+        ),
         statement_hash: sha2_hash(SecurityLevel::L128, &[lid, gid, slt, hk, context]),
         proof_bytes: proof,
         seal_bytes: None,
@@ -1585,6 +1652,7 @@ fn verify_tpm_sha_real(
     unsafe {
         daa_tpm_sha_sign_verify(
             config.security.bits(),
+            config.tpm_sha_profile.code(),
             lid.as_ptr(),
             lid.len(),
             gid.as_ptr(),
@@ -2147,13 +2215,14 @@ extern "C" {
         sig: *const u8,
         sig_len: usize,
     ) -> i32;
-    fn daa_tpm_sha_prepare(level: u32) -> i32;
-    fn daa_tpm_sha_join_stats(level: u32, stats: *mut DaaTpmShaStats) -> i32;
-    fn daa_tpm_sha_sign_stats(level: u32, stats: *mut DaaTpmShaStats) -> i32;
-    fn daa_tpm_sha_join_proof_bytes(level: u32) -> usize;
-    fn daa_tpm_sha_sign_proof_bytes(level: u32) -> usize;
+    fn daa_tpm_sha_prepare(level: u32, profile: u32) -> i32;
+    fn daa_tpm_sha_join_stats(level: u32, profile: u32, stats: *mut DaaTpmShaStats) -> i32;
+    fn daa_tpm_sha_sign_stats(level: u32, profile: u32, stats: *mut DaaTpmShaStats) -> i32;
+    fn daa_tpm_sha_join_proof_bytes(level: u32, profile: u32) -> usize;
+    fn daa_tpm_sha_sign_proof_bytes(level: u32, profile: u32) -> usize;
     fn daa_tpm_sha_join_prove(
         level: u32,
+        profile: u32,
         sk: *const u8,
         sk_len: usize,
         gid: *const u8,
@@ -2169,6 +2238,7 @@ extern "C" {
     ) -> i32;
     fn daa_tpm_sha_join_verify(
         level: u32,
+        profile: u32,
         gid: *const u8,
         gid_len: usize,
         et: *const u8,
@@ -2180,6 +2250,7 @@ extern "C" {
     ) -> i32;
     fn daa_tpm_sha_sign_prove(
         level: u32,
+        profile: u32,
         sk: *const u8,
         sk_len: usize,
         s: *const u8,
@@ -2201,6 +2272,7 @@ extern "C" {
     ) -> i32;
     fn daa_tpm_sha_sign_verify(
         level: u32,
+        profile: u32,
         lid: *const u8,
         lid_len: usize,
         gid: *const u8,
