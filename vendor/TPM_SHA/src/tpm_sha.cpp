@@ -69,17 +69,38 @@ CachedRelation& sign_cache(daa_tpm_sha_level level) {
   switch (level) {
   case DAA_TPM_SHA_128: {
     static CachedRelation value(vole_backend::SecurityLevel::Bits128,
-                                daa::tpm_sha::RelationKind::Sign);
+                                daa::tpm_sha::RelationKind::OursSign);
     return value;
   }
   case DAA_TPM_SHA_192: {
     static CachedRelation value(vole_backend::SecurityLevel::Bits192,
-                                daa::tpm_sha::RelationKind::Sign);
+                                daa::tpm_sha::RelationKind::OursSign);
     return value;
   }
   case DAA_TPM_SHA_256: {
     static CachedRelation value(vole_backend::SecurityLevel::Bits256,
-                                daa::tpm_sha::RelationKind::Sign);
+                                daa::tpm_sha::RelationKind::OursSign);
+    return value;
+  }
+  }
+  throw std::invalid_argument("invalid TPM SHA security level");
+}
+
+CachedRelation& chen23_sign_cache(daa_tpm_sha_level level) {
+  switch (level) {
+  case DAA_TPM_SHA_128: {
+    static CachedRelation value(vole_backend::SecurityLevel::Bits128,
+                                daa::tpm_sha::RelationKind::Chen23Sign);
+    return value;
+  }
+  case DAA_TPM_SHA_192: {
+    static CachedRelation value(vole_backend::SecurityLevel::Bits192,
+                                daa::tpm_sha::RelationKind::Chen23Sign);
+    return value;
+  }
+  case DAA_TPM_SHA_256: {
+    static CachedRelation value(vole_backend::SecurityLevel::Bits256,
+                                daa::tpm_sha::RelationKind::Chen23Sign);
     return value;
   }
   }
@@ -151,6 +172,18 @@ vole_backend::PublicStatement sign_statement(
     std::span<const std::uint8_t> slt,
     std::span<const std::uint8_t> hk) {
   return {relation.public_bits(lid, gid), relation.output_bits(slt, {}, hk)};
+}
+
+vole_backend::PublicStatement chen23_sign_statement(
+    const daa::tpm_sha::Relation& relation,
+    std::span<const std::uint8_t> sid,
+    std::span<const std::uint8_t> gid,
+    std::span<const std::uint8_t> lid,
+    std::span<const std::uint8_t> slt,
+    std::span<const std::uint8_t> hk,
+    std::span<const std::uint8_t> cet) {
+  return {relation.public_bits(lid, gid, sid),
+          relation.output_bits(slt, {}, hk, cet)};
 }
 
 int write_proof(std::span<const std::uint8_t> proof,
@@ -384,6 +417,129 @@ int daa_tpm_sha_sign_verify(
         statement, input_span(context, context_len, "context"),
         input_span(proof, proof_len, "proof"));
     if (!valid) last_error = "invalid TPM SHA signing proof";
+    return valid ? DAA_TPM_SHA_OK : DAA_TPM_SHA_INVALID_ARGUMENT;
+  } catch (const std::invalid_argument& error) {
+    last_error = error.what();
+    return DAA_TPM_SHA_INVALID_ARGUMENT;
+  } catch (const std::exception& error) {
+    last_error = error.what();
+    return DAA_TPM_SHA_INTERNAL_ERROR;
+  }
+}
+
+int daa_tpm_sha_chen23_prepare(daa_tpm_sha_level level,
+                               daa_tpm_sha_profile profile) {
+  return ffi([&] {
+    static_cast<void>(profile_from_c(profile));
+    static_cast<void>(chen23_sign_cache(level));
+  });
+}
+
+int daa_tpm_sha_chen23_sign_stats(daa_tpm_sha_level level,
+                                  daa_tpm_sha_profile profile,
+                                  daa_tpm_sha_stats* output) {
+  return ffi([&] {
+    fill_stats(chen23_sign_cache(level), profile_from_c(profile), output);
+  });
+}
+
+size_t daa_tpm_sha_chen23_sign_proof_bytes(daa_tpm_sha_level level,
+                                           daa_tpm_sha_profile profile) {
+  daa_tpm_sha_stats stats{};
+  return daa_tpm_sha_chen23_sign_stats(level, profile, &stats) ==
+                 DAA_TPM_SHA_OK
+             ? stats.proof_bytes
+             : 0;
+}
+
+int daa_tpm_sha_chen23_evaluate_sign(
+    daa_tpm_sha_level level,
+    const uint8_t* sk, size_t sk_len,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    uint8_t* slt_out, size_t slt_len,
+    uint8_t* sst_out, size_t sst_len,
+    uint8_t* et_out, size_t et_len,
+    uint8_t* hk_out, size_t hk_len,
+    uint8_t* cet_out, size_t cet_len) {
+  return ffi([&] {
+    auto& relation = chen23_sign_cache(level).relation;
+    const auto result = relation.evaluate(
+        input_span(sk, sk_len, "sk"), {}, input_span(lid, lid_len, "lid"),
+        input_span(gid, gid_len, "gid"), input_span(sid, sid_len, "sid"));
+    copy_exact(result.slt, output_span(slt_out, slt_len, "slt_out"),
+               "slt_out");
+    copy_exact(result.sst, output_span(sst_out, sst_len, "sst_out"),
+               "sst_out");
+    copy_exact(result.et, output_span(et_out, et_len, "et_out"), "et_out");
+    copy_exact(result.hk, output_span(hk_out, hk_len, "hk_out"), "hk_out");
+    copy_exact(result.cet, output_span(cet_out, cet_len, "cet_out"),
+               "cet_out");
+  });
+}
+
+int daa_tpm_sha_chen23_sign_prove(
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sk, size_t sk_len,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    const uint8_t* slt, size_t slt_len,
+    const uint8_t* hk, size_t hk_len,
+    const uint8_t* cet, size_t cet_len,
+    const uint8_t* context, size_t context_len,
+    const uint8_t* randomness, size_t randomness_len,
+    uint8_t* proof_out, size_t* proof_len) {
+  last_error.clear();
+  try {
+    auto& cached = chen23_sign_cache(level);
+    const auto statement = chen23_sign_statement(
+        cached.relation, input_span(sid, sid_len, "sid"),
+        input_span(gid, gid_len, "gid"), input_span(lid, lid_len, "lid"),
+        input_span(slt, slt_len, "slt"), input_span(hk, hk_len, "hk"),
+        input_span(cet, cet_len, "cet"));
+    const auto proof = vole_backend::prove(
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
+        cached.relation.private_bits(input_span(sk, sk_len, "sk")), statement,
+        input_span(context, context_len, "context"),
+        prover_randomness(randomness, randomness_len));
+    return write_proof(proof, proof_out, proof_len);
+  } catch (const std::invalid_argument& error) {
+    last_error = error.what();
+    return DAA_TPM_SHA_INVALID_ARGUMENT;
+  } catch (const std::exception& error) {
+    last_error = error.what();
+    return DAA_TPM_SHA_INTERNAL_ERROR;
+  } catch (...) {
+    last_error = "unknown Chen23 TPM SHA failure";
+    return DAA_TPM_SHA_INTERNAL_ERROR;
+  }
+}
+
+int daa_tpm_sha_chen23_sign_verify(
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    const uint8_t* slt, size_t slt_len,
+    const uint8_t* hk, size_t hk_len,
+    const uint8_t* cet, size_t cet_len,
+    const uint8_t* context, size_t context_len,
+    const uint8_t* proof, size_t proof_len) {
+  last_error.clear();
+  try {
+    auto& cached = chen23_sign_cache(level);
+    const auto statement = chen23_sign_statement(
+        cached.relation, input_span(sid, sid_len, "sid"),
+        input_span(gid, gid_len, "gid"), input_span(lid, lid_len, "lid"),
+        input_span(slt, slt_len, "slt"), input_span(hk, hk_len, "hk"),
+        input_span(cet, cet_len, "cet"));
+    const bool valid = vole_backend::verify(
+        cached.prepared, cached.relation.level(), profile_from_c(profile),
+        statement, input_span(context, context_len, "context"),
+        input_span(proof, proof_len, "proof"));
+    if (!valid) last_error = "invalid Chen23 TPM SHA signing proof";
     return valid ? DAA_TPM_SHA_OK : DAA_TPM_SHA_INVALID_ARGUMENT;
   } catch (const std::invalid_argument& error) {
     last_error = error.what();

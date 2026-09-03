@@ -113,6 +113,61 @@ int daa_tpm_sha_sign_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
+/*
+ * Chen et al. 2023 comparison relation, reimplemented here with SHA-2:
+ *   slt = H(0x01 || sk  || lid)
+ *   sst = H(0x04 || sk  || sid)
+ *   et  = H(0x02 || sk  || gid)
+ *   hk  = H(0x05 || sst)
+ *   cet = H(0x06 || sst || et)
+ * Only sk is private. sid, gid, lid, slt, hk and cet form the public
+ * statement; sst and et are internal wires. These entry points are separate
+ * from the DAA integration above, which continues to use Ours-3H.
+ */
+int daa_tpm_sha_chen23_prepare(daa_tpm_sha_level level,
+                               daa_tpm_sha_profile profile);
+int daa_tpm_sha_chen23_sign_stats(daa_tpm_sha_level level,
+                                  daa_tpm_sha_profile profile,
+                                  daa_tpm_sha_stats* stats_out);
+size_t daa_tpm_sha_chen23_sign_proof_bytes(daa_tpm_sha_level level,
+                                           daa_tpm_sha_profile profile);
+
+int daa_tpm_sha_chen23_evaluate_sign(
+    daa_tpm_sha_level level,
+    const uint8_t* sk, size_t sk_len,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    uint8_t* slt_out, size_t slt_len,
+    uint8_t* sst_out, size_t sst_len,
+    uint8_t* et_out, size_t et_len,
+    uint8_t* hk_out, size_t hk_len,
+    uint8_t* cet_out, size_t cet_len);
+
+int daa_tpm_sha_chen23_sign_prove(
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sk, size_t sk_len,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    const uint8_t* slt, size_t slt_len,
+    const uint8_t* hk, size_t hk_len,
+    const uint8_t* cet, size_t cet_len,
+    const uint8_t* context, size_t context_len,
+    const uint8_t* randomness, size_t randomness_len,
+    uint8_t* proof_out, size_t* proof_len);
+
+int daa_tpm_sha_chen23_sign_verify(
+    daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+    const uint8_t* sid, size_t sid_len,
+    const uint8_t* gid, size_t gid_len,
+    const uint8_t* lid, size_t lid_len,
+    const uint8_t* slt, size_t slt_len,
+    const uint8_t* hk, size_t hk_len,
+    const uint8_t* cet, size_t cet_len,
+    const uint8_t* context, size_t context_len,
+    const uint8_t* proof, size_t proof_len);
+
 /* Error text is thread-local and remains valid until the next API call. */
 const char* daa_tpm_sha_last_error(void);
 

@@ -240,6 +240,126 @@ void run_level(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
         "wrong context accepted");
 }
 
+void run_chen23_level(daa_tpm_sha_level level,
+                      daa_tpm_sha_profile profile) {
+  const auto key_bytes = daa_tpm_sha_key_bytes(level);
+  const auto digest_bytes = daa_tpm_sha_digest_bytes(level);
+  std::vector<std::uint8_t> sk(key_bytes), sid(digest_bytes), gid(digest_bytes),
+      lid(digest_bytes), slt(digest_bytes), sst(digest_bytes), et(digest_bytes),
+      hk(digest_bytes), cet(digest_bytes);
+  for (std::size_t i = 0; i != key_bytes; ++i)
+    sk[i] = static_cast<std::uint8_t>(0x10 + i);
+  for (std::size_t i = 0; i != digest_bytes; ++i) {
+    sid[i] = static_cast<std::uint8_t>(0x60 + 5 * i);
+    gid[i] = static_cast<std::uint8_t>(0xe0 - i);
+    lid[i] = static_cast<std::uint8_t>(0x20 + 3 * i);
+  }
+
+  check(daa_tpm_sha_chen23_prepare(level, profile) == DAA_TPM_SHA_OK,
+        daa_tpm_sha_last_error());
+  check(daa_tpm_sha_chen23_evaluate_sign(
+            level, sk.data(), sk.size(), sid.data(), sid.size(), gid.data(),
+            gid.size(), lid.data(), lid.size(), slt.data(), slt.size(),
+            sst.data(), sst.size(), et.data(), et.size(), hk.data(), hk.size(),
+            cet.data(), cet.size()) == DAA_TPM_SHA_OK,
+        daa_tpm_sha_last_error());
+
+  check(slt == reference_hash(level, tagged(0x01, sk, lid)),
+        "Chen23 slt reference mismatch");
+  check(sst == reference_hash(level, tagged(0x04, sk, sid)),
+        "Chen23 sst reference mismatch");
+  check(et == reference_hash(level, tagged(0x02, sk, gid)),
+        "Chen23 et reference mismatch");
+  check(hk == reference_hash(level, tagged(0x05, sst, {})),
+        "Chen23 hk reference mismatch");
+  check(cet == reference_hash(level, tagged(0x06, sst, et)),
+        "Chen23 cet reference mismatch");
+
+  daa_tpm_sha_stats stats{};
+  check(daa_tpm_sha_chen23_sign_stats(level, profile, &stats) ==
+            DAA_TPM_SHA_OK,
+        daa_tpm_sha_last_error());
+  check(stats.private_input_bits == key_bytes * 8,
+        "Chen23 private input count mismatch");
+  check(stats.public_input_bits == 3 * digest_bytes * 8,
+        "Chen23 public input count mismatch");
+  check(stats.output_bits == 3 * digest_bytes * 8,
+        "Chen23 output count mismatch");
+  check(stats.proof_bytes ==
+            daa_tpm_sha_chen23_sign_proof_bytes(level, profile),
+        "Chen23 proof size query mismatch");
+
+  const std::array<std::uint8_t, 15> context{
+      'C','H','E','N','2','3','-','S','I','G','N','-','S','H','A'};
+  std::array<std::uint8_t, 32> randomness{};
+  for (std::size_t i = 0; i != randomness.size(); ++i)
+    randomness[i] = static_cast<std::uint8_t>(0x90 + i + key_bytes);
+  std::vector<std::uint8_t> proof(stats.proof_bytes);
+  auto proof_len = proof.size();
+  check(daa_tpm_sha_chen23_sign_prove(
+            level, profile, sk.data(), sk.size(), sid.data(), sid.size(),
+            gid.data(), gid.size(), lid.data(), lid.size(), slt.data(),
+            slt.size(), hk.data(), hk.size(), cet.data(), cet.size(),
+            context.data(), context.size(), randomness.data(), randomness.size(),
+            proof.data(), &proof_len) == DAA_TPM_SHA_OK,
+        daa_tpm_sha_last_error());
+  check(proof_len == proof.size(), "Chen23 proof length mismatch");
+  check(daa_tpm_sha_chen23_sign_verify(
+            level, profile, sid.data(), sid.size(), gid.data(), gid.size(),
+            lid.data(), lid.size(), slt.data(), slt.size(), hk.data(), hk.size(),
+            cet.data(), cet.size(), context.data(), context.size(), proof.data(),
+            proof.size()) == DAA_TPM_SHA_OK,
+        daa_tpm_sha_last_error());
+
+  const auto level_code = level == DAA_TPM_SHA_128 ? 1U :
+                          level == DAA_TPM_SHA_192 ? 2U : 3U;
+  const auto profile_code = profile == DAA_TPM_SHA_SMALL ? 1U : 2U;
+  check(proof.size() >= 8 && proof[5] == 3 && proof[6] == level_code &&
+            proof[7] == profile_code,
+        "Chen23 proof header does not bind level/profile");
+  const std::array<std::string_view, 6> expected_fingerprints{
+      "ba0446d1f1c1c7838a2478fc11257c705ac325ec854b96dc1ed2ece495ab38c3",
+      "d903ea11b2e89430cfc9a4791162451bd532e7294a0c13de5bdaef009970ef5d",
+      "9f9902ed2e426108c6155c8c0cacd9d9aeef0674872e97bedd29936999edcdf341be619cb558de2367692d643dce269f",
+      "fce1c46c4f1106013fe5f4976d952dc2d655439cb6fffa0fceb0949c3c8129e6327ca01eac37ff292cc70b31ef21ebd8",
+      "bfe63d53c557e60144474f921cd441519f99178fcaabeb0fef626588633f500a6d13abc1b4b5eff107e35ba57a5ad4704866956cabb5dfd871446e70cfbfcd97",
+      "4018c5ef754372c15408e5570f3a64d9fd55b06c3c2f9fc4f41b05936cb222e67ff6813d7cdbf762d9d3f2c3f3e381af20336e2106dab3dd01de7b4cc4d738e3",
+  };
+  const auto level_index = level == DAA_TPM_SHA_128 ? 0U :
+                           level == DAA_TPM_SHA_192 ? 1U : 2U;
+  const auto kat_index = 2 * level_index +
+                         (profile == DAA_TPM_SHA_SMALL ? 0U : 1U);
+  check(to_hex(reference_hash(level, proof)) ==
+            expected_fingerprints[kat_index],
+        "Chen23 deterministic S/F KAT changed");
+
+  const auto other_profile = profile == DAA_TPM_SHA_SMALL
+                                 ? DAA_TPM_SHA_FAST
+                                 : DAA_TPM_SHA_SMALL;
+  check(daa_tpm_sha_chen23_sign_verify(
+            level, other_profile, sid.data(), sid.size(), gid.data(), gid.size(),
+            lid.data(), lid.size(), slt.data(), slt.size(), hk.data(), hk.size(),
+            cet.data(), cet.size(), context.data(), context.size(), proof.data(),
+            proof.size()) != DAA_TPM_SHA_OK,
+        "Chen23 proof accepted under the wrong VOLE profile");
+  auto wrong_sid = sid;
+  wrong_sid[0] ^= 1;
+  check(daa_tpm_sha_chen23_sign_verify(
+            level, profile, wrong_sid.data(), wrong_sid.size(), gid.data(),
+            gid.size(), lid.data(), lid.size(), slt.data(), slt.size(),
+            hk.data(), hk.size(), cet.data(), cet.size(), context.data(),
+            context.size(), proof.data(), proof.size()) != DAA_TPM_SHA_OK,
+        "tampered Chen23 sid accepted");
+  auto wrong_cet = cet;
+  wrong_cet.back() ^= 1;
+  check(daa_tpm_sha_chen23_sign_verify(
+            level, profile, sid.data(), sid.size(), gid.data(), gid.size(),
+            lid.data(), lid.size(), slt.data(), slt.size(), hk.data(), hk.size(),
+            wrong_cet.data(), wrong_cet.size(), context.data(), context.size(),
+            proof.data(), proof.size()) != DAA_TPM_SHA_OK,
+        "tampered Chen23 cet accepted");
+}
+
 void run_bf64_kat() {
   struct Vector {
     bf64_t lhs;
@@ -711,8 +831,11 @@ int main() {
          {DAA_TPM_SHA_128, DAA_TPM_SHA_192, DAA_TPM_SHA_256}) {
       run_level(level, DAA_TPM_SHA_SMALL);
       run_level(level, DAA_TPM_SHA_FAST);
+      run_chen23_level(level, DAA_TPM_SHA_SMALL);
+      run_chen23_level(level, DAA_TPM_SHA_FAST);
     }
-    std::cout << "TPM SHA-256/384/512 S/F KAT and proof tests: ok" << std::endl;
+    std::cout << "TPM SHA Ours-3H and Chen23-5H S/F KAT and proof tests: ok"
+              << std::endl;
     return EXIT_SUCCESS;
   } catch (const std::exception& error) {
     std::cerr << "TPM SHA test failure: " << error.what() << '\n';

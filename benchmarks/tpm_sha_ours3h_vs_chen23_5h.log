@@ -1,0 +1,57 @@
+Cleaning... 0 files.
+The Meson build system
+Version: 1.3.2
+Source dir: /home/lm0052/SEDAA/DAA_FULL/vendor/TPM_SHA
+Build dir: /home/lm0052/.cache/sedaa-tpm-sha-relations
+Build type: native build
+Project name: DAA-TPM-SHA
+Project version: 0.1.0
+C compiler for the host machine: cc (gcc 13.3.0 "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0")
+C linker for the host machine: cc ld.bfd 2.42
+C++ compiler for the host machine: c++ (gcc 13.3.0 "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0")
+C++ linker for the host machine: c++ ld.bfd 2.42
+Host machine cpu family: x86_64
+Host machine cpu: x86_64
+Dependency openssl found: YES 3.0.13 (cached)
+Build targets in project: 4
+
+DAA-TPM-SHA 0.1.0
+
+  User defined options
+    buildtype: release
+
+Found ninja-1.11.1 at /usr/bin/ninja
+ninja: Entering directory `/home/lm0052/.cache/sedaa-tpm-sha-relations'
+ninja: no work to do.
+INFO: autodetecting backend as ninja
+INFO: calculating backend command to run: /usr/bin/ninja -C /home/lm0052/.cache/sedaa-tpm-sha-relations
+TPM-SHA scheme=Ours-3H security=128 profile=s hash=SHA-256 prepare_ms=66.737
+join sha_calls=1 compression_blocks=1 and=22013 xor=93717 prover_ms=17.619 verifier_ms=14.567 proof_bytes=33202
+sign sha_calls=3 compression_blocks=3 and=66052 xor=281191 prover_ms=33.138 verifier_ms=30.476 proof_bytes=93933
+TPM-SHA scheme=Chen23-5H-reimplementation security=128 profile=s hash=SHA-256 prepare_ms=87.321
+sign sha_calls=5 compression_blocks=6 and=130896 xor=556425 prover_ms=63.816 verifier_ms=53.186 proof_bytes=182912
+TPM-SHA scheme=Ours-3H security=128 profile=f hash=SHA-256 prepare_ms=0.000
+join sha_calls=1 compression_blocks=1 and=22013 xor=93717 prover_ms=4.158 verifier_ms=3.408 proof_bytes=47660
+sign sha_calls=3 compression_blocks=3 and=66052 xor=281191 prover_ms=10.053 verifier_ms=8.150 proof_bytes=135996
+TPM-SHA scheme=Chen23-5H-reimplementation security=128 profile=f hash=SHA-256 prepare_ms=0.000
+sign sha_calls=5 compression_blocks=6 and=130896 xor=556425 prover_ms=20.969 verifier_ms=15.545 proof_bytes=265420
+TPM-SHA scheme=Ours-3H security=192 profile=s hash=SHA-384 prepare_ms=227.277
+join sha_calls=1 compression_blocks=1 and=55907 xor=236459 prover_ms=55.832 verifier_ms=43.995 proof_bytes=118484
+sign sha_calls=3 compression_blocks=3 and=167713 xor=709340 prover_ms=133.660 verifier_ms=118.745 proof_bytes=342484
+TPM-SHA scheme=Chen23-5H-reimplementation security=192 profile=s hash=SHA-384 prepare_ms=277.743
+sign sha_calls=5 compression_blocks=5 and=279710 xor=1182976 prover_ms=246.877 verifier_ms=222.670 proof_bytes=566084
+TPM-SHA scheme=Ours-3H security=192 profile=f hash=SHA-384 prepare_ms=0.000
+join sha_calls=1 compression_blocks=1 and=55907 xor=236459 prover_ms=12.190 verifier_ms=10.226 proof_bytes=175780
+sign sha_calls=3 compression_blocks=3 and=167713 xor=709340 prover_ms=35.680 verifier_ms=30.400 proof_bytes=511780
+TPM-SHA scheme=Chen23-5H-reimplementation security=192 profile=f hash=SHA-384 prepare_ms=0.000
+sign sha_calls=5 compression_blocks=5 and=279710 xor=1182976 prover_ms=72.810 verifier_ms=62.068 proof_bytes=847180
+TPM-SHA scheme=Ours-3H security=256 profile=s hash=SHA-512 prepare_ms=219.380
+join sha_calls=1 compression_blocks=1 and=56784 xor=240332 prover_ms=79.486 verifier_ms=77.971 proof_bytes=169028
+sign sha_calls=3 compression_blocks=3 and=170347 xor=720980 prover_ms=206.272 verifier_ms=191.693 proof_bytes=482044
+TPM-SHA scheme=Chen23-5H-reimplementation security=256 profile=s hash=SHA-512 prepare_ms=361.010
+sign sha_calls=5 compression_blocks=6 and=338191 xor=1428661 prover_ms=449.048 verifier_ms=431.900 proof_bytes=942900
+TPM-SHA scheme=Ours-3H security=256 profile=f hash=SHA-512 prepare_ms=0.000
+join sha_calls=1 compression_blocks=1 and=56784 xor=240332 prover_ms=19.224 verifier_ms=15.659 proof_bytes=242300
+sign sha_calls=3 compression_blocks=3 and=170347 xor=720980 prover_ms=58.714 verifier_ms=45.042 proof_bytes=697596
+TPM-SHA scheme=Chen23-5H-reimplementation security=256 profile=f hash=SHA-512 prepare_ms=0.000
+sign sha_calls=5 compression_blocks=6 and=338191 xor=1428661 prover_ms=119.574 verifier_ms=105.494 proof_bytes=1367932

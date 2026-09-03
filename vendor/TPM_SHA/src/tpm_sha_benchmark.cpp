@@ -30,8 +30,8 @@ double average_ms(std::size_t iterations, Function&& function) {
          static_cast<double>(iterations);
 }
 
-void benchmark(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
-               std::size_t iterations) {
+void benchmark_ours(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+                    std::size_t iterations) {
   const auto key_bytes = daa_tpm_sha_key_bytes(level);
   const auto digest_bytes = daa_tpm_sha_digest_bytes(level);
   std::vector<std::uint8_t> sk(key_bytes), s(key_bytes), lid(digest_bytes),
@@ -110,22 +110,98 @@ void benchmark(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
         sign_context.size(), sign_proof.data(), sign_proof.size()));
   });
 
-  std::cout << "TPM-SHA security=" << static_cast<int>(level)
+  std::cout << "TPM-SHA scheme=Ours-3H security=" << static_cast<int>(level)
             << " profile=" << (profile == DAA_TPM_SHA_SMALL ? "s" : "f")
             << " hash=SHA-" << (level == DAA_TPM_SHA_128 ? "256" :
                                 level == DAA_TPM_SHA_192 ? "384" : "512")
             << " prepare_ms=" << std::fixed << std::setprecision(3) << prepare_ms
             << '\n';
-  std::cout << "join and=" << join_stats.and_gates
+  std::cout << "join sha_calls=1 compression_blocks=1 and="
+            << join_stats.and_gates
             << " xor=" << join_stats.xor_gates
             << " prover_ms=" << join_prover_ms
             << " verifier_ms=" << join_verifier_ms
             << " proof_bytes=" << join_stats.proof_bytes << '\n';
-  std::cout << "sign and=" << sign_stats.and_gates
+  std::cout << "sign sha_calls=3 compression_blocks=3 and="
+            << sign_stats.and_gates
             << " xor=" << sign_stats.xor_gates
             << " prover_ms=" << sign_prover_ms
             << " verifier_ms=" << sign_verifier_ms
             << " proof_bytes=" << sign_stats.proof_bytes << '\n';
+}
+
+void benchmark_chen23(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
+                      std::size_t iterations) {
+  const auto key_bytes = daa_tpm_sha_key_bytes(level);
+  const auto digest_bytes = daa_tpm_sha_digest_bytes(level);
+  std::vector<std::uint8_t> sk(key_bytes), sid(digest_bytes), gid(digest_bytes),
+      lid(digest_bytes), slt(digest_bytes), sst(digest_bytes), et(digest_bytes),
+      hk(digest_bytes), cet(digest_bytes);
+  for (std::size_t i = 0; i != key_bytes; ++i)
+    sk[i] = static_cast<std::uint8_t>(i + 1);
+  for (std::size_t i = 0; i != digest_bytes; ++i) {
+    sid[i] = static_cast<std::uint8_t>(0x71 + i);
+    gid[i] = static_cast<std::uint8_t>(0xf2 - i);
+    lid[i] = static_cast<std::uint8_t>(0x31 + i);
+  }
+  std::array<std::uint8_t, 32> randomness{};
+  for (std::size_t i = 0; i != randomness.size(); ++i)
+    randomness[i] = static_cast<std::uint8_t>(0x40 + i);
+  const std::array<std::uint8_t, 17> context{
+      't','p','m','-','c','h','e','n','2','3','-','s','i','g','n','-','1'};
+
+  const auto prepare_begin = Clock::now();
+  require(daa_tpm_sha_chen23_prepare(level, profile));
+  const auto prepare_ms = std::chrono::duration<double, std::milli>(
+                              Clock::now() - prepare_begin).count();
+  require(daa_tpm_sha_chen23_evaluate_sign(
+      level, sk.data(), sk.size(), sid.data(), sid.size(), gid.data(),
+      gid.size(), lid.data(), lid.size(), slt.data(), slt.size(), sst.data(),
+      sst.size(), et.data(), et.size(), hk.data(), hk.size(), cet.data(),
+      cet.size()));
+
+  daa_tpm_sha_stats stats{};
+  require(daa_tpm_sha_chen23_sign_stats(level, profile, &stats));
+  std::vector<std::uint8_t> proof(stats.proof_bytes);
+  auto proof_len = proof.size();
+  require(daa_tpm_sha_chen23_sign_prove(
+      level, profile, sk.data(), sk.size(), sid.data(), sid.size(), gid.data(),
+      gid.size(), lid.data(), lid.size(), slt.data(), slt.size(), hk.data(),
+      hk.size(), cet.data(), cet.size(), context.data(), context.size(),
+      randomness.data(), randomness.size(), proof.data(), &proof_len));
+
+  const auto prover_ms = average_ms(iterations, [&](std::size_t i) {
+    randomness[0] = static_cast<std::uint8_t>(0x80 + i);
+    auto length = proof.size();
+    require(daa_tpm_sha_chen23_sign_prove(
+        level, profile, sk.data(), sk.size(), sid.data(), sid.size(),
+        gid.data(), gid.size(), lid.data(), lid.size(), slt.data(), slt.size(),
+        hk.data(), hk.size(), cet.data(), cet.size(), context.data(),
+        context.size(), randomness.data(), randomness.size(), proof.data(),
+        &length));
+  });
+  const auto verifier_ms = average_ms(iterations, [&](std::size_t) {
+    require(daa_tpm_sha_chen23_sign_verify(
+        level, profile, sid.data(), sid.size(), gid.data(), gid.size(),
+        lid.data(), lid.size(), slt.data(), slt.size(), hk.data(), hk.size(),
+        cet.data(), cet.size(), context.data(), context.size(), proof.data(),
+        proof.size()));
+  });
+
+  std::cout << "TPM-SHA scheme=Chen23-5H-reimplementation security="
+            << static_cast<int>(level)
+            << " profile=" << (profile == DAA_TPM_SHA_SMALL ? "s" : "f")
+            << " hash=SHA-" << (level == DAA_TPM_SHA_128 ? "256" :
+                                level == DAA_TPM_SHA_192 ? "384" : "512")
+            << " prepare_ms=" << std::fixed << std::setprecision(3)
+            << prepare_ms << '\n';
+  const auto compression_blocks = level == DAA_TPM_SHA_192 ? 5 : 6;
+  std::cout << "sign sha_calls=5 compression_blocks=" << compression_blocks
+            << " and=" << stats.and_gates
+            << " xor=" << stats.xor_gates
+            << " prover_ms=" << prover_ms
+            << " verifier_ms=" << verifier_ms
+            << " proof_bytes=" << stats.proof_bytes << '\n';
 }
 
 } // namespace
@@ -137,6 +213,8 @@ int main(int argc, char** argv) {
         DAA_TPM_SHA_128, DAA_TPM_SHA_192, DAA_TPM_SHA_256};
     std::vector<daa_tpm_sha_profile> profiles{
         DAA_TPM_SHA_SMALL, DAA_TPM_SHA_FAST};
+    bool run_ours = true;
+    bool run_chen23 = true;
     for (int i = 1; i != argc; ++i) {
       const std::string argument = argv[i];
       if (argument == "--iterations" && i + 1 != argc) {
@@ -154,14 +232,32 @@ int main(int argc, char** argv) {
         else if (value == "f" || value == "fast") profiles = {DAA_TPM_SHA_FAST};
         else if (value != "all")
           throw std::invalid_argument("profile must be s, f, or all");
+      } else if (argument == "--scheme" && i + 1 != argc) {
+        const std::string value = argv[++i];
+        if (value == "ours" || value == "ours-3h") {
+          run_ours = true;
+          run_chen23 = false;
+        } else if (value == "chen23" || value == "chen23-5h") {
+          run_ours = false;
+          run_chen23 = true;
+        } else if (value == "all") {
+          run_ours = true;
+          run_chen23 = true;
+        } else {
+          throw std::invalid_argument("scheme must be ours, chen23, or all");
+        }
       } else {
         throw std::invalid_argument(
             "usage: tpm_sha_benchmark [--security 128|192|256] "
-            "[--profile s|f|all] [--iterations N]");
+            "[--profile s|f|all] [--scheme ours|chen23|all] "
+            "[--iterations N]");
       }
     }
     for (const auto level : levels)
-      for (const auto profile : profiles) benchmark(level, profile, iterations);
+      for (const auto profile : profiles) {
+        if (run_ours) benchmark_ours(level, profile, iterations);
+        if (run_chen23) benchmark_chen23(level, profile, iterations);
+      }
     return EXIT_SUCCESS;
   } catch (const std::exception& error) {
     std::cerr << "TPM SHA benchmark failure: " << error.what() << '\n';

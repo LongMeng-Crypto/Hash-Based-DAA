@@ -18,6 +18,9 @@ using FipsBits = std::vector<Wire>;
 constexpr std::uint8_t tag_slt = 0x01;
 constexpr std::uint8_t tag_et = 0x02;
 constexpr std::uint8_t tag_hk = 0x03;
+constexpr std::uint8_t tag_chen23_sst = 0x04;
+constexpr std::uint8_t tag_chen23_hk = 0x05;
+constexpr std::uint8_t tag_chen23_cet = 0x06;
 
 FipsBits constant_byte(std::uint8_t value) {
   FipsBits result;
@@ -131,7 +134,7 @@ Relation::Relation(vole_backend::SecurityLevel level, RelationKind kind)
     const auto gid = allocate_bytes(circuit_, digest_size, false);
     et_wires_ = hash(circuit_, level_, tagged_message(tag_et, sk, gid));
     add_digest_outputs(circuit_, et_wires_);
-  } else {
+  } else if (kind_ == RelationKind::OursSign) {
     const auto s = allocate_bytes(circuit_, key_size, true);
     const auto lid = allocate_bytes(circuit_, digest_size, false);
     const auto gid = allocate_bytes(circuit_, digest_size, false);
@@ -140,6 +143,22 @@ Relation::Relation(vole_backend::SecurityLevel level, RelationKind kind)
     const auto hk = hash(circuit_, level_, tagged_message(tag_hk, s, et_wires_));
     add_digest_outputs(circuit_, slt);
     add_digest_outputs(circuit_, hk);
+  } else {
+    const auto sid = allocate_bytes(circuit_, digest_size, false);
+    const auto gid = allocate_bytes(circuit_, digest_size, false);
+    const auto lid = allocate_bytes(circuit_, digest_size, false);
+    const auto slt = hash(circuit_, level_, tagged_message(tag_slt, sk, lid));
+    sst_wires_ =
+        hash(circuit_, level_, tagged_message(tag_chen23_sst, sk, sid));
+    et_wires_ = hash(circuit_, level_, tagged_message(tag_et, sk, gid));
+    const auto hk = hash(
+        circuit_, level_,
+        tagged_message(tag_chen23_hk, sst_wires_, std::span<const Wire>{}));
+    const auto cet = hash(
+        circuit_, level_, tagged_message(tag_chen23_cet, sst_wires_, et_wires_));
+    add_digest_outputs(circuit_, slt);
+    add_digest_outputs(circuit_, hk);
+    add_digest_outputs(circuit_, cet);
   }
 
   std::string error;
@@ -156,8 +175,8 @@ std::size_t Relation::digest_bytes() const { return digest_bytes_for(level_); }
 std::vector<std::uint8_t> Relation::private_bits(
     std::span<const std::uint8_t> sk, std::span<const std::uint8_t> s) const {
   require_size(sk, key_bytes(), "sk");
-  if (kind_ == RelationKind::Join) {
-    if (!s.empty()) throw std::invalid_argument("Join relation does not accept s");
+  if (kind_ != RelationKind::OursSign) {
+    if (!s.empty()) throw std::invalid_argument("relation does not accept s");
     return bytes_to_bits(sk);
   }
   require_size(s, key_bytes(), "s");
@@ -168,13 +187,25 @@ std::vector<std::uint8_t> Relation::private_bits(
 }
 
 std::vector<std::uint8_t> Relation::public_bits(
-    std::span<const std::uint8_t> lid, std::span<const std::uint8_t> gid) const {
+    std::span<const std::uint8_t> lid, std::span<const std::uint8_t> gid,
+    std::span<const std::uint8_t> sid) const {
   require_size(gid, digest_bytes(), "gid");
   if (kind_ == RelationKind::Join) {
-    if (!lid.empty()) throw std::invalid_argument("Join relation does not accept lid");
+    if (!lid.empty() || !sid.empty())
+      throw std::invalid_argument("Join relation only accepts gid");
     return bytes_to_bits(gid);
   }
   require_size(lid, digest_bytes(), "lid");
+  if (kind_ == RelationKind::Chen23Sign) {
+    require_size(sid, digest_bytes(), "sid");
+    auto result = bytes_to_bits(sid);
+    const auto gid_bits = bytes_to_bits(gid);
+    const auto lid_bits = bytes_to_bits(lid);
+    result.insert(result.end(), gid_bits.begin(), gid_bits.end());
+    result.insert(result.end(), lid_bits.begin(), lid_bits.end());
+    return result;
+  }
+  if (!sid.empty()) throw std::invalid_argument("Ours-3H does not accept sid");
   auto result = bytes_to_bits(lid);
   const auto gid_bits = bytes_to_bits(gid);
   result.insert(result.end(), gid_bits.begin(), gid_bits.end());
@@ -183,9 +214,10 @@ std::vector<std::uint8_t> Relation::public_bits(
 
 std::vector<std::uint8_t> Relation::output_bits(
     std::span<const std::uint8_t> slt, std::span<const std::uint8_t> et,
-    std::span<const std::uint8_t> hk) const {
+    std::span<const std::uint8_t> hk,
+    std::span<const std::uint8_t> cet) const {
   if (kind_ == RelationKind::Join) {
-    if (!slt.empty() || !hk.empty())
+    if (!slt.empty() || !hk.empty() || !cet.empty())
       throw std::invalid_argument("Join relation only exposes et");
     require_size(et, digest_bytes(), "et");
     return bytes_to_bits(et);
@@ -197,22 +229,38 @@ std::vector<std::uint8_t> Relation::output_bits(
   auto result = bytes_to_bits(slt);
   const auto hk_bits = bytes_to_bits(hk);
   result.insert(result.end(), hk_bits.begin(), hk_bits.end());
+  if (kind_ == RelationKind::Chen23Sign) {
+    require_size(cet, digest_bytes(), "cet");
+    const auto cet_bits = bytes_to_bits(cet);
+    result.insert(result.end(), cet_bits.begin(), cet_bits.end());
+  } else if (!cet.empty()) {
+    throw std::invalid_argument("Ours-3H does not expose cet");
+  }
   return result;
 }
 
 Evaluation Relation::evaluate(std::span<const std::uint8_t> sk,
                               std::span<const std::uint8_t> s,
                               std::span<const std::uint8_t> lid,
-                              std::span<const std::uint8_t> gid) const {
-  const auto evaluation = circuit_.evaluate(private_bits(sk, s), public_bits(lid, gid));
+                              std::span<const std::uint8_t> gid,
+                              std::span<const std::uint8_t> sid) const {
+  const auto evaluation =
+      circuit_.evaluate(private_bits(sk, s), public_bits(lid, gid, sid));
   Evaluation result;
   result.et = wires_to_bytes(et_wires_, evaluation);
+  if (!sst_wires_.empty())
+    result.sst = wires_to_bytes(sst_wires_, evaluation);
   const auto outputs = bits_to_bytes(evaluation.outputs);
   if (kind_ == RelationKind::Join) {
     if (outputs != result.et) throw std::logic_error("Join et output wiring mismatch");
-  } else {
+  } else if (kind_ == RelationKind::OursSign) {
     result.slt.assign(outputs.begin(), outputs.begin() + static_cast<std::ptrdiff_t>(digest_bytes()));
     result.hk.assign(outputs.begin() + static_cast<std::ptrdiff_t>(digest_bytes()), outputs.end());
+  } else {
+    const auto digest = static_cast<std::ptrdiff_t>(digest_bytes());
+    result.slt.assign(outputs.begin(), outputs.begin() + digest);
+    result.hk.assign(outputs.begin() + digest, outputs.begin() + 2 * digest);
+    result.cet.assign(outputs.begin() + 2 * digest, outputs.end());
   }
   return result;
 }
