@@ -7,7 +7,7 @@ shared protocol variable flow instead of independent proof-of-concept inputs.
 ## Repository Layout
 
 `DAA_FULL` contains the full benchmarked DAA protocol and its guests. The
-TPM-side FAEST/AES implementation remains vendored here, while the RISC0
+TPM-side FAEST/AES and VOLEith/SHA-2 implementations remain vendored here, while the RISC0
 proving stack is consumed from a pinned `RISC0-SHA256` Git revision.
 This keeps DAA protocol code separate from the reusable backend.
 
@@ -20,6 +20,7 @@ host_proof/                        RISC0 host-side SPHINCS+ proof runner
 host_proof/host/                   native host binary used by daa_core
 host_proof/methods/guest/          RISC0 guest program and SPHINCS+ verifier C code
 vendor/TPM_AES/                    vendored FAEST/AES TPM proof implementation
+vendor/TPM_SHA/                    vendored VOLEith/SHA-2 TPM proof implementation
 scripts/                           full-protocol benchmark helpers
 ```
 
@@ -35,7 +36,7 @@ committed.
 ## Implemented Flow
 
 - `setup`: generates issuer SPHINCS+ keys and initializes empty revocation state.
-- `join`: computes `gid`, TPM `et`, the join FAEST proof, and the issuer credential.
+- `join`: computes `gid`, TPM `et`, the selected Join proof, and the issuer credential.
 - `sign`: computes TPM `rho`, `msg'`, `et`, `slt`, `hk`, `pi_TPM`, and host `pi_host`.
 - `verify`: checks empty revocation lists, verifies `pi_TPM`, and verifies `pi_host`.
 - `link`: compares two signatures by `slt`.
@@ -72,6 +73,21 @@ table for protocol analysis.
 - `real-tpm`: real FAEST join and TPM signing proofs, plus a simulated host proof.
 - `real-128s`: real FAEST proofs and a real RISC0 host proof. The name is kept
   for CLI compatibility, but it works for all six SHA2 parameter sets.
+
+The TPM primitive is selected independently with `--tpm-backend aes|sha2`.
+`aes` is the unchanged default. In `sha2` mode the complete TPM path uses
+
+```text
+slt = SHA2(0x01 || sk || lid)
+et  = SHA2(0x02 || sk || gid)
+hk  = SHA2(0x03 || s  || et)
+```
+
+SHA-256/384/512 are paired with the 128/192/256-bit VOLEith parameter sets.
+Join proves the second relation with public `(gid, et)`. TPM signing produces
+one joint proof with public `(lid, gid, slt, hk)` and private `(sk, s)`; `et`
+is passed directly between the two SHA circuits as an internal wire. The RISC0
+host guest checks the same SHA hook when this backend is selected.
 
 ## Build Cache
 
@@ -132,6 +148,31 @@ cargo run -p daa_cli -- bench \
 
 In this mode `pi_host` is simulated, so `size.signature.pi_host.serialized_receipt_bytes`
 will be `64` bytes. Use this mode only for TPM/issuer plumbing and FAEST timing.
+
+### TPM-SHA Join and Signing Benchmark
+
+Benchmark the SHA-256, SHA-384, and SHA-512 VOLEith circuits together, without
+running SPHINCS+ or RISC0:
+
+```sh
+export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
+scripts/benchmark_tpm_sha.sh
+```
+
+The default is 10 measured proofs per level. Override it with
+`ITERATIONS=1 scripts/benchmark_tpm_sha.sh` for a quick smoke test. The output
+reports circuit preparation separately, followed by average Join prove/verify
+time, joint TPM-signing prove/verify time, both proof sizes, and gate counts.
+To run one level directly:
+
+```sh
+cargo run --release -p daa_cli -- \
+  bench-tpm-sha --params sha2-128s --iterations 10
+```
+
+Replace `sha2-128s` with `sha2-192s` or `sha2-256s` as needed. A complete DAA
+run using the SHA path through Join, TPM signing, and the host hook is selected
+with `--tpm-backend sha2`; the legacy path remains `--tpm-backend aes`.
 
 ### Full DAA Benchmark With RISC0-SHA256 Host Proof
 

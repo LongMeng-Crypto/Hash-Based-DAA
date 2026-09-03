@@ -1,23 +1,40 @@
 #ifndef FSPHINCS_PARAMS_H
 #define FSPHINCS_PARAMS_H
 
-/* PQCrypto 2023, Hash-Based Direct Anonymous Attestation. The paper gives
- * k=35 and k=70 concrete proof-security configurations. Select one at compile
- * time; the hash/secret length remains 256 bits in both configurations. */
+/* PQCrypto 2023, Hash-Based Direct Anonymous Attestation. FSPHINCS_SECURITY
+ * selects the DAA/AES security level. FSPHINCS_K independently selects the
+ * M-FORS width. Omitting FSPHINCS_K preserves the historical paper sets. */
 #ifndef FSPHINCS_SECURITY
 #define FSPHINCS_SECURITY 128
 #endif
 
+#if FSPHINCS_SECURITY != 128 && FSPHINCS_SECURITY != 192 && \
+    FSPHINCS_SECURITY != 256
+#error "FSPHINCS_SECURITY must be 128, 192, or 256"
+#endif
+
+#ifndef FSPHINCS_K
 #if FSPHINCS_SECURITY == 128
-#define FS_K 35u
-#define FS_AGG_LEAVES 64u
-#define FS_PARAM_ID "FSPX1281"
-#elif FSPHINCS_SECURITY == 256
-#define FS_K 70u
-#define FS_AGG_LEAVES 128u
-#define FS_PARAM_ID "FSPX2561"
+#define FSPHINCS_K 35
+#elif FSPHINCS_SECURITY == 192
+#define FSPHINCS_K 33
 #else
-#error "FSPHINCS_SECURITY must be 128 or 256"
+#define FSPHINCS_K 70
+#endif
+#endif
+
+#if FSPHINCS_K != 22 && FSPHINCS_K != 33 && FSPHINCS_K != 35 && \
+    FSPHINCS_K != 43 && FSPHINCS_K != 70
+#error "FSPHINCS_K must be 22, 33, 35, 43, or 70"
+#endif
+
+#define FS_K FSPHINCS_K
+#if FS_K <= 32
+#define FS_AGG_LEAVES 32u
+#elif FS_K <= 64
+#define FS_AGG_LEAVES 64u
+#else
+#define FS_AGG_LEAVES 128u
 #endif
 
 #define FS_N 32u

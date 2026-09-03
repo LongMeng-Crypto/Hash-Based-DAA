@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use std::process;
 use std::time::Instant;
 
-use daa_core::{run_full, BenchmarkTrace, ProofMode, ProtocolConfig};
+use daa_core::{
+    benchmark_tpm_sha, run_full, BenchmarkTrace, ProofMode, ProtocolConfig, SecurityLevel,
+    TpmBackend,
+};
 
 /// Starts the CLI and prints fatal errors.
 fn main() {
@@ -23,12 +26,79 @@ fn real_main() -> Result<(), String> {
     match command {
         "run-full" => run_full_cmd(opts),
         "bench" => bench_cmd(opts),
+        "bench-tpm-sha" => bench_tpm_sha_cmd(opts),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
         }
         other => Err(format!("unknown command '{other}'. Try 'help'.")),
     }
+}
+
+/// Benchmarks only the prepared TPM-SHA Join and joint signing proofs.
+fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
+    let levels: Vec<SecurityLevel> = match opts.params.as_str() {
+        "all" | "sha2-all" => vec![
+            SecurityLevel::L128,
+            SecurityLevel::L192,
+            SecurityLevel::L256,
+        ],
+        name => vec![SecurityLevel::from_name(name)],
+    };
+    let iterations = opts.iterations.max(1);
+
+    println!("TPM_SHA VOLEith benchmark (prepared circuits; times exclude prepare)");
+    println!("iterations={iterations}");
+    println!();
+    println!(
+        "{:<9} {:>11} {:>12} {:>12} {:>12} {:>12} {:>12} {:>12}",
+        "hash",
+        "prepare_ms",
+        "join_p_ms",
+        "join_v_ms",
+        "join_bytes",
+        "sign_p_ms",
+        "sign_v_ms",
+        "sign_bytes"
+    );
+    println!("{:-<108}", "");
+
+    for level in levels {
+        let mut samples = Vec::with_capacity(iterations);
+        for _ in 0..iterations {
+            samples.push(benchmark_tpm_sha(level).map_err(|err| err.to_string())?);
+        }
+        let first = &samples[0];
+        let average_ms = |pick: fn(&daa_core::TpmShaBenchmark) -> std::time::Duration| {
+            samples
+                .iter()
+                .map(|sample| pick(sample).as_secs_f64() * 1000.0)
+                .sum::<f64>()
+                / samples.len() as f64
+        };
+        println!(
+            "{:<9} {:>11.3} {:>12.3} {:>12.3} {:>12} {:>12.3} {:>12.3} {:>12}",
+            first.hash_name,
+            first.prepare.as_secs_f64() * 1000.0,
+            average_ms(|sample| sample.join_prove),
+            average_ms(|sample| sample.join_verify),
+            first.join_proof_bytes,
+            average_ms(|sample| sample.sign_prove),
+            average_ms(|sample| sample.sign_verify),
+            first.sign_proof_bytes,
+        );
+        println!(
+            "  level={:?} key={}B digest={}B join_gates(and/xor)={}/{} sign_gates(and/xor)={}/{}",
+            first.security,
+            first.key_bytes,
+            first.digest_bytes,
+            first.join_stats.and_gates,
+            first.join_stats.xor_gates,
+            first.sign_stats.and_gates,
+            first.sign_stats.xor_gates,
+        );
+    }
+    Ok(())
 }
 
 /// Runs the complete protocol once and prints the trace.
@@ -210,6 +280,7 @@ struct CliOptions {
     params: String,
     backend: String,
     proof_mode: ProofMode,
+    tpm_backend: TpmBackend,
     segment_po2: Option<u32>,
     iterations: usize,
     json: Option<PathBuf>,
@@ -222,6 +293,7 @@ impl CliOptions {
             params: "sha2-128s".to_string(),
             backend: "sha-256".to_string(),
             proof_mode: ProofMode::Real128s,
+            tpm_backend: TpmBackend::Aes,
             segment_po2: None,
             iterations: 1,
             json: None,
@@ -241,6 +313,11 @@ impl CliOptions {
                 "--proof-mode" => {
                     i += 1;
                     opts.proof_mode = ProofMode::from_name(&value(args, i, "--proof-mode")?)
+                        .map_err(|err| err.to_string())?;
+                }
+                "--tpm-backend" => {
+                    i += 1;
+                    opts.tpm_backend = TpmBackend::from_name(&value(args, i, "--tpm-backend")?)
                         .map_err(|err| err.to_string())?;
                 }
                 "--segment-po2" => {
@@ -279,6 +356,7 @@ impl CliOptions {
             .with_params(self.params.clone())
             .with_backend(self.backend.clone())
             .with_proof_mode(self.proof_mode)
+            .with_tpm_backend(self.tpm_backend)
             .with_risc0_segment_limit_po2(self.segment_po2)
     }
 }
@@ -297,10 +375,12 @@ fn print_help() {
     println!("Commands:");
     println!("  run-full      Run setup, join, sign, verify, link, revoke once");
     println!("  bench         Run repeated full protocol benchmarks");
+    println!("  bench-tpm-sha Benchmark SHA-256/384/512 Join and joint TPM proofs only");
     println!();
     println!("Options:");
     println!("  --params NAME       SPHINCS/security label, default sha2-128s");
     println!("  --backend NAME      host proof backend label, default sha-256");
+    println!("  --tpm-backend NAME  TPM primitive: aes (default) or sha2");
     println!(
         "  --proof-mode MODE   real-128s, real-tpm, or simulated; real-128s covers all real params"
     );

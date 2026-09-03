@@ -10,13 +10,17 @@ use risc0_zkvm::{
     DEFAULT_MAX_PO2,
 };
 
+#[cfg(not(daa_tpm_sha2))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
-#[cfg(lambda_128)]
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
 use aes::Aes128;
-#[cfg(lambda_192)]
+#[cfg(all(not(daa_tpm_sha2), lambda_192))]
 use aes::Aes192;
-#[cfg(lambda_256)]
+#[cfg(all(not(daa_tpm_sha2), lambda_256))]
 use aes::Aes256;
+
+#[cfg(daa_tpm_sha2)]
+mod daa_sha_hook;
 
 extern "C" {
     fn crypto_sign_keypair(pk: *mut u8, sk: *mut u8) -> i32;
@@ -108,8 +112,8 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
 
 // ── AES hook variants ──────────────────────────────────────────────────────
 // lambda=128: key=16B, et_u=16B → hk = AES_s(et_u)  (pure ECB, no XOR)
-#[cfg(lambda_128)]
-fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
@@ -117,8 +121,8 @@ fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
 }
 
 // lambda=192: key=24B (AES-192), et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
-#[cfg(lambda_192)]
-fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = Vec::with_capacity(32);
     for chunk in 0..2 {
@@ -131,8 +135,8 @@ fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
 }
 
 // lambda=256: key=32B (AES-256), et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
-#[cfg(lambda_256)]
-fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = Vec::with_capacity(32);
     for chunk in 0..2 {
@@ -144,13 +148,44 @@ fn aes_hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     hk
 }
 
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+    daa_sha_hook::sha256_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
+}
+
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+    daa_sha_hook::sha384_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
+}
+
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
+    daa_sha_hook::sha512_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
+}
+
 // ── Compile-time sizes (bytes) ─────────────────────────────────────────────
-// et_u / gr_u:  16 B for lambda=128,  32 B for lambda=192/256
-// s (AES key):  16 B / 24 B / 32 B
-#[cfg(lambda_128)]
-const ET_GR_BYTES: usize = 16;
-#[cfg(any(lambda_192, lambda_256))]
-const ET_GR_BYTES: usize = 32;
+// AES retains its historical lengths. SHA mode carries full SHA-2 digests.
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+const ET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+const ET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+const ET_BYTES: usize = 64;
+
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+const NONCE_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+const NONCE_BYTES: usize = 24;
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+const NONCE_BYTES: usize = 32;
 
 #[cfg(lambda_128)]
 const S_BYTES: usize = 16;
@@ -202,14 +237,14 @@ fn main() {
 
     // ── 2) Construct message = et_u || gr_u ───────────────────────────────
     // et_u: entry token  (TPM secret, 16 B for lambda=128, 32 B for 192/256)
-    // gr_u: group random (issuer-provided nonce, same size as et_u)
+    // gr_u: issuer-provided nonce (separate from the hook digest length)
     // The DAA host proves: SPHINCS+ sig is valid over et_u || gr_u
     use rand::RngCore;
     use rand_core::SeedableRng;
     let deterministic = std::env::var("DAA_DETERMINISTIC").ok().as_deref() == Some("1");
     let mut deterministic_rng = rand_chacha::ChaCha20Rng::from_seed([11u8; 32]);
-    let mut et_u = vec![0u8; ET_GR_BYTES];
-    let mut issuer_nonce = vec![0u8; ET_GR_BYTES];
+    let mut et_u = vec![0u8; ET_BYTES];
+    let mut issuer_nonce = vec![0u8; NONCE_BYTES];
     if deterministic {
         deterministic_rng.fill_bytes(&mut et_u);
         deterministic_rng.fill_bytes(&mut issuer_nonce);
@@ -220,7 +255,7 @@ fn main() {
 
     // msg fed to SPHINCS+ sign = et_u || gr_u
     // SPHINCS+ internally applies hash_message (acting as H3) to derive mt_u || idx
-    let mut msg = Vec::with_capacity(2 * ET_GR_BYTES);
+    let mut msg = Vec::with_capacity(ET_BYTES + NONCE_BYTES);
     msg.extend_from_slice(&et_u);
     msg.extend_from_slice(&issuer_nonce);
 
@@ -255,15 +290,16 @@ fn main() {
         keygen_ms, sign_ms
     );
     println!(
-        "DAA message: et_u={}B || gr_u={}B, AES key={}B, hk={}B",
-        ET_GR_BYTES,
-        ET_GR_BYTES,
+        "DAA message: et_u={}B || gr_u={}B, hook={} key={}B hk={}B",
+        ET_BYTES,
+        NONCE_BYTES,
+        env!("DAA_TPM_BACKEND"),
         S_BYTES,
-        if ET_GR_BYTES == 16 { 16 } else { 32 }
+        ET_BYTES,
     );
 
-    // ── 4) AES hook witnesses ─────────────────────────────────────────────
-    // s is the TPM signing key (also used as AES key for the hook commitment)
+    // ── 4) TPM hook witnesses ─────────────────────────────────────────────
+    // s is the secret hook key/preimage.
     let mut s = vec![0u8; S_BYTES];
     if deterministic {
         deterministic_rng.fill_bytes(&mut s);
@@ -271,7 +307,7 @@ fn main() {
         rand::thread_rng().fill_bytes(&mut s);
     }
 
-    let hk = aes_hook(&s, &et_u);
+    let hk = hook(&s, &et_u);
 
     // ── 5) Build guest env ────────────────────────────────────────────────
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
@@ -456,6 +492,7 @@ fn protocol_prove(
     receipt_path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = read_protocol_input(input_path)?;
+    validate_protocol_witness(&input)?;
 
     let seg_po2 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
@@ -481,14 +518,13 @@ fn protocol_prove(
 
     let backend_hash =
         std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
-    let opts = ProverOpts::composite()
-        .with_hashfn(backend_hash)
-        .with_receipt_kind(ReceiptKind::Composite);
+    let opts = prover_opts_from_env(backend_hash.clone());
     let t0 = Instant::now();
     let prove_info = default_prover().prove_with_opts(env, GUEST_ELF, &opts)?;
     let prove_ms = t0.elapsed().as_millis();
     let stats = prove_info.stats.clone();
     let receipt = prove_info.receipt;
+    print_and_check_segment_hashes(&receipt, &backend_hash);
     check_protocol_journal(&receipt, &input.issuer_pk, &input.hk)?;
     write_receipt_words(receipt_path, &receipt)?;
     let proof_bytes = risc0_zkvm::serde::to_vec(&receipt)?.len() * core::mem::size_of::<u32>();
@@ -498,6 +534,35 @@ fn protocol_prove(
     println!("proof_bytes={proof_bytes}");
     println!("seal_bytes={seal_bytes}");
     println!("segments={}", stats.segments);
+    Ok(())
+}
+
+fn validate_protocol_witness(input: &ProtocolInput) -> Result<(), Box<dyn std::error::Error>> {
+    if input.issuer_pk.len() != unsafe { sphincs_pk_bytes() } {
+        return Err("host proof issuer public-key length mismatch".into());
+    }
+    if input.credential_sig.len() != unsafe { sphincs_sig_bytes() } {
+        return Err("host proof credential-signature length mismatch".into());
+    }
+    if input.hk.len() != ET_BYTES
+        || input.et_u.len() != ET_BYTES
+        || input.s.len() != S_BYTES
+        || input.issuer_nonce.len() != NONCE_BYTES
+    {
+        return Err(format!(
+            "{} hook length mismatch: expected hk/et/s/nonce={}/{}/{}/{} bytes, got {}/{}/{}/{}",
+            env!("DAA_TPM_BACKEND"),
+            ET_BYTES,
+            ET_BYTES,
+            S_BYTES,
+            NONCE_BYTES,
+            input.hk.len(),
+            input.et_u.len(),
+            input.s.len(),
+            input.issuer_nonce.len(),
+        )
+        .into());
+    }
     Ok(())
 }
 

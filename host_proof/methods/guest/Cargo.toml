@@ -12,4 +12,5 @@ cc = "1.2"
 risc0-zkvm = { version = "^3.0.4", default-features = false, features = ['std'] }
 serde = { version = "1", features = ["derive", "alloc"], default-features = false }
 aes = { version = "0.8", default-features = false }
+sha2 = { version = "0.10", default-features = false }
 risc0-zkvm-platform = { version = "2.2.1", default-features = false }

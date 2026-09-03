@@ -12,7 +12,7 @@ void randombytes(unsigned char *out, size_t outlen) {
     abort();
 }
 
-#if FSPHINCS_SECURITY == 128
+#if FS_K == 35
 static const char EXPECT_PK[] =
     "21f47631058e5d333b92a1f5c78c1cb868913cca60c896fad61e24166dc497eb";
 static const char EXPECT_SK[] =
@@ -29,7 +29,7 @@ static const char *EXPECT_LAYER[FS_H + 1u] = {
     "87ec9636252b67e577868eccd64535c08dc358d445e9214a0a91d48527fcc6e8",
 };
 static const uint64_t EXPECT_INDEX = UINT64_C(373729149056017821);
-#else
+#elif FS_K == 70
 static const char EXPECT_PK[] =
     "b3c2df74bad3447d8a68eac61f97c24dc400d70fd0c86c2d92fe4004fb8df0f5";
 static const char EXPECT_SK[] =
@@ -46,6 +46,57 @@ static const char *EXPECT_LAYER[FS_H + 1u] = {
     "830d81c8ae5bfece63ddb64e7e5f7d572c108b6b173c2eca398409f881d93e30",
 };
 static const uint64_t EXPECT_INDEX = UINT64_C(273450963243707641);
+#elif FS_K == 22
+static const char EXPECT_PK[] =
+    "34e1c4a8cfc1f5537dbde9c2d6aaf350ac4dde02b10bcfd4de1eb75f66765166";
+static const char EXPECT_SK[] =
+    "b1411aa38854fc2b431ad7c1a75a329850189ef8be6101aca81b37b2709bbbf0";
+static const char EXPECT_SIG[] =
+    "57b4232dc22ba2f76ad32d3f42df6121f1a35d17d1a050bff02df12a7e1d4dd6";
+static const char *EXPECT_LAYER[FS_H + 1u] = {
+    "3b479b9a2e99225dec4a5c1f6a7443b26138e3775b4533f6454dbd03a6a81f76",
+    "e741969c3d40ab2d55d9b048cadc650a66ff9f9ea16076f91a7cc5c65cfff08d",
+    "6ad17fd16da6d4a527d56f8b2b493ae49b41d095a9e3a37adab7e78d240eabac",
+    "1b8e2b8f01ff150095db58bb874d808e3f27939ef85c0976050b56679de0151b",
+    "0276b42b6abb0c28d8322d1e19d857837b000d137aa806d8bf4ada403160e757",
+    "07652ace0748f3b669c9b82fea83e71f1bdee0a36f5bf0a3d1b9277216ec8584",
+    "8840623fab800be62cfce42eca81c04ea7c03662863fc601861fea1a7fd43e77",
+};
+static const uint64_t EXPECT_INDEX = UINT64_C(971378804817579217);
+#elif FS_K == 33
+static const char EXPECT_PK[] =
+    "cc7fc81b8149dca82229e5bcc1cc7d5ea18dcb94d77afde980412bc233218c73";
+static const char EXPECT_SK[] =
+    "9e937a2790df35c04aafcf3aa2ea4aeb1062fa9300b3db87a81c6b5a0e83d592";
+static const char EXPECT_SIG[] =
+    "1974561db939967ca99022a6af003075405cf4dd0e4a8d81a35379b521714e83";
+static const char *EXPECT_LAYER[FS_H + 1u] = {
+    "77899e0fdd752481a2b4d957aaeee6887ffac2132372aaa3392df9bd42c56678",
+    "e99e4e77dbd966ee88ad21a0cdbf4c2b10f76e93bd0376fd1d3832eaaf092ef2",
+    "ae165e1123fbf3e115cced8ce993187af2062a764734d3b5e991eca57a4f5634",
+    "c8f47cbe33167991d2646229d2eeb97ca1697a606b0e938afa7bbf6f16acbb78",
+    "0377f6cf794425c807b93ca782ac51c41b1f14e925898db38b6e3d6a9a3137e7",
+    "a47fa6d6da4e2546a9575547cdd251c10d8f4b47ad2f5f2ccf6cbfef4fcef2e2",
+    "a632f4cd49d0f9f4fbea2875359ca3473fa0048b0aa11834806a2338b677f46b",
+};
+static const uint64_t EXPECT_INDEX = UINT64_C(515896955498381486);
+#else /* FS_K == 43 */
+static const char EXPECT_PK[] =
+    "a99d3bd7e135dd1343c62023dd3ad17ee4f7088c7a06859a2154d97f733faaea";
+static const char EXPECT_SK[] =
+    "92d8d06f181f9edd39dbceaff7b6c8067ae8d8b3148d3399f06ae33e34e94e0e";
+static const char EXPECT_SIG[] =
+    "0b764e1ba7f9ffec5930e675b878b01ece7de7ee88bea2214a8a517a04e989c8";
+static const char *EXPECT_LAYER[FS_H + 1u] = {
+    "9bd01a62dd391519aaa21750d6e909123570447552ed580f2d45ff859d7b9efc",
+    "dff51f58162b3440db78ae1dee712fdbbcc3eb951f7be7e074e59861796d24a9",
+    "d102dc8fea2ae70d53c14994bc8fdb01da86cc1a5532d74f291b8a237e46a241",
+    "04510d3d03b16617d804f58319a89157a218d8a132c64e0330a7c86d3325936d",
+    "494f9cb21288a9f3bf9acd74df889ed64170af6dc99a7e4a257327c2205a0ec1",
+    "8d58ae11d57ce67fbbbe74fea91e0d00881156ed555dc81d7b064862a45abded",
+    "5a8866b2407456fa83d18a5c3c7720ac3ec400dedee3ebf766306e22bda3bc9a",
+};
+static const uint64_t EXPECT_INDEX = UINT64_C(541964557103370514);
 #endif
 
 void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {

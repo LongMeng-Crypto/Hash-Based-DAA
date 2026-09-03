@@ -1,19 +1,31 @@
 use std::time::Instant;
 
+#[cfg(not(daa_tpm_sha2))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
-#[cfg(not(fsphincs_256))]
+#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
 use aes::Aes128;
-#[cfg(fsphincs_256)]
+#[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+use aes::Aes192;
+#[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
 use aes::Aes256;
+#[cfg(daa_tpm_sha2)]
+#[path = "../daa_sha_hook.rs"]
+mod daa_sha_hook;
 use methods::{FSPHINCS_GUEST_ELF, FSPHINCS_GUEST_ID};
 use risc0_zkvm::{
     default_prover, ExecutorEnv, InnerReceipt, ProverOpts, ReceiptKind, VerifierContext,
     DEFAULT_MAX_PO2,
 };
 
-#[cfg(not(fsphincs_256))]
+#[cfg(fsphincs_k_22)]
+const K: usize = 22;
+#[cfg(fsphincs_k_33)]
+const K: usize = 33;
+#[cfg(fsphincs_k_35)]
 const K: usize = 35;
-#[cfg(fsphincs_256)]
+#[cfg(fsphincs_k_43)]
+const K: usize = 43;
+#[cfg(fsphincs_k_70)]
 const K: usize = 70;
 const N: usize = 32;
 const D: usize = 16;
@@ -23,13 +35,35 @@ const MFORS_SIG_BYTES: usize = K * (D + 1) * N;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 const SK_BYTES: usize = 2 * N + MFORS_MSG_BYTES;
 const SIG_BYTES: usize = N + (H + 1) * MFORS_SIG_BYTES;
+#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+const ET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(fsphincs_192, fsphincs_256)))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, fsphincs_192))]
+const ET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha2, fsphincs_256))]
+const ET_BYTES: usize = 64;
+
+#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(fsphincs_192, fsphincs_256)))]
+const NONCE_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(daa_tpm_sha2, fsphincs_192))]
+const NONCE_BYTES: usize = 24;
+#[cfg(all(daa_tpm_sha2, fsphincs_256))]
+const NONCE_BYTES: usize = 32;
+#[cfg(not(any(fsphincs_192, fsphincs_256)))]
+const S_BYTES: usize = 16;
+#[cfg(fsphincs_192)]
+const S_BYTES: usize = 24;
 #[cfg(fsphincs_256)]
-const ET_GR_BYTES: usize = 32;
-#[cfg(not(fsphincs_256))]
-const ET_GR_BYTES: usize = 16;
-const S_BYTES: usize = ET_GR_BYTES;
-const HK_BYTES: usize = ET_GR_BYTES;
-const MSG_BYTES: usize = 2 * ET_GR_BYTES;
+const S_BYTES: usize = 32;
+const HK_BYTES: usize = ET_BYTES;
+const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 
 extern "C" {
     fn fsphincs_keypair(pk: *mut u8, sk: *mut u8) -> i32;
@@ -66,8 +100,8 @@ fn receipt_kind() -> ReceiptKind {
     }
 }
 
-#[cfg(not(fsphincs_256))]
-fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
@@ -76,8 +110,21 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(fsphincs_256)]
-fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    let cipher = Aes192::new(GenericArray::from_slice(s));
+    let mut hk = [0u8; HK_BYTES];
+    for chunk in 0..2 {
+        let off = chunk * 16;
+        let mut block = GenericArray::clone_from_slice(&et_u[off..off + 16]);
+        cipher.encrypt_block(&mut block);
+        hk[off..off + 16].copy_from_slice(&block);
+    }
+    hk
+}
+
+#[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -87,6 +134,21 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
         hk[off..off + 16].copy_from_slice(&block);
     }
     hk
+}
+
+#[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha256_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha2, fsphincs_192))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha384_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha2, fsphincs_256))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha512_hook(s, et_u)
 }
 
 fn main() {
@@ -99,15 +161,14 @@ fn main() {
         .and_then(|value| value.parse().ok())
         .unwrap_or(22);
     assert!(seg_po2 <= 22, "CUDA-safe maximum segment po2 is 22");
-    let backend =
-        std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_owned());
+    let backend = std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_owned());
     let kind = receipt_kind();
 
     let mut pk = [0u8; PK_BYTES];
     let mut sk = [0u8; SK_BYTES];
     let mut sig = vec![0u8; SIG_BYTES];
-    let mut et_u = [0u8; ET_GR_BYTES];
-    let mut issuer_nonce = [0u8; ET_GR_BYTES];
+    let mut et_u = [0u8; ET_BYTES];
+    let mut issuer_nonce = [0u8; NONCE_BYTES];
     let mut s = [0u8; S_BYTES];
     let mut message = [0u8; MSG_BYTES];
     use rand::RngCore;
@@ -123,11 +184,14 @@ fn main() {
         rand::thread_rng().fill_bytes(&mut issuer_nonce);
         rand::thread_rng().fill_bytes(&mut s);
     }
-    message[..ET_GR_BYTES].copy_from_slice(&et_u);
-    message[ET_GR_BYTES..].copy_from_slice(&issuer_nonce);
+    message[..ET_BYTES].copy_from_slice(&et_u);
+    message[ET_BYTES..].copy_from_slice(&issuer_nonce);
 
     let keygen_start = Instant::now();
-    assert_eq!(unsafe { fsphincs_keypair(pk.as_mut_ptr(), sk.as_mut_ptr()) }, 0);
+    assert_eq!(
+        unsafe { fsphincs_keypair(pk.as_mut_ptr(), sk.as_mut_ptr()) },
+        0
+    );
     let keygen_ms = keygen_start.elapsed().as_secs_f64() * 1000.0;
     let mut siglen = 0usize;
     let sign_start = Instant::now();
@@ -146,7 +210,7 @@ fn main() {
     let sign_ms = sign_start.elapsed().as_secs_f64() * 1000.0;
     assert_eq!(siglen, SIG_BYTES);
 
-    let hk = aes_hook(&s, &et_u);
+    let hk = hook(&s, &et_u);
 
     /* Stream the randomizer and seven M-FORS layers in verifier consumption
      * order. The guest retains only one layer instead of the whole signature. */
@@ -173,16 +237,24 @@ fn main() {
         .with_hashfn(backend.clone())
         .with_receipt_kind(kind);
     println!(
-        "F-SPHINCS+-{} RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
-        env!("FSPHINCS_SECURITY"), backend, kind, seg_po2
+        "F-SPHINCS+-{} (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
+        env!("FSPHINCS_SECURITY"),
+        env!("FSPHINCS_K"),
+        backend,
+        kind,
+        seg_po2
     );
     println!(
         "credential: pk={} B sk={} B signature={} B message={} B",
         PK_BYTES, SK_BYTES, SIG_BYTES, MSG_BYTES
     );
     println!(
-        "DAA hook: et_u={} B gr_u={} B s={} B hk={} B",
-        ET_GR_BYTES, ET_GR_BYTES, S_BYTES, HK_BYTES
+        "DAA hook: backend={} et_u={} B gr_u={} B s={} B hk={} B",
+        env!("DAA_TPM_BACKEND"),
+        ET_BYTES,
+        NONCE_BYTES,
+        S_BYTES,
+        HK_BYTES
     );
     println!("native keygen_ms={keygen_ms:.3} sign_ms={sign_ms:.3}");
 

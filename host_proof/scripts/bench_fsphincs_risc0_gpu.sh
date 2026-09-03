@@ -7,7 +7,10 @@ cd "${DAA_ROOT}"
 
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 export FSPHINCS_SECURITY="${FSPHINCS_SECURITY:-128}"
+# Optional independent M-FORS width: 22, 33, 35, 43, or 70. When omitted,
+# historical defaults remain 128->35, 192->33, and 256->70.
 export DAA_DETERMINISTIC="${DAA_DETERMINISTIC:-1}"
+export DAA_TPM_BACKEND="${DAA_TPM_BACKEND:-aes}"
 export RISC0_PROVER="${RISC0_PROVER:-local}"
 export RISC0_BACKEND_HASH="${RISC0_BACKEND_HASH:-sha-256}"
 export RISC0_RECEIPT_KIND="${RISC0_RECEIPT_KIND:-composite}"

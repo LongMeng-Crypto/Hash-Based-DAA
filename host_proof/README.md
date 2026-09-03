@@ -3,9 +3,20 @@
 This directory ports the RISC0-friendly SPHINCS+ DAA host-side proof into the
 vendored RISC0 SHA-256 backend fork inside `DAA_FULL`.
 
-The guest statement is unchanged from `risc0_sphincs_risc0_friendly`: the guest
-verifies a SPHINCS+ signature over `et_u || gr_u`, keeps `et_u` private, checks
-the AES hook output `hk`, and commits `ok || hk` to the journal.
+The guest verifies a SPHINCS+ signature over `et_u || gr_u`, keeps `et_u`
+private, checks the selected TPM hook output `hk`, and commits
+`ok || hk || issuer_pk` to the journal.  The historical AES hook remains the
+default; the SHA path is selected at build time with:
+
+```text
+DAA_TPM_BACKEND=sha2
+```
+
+The SHA guest checks `hk = SHA2(0x03 || s || et_u)`.  At the 128-, 192-, and
+256-bit parameter levels it uses SHA-256, SHA-384, and SHA-512 respectively.
+The corresponding `et_u`/`hk` lengths are 32/48/64 bytes, while `s` and the
+issuer nonce use 16/24/32 bytes.  SHA-256 goes through RISC0's guest SHA
+implementation and syscall; SHA-384/512 use the no-std software path.
 
 The proof-system backend hash suite defaults to `sha-256` through:
 
@@ -75,6 +86,14 @@ bash host_proof/scripts/bench_fsphincs_risc0_gpu.sh
 lowered to profile segmentation and paging.
 
 Full DAA benchmark commands are documented in `../README.md`.
+
+To benchmark an F-SPHINCS+ host proof with the new SHA hook, add
+`DAA_TPM_BACKEND=sha2`; omitting it continues to run the legacy AES hook:
+
+```bash
+DAA_TPM_BACKEND=sha2 FSPHINCS_SECURITY=128 FSPHINCS_K=22 \
+  bash host_proof/scripts/bench_fsphincs_risc0_gpu.sh
+```
 
 ## One-Variant CUDA Benchmark
 

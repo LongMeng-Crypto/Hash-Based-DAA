@@ -7,6 +7,8 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use sha2::{Digest, Sha256, Sha384, Sha512};
+
 pub type Bytes = Vec<u8>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +46,48 @@ impl SecurityLevel {
             Self::L192 | Self::L256 => 32,
         }
     }
+
+    /// Returns the full SHA-2 digest length used by the TPM-SHA backend.
+    pub fn sha_digest_bytes(self) -> usize {
+        match self {
+            Self::L128 => 32,
+            Self::L192 => 48,
+            Self::L256 => 64,
+        }
+    }
+
+    /// Returns the numeric VOLEith security selector used by the C ABI.
+    fn bits(self) -> u32 {
+        match self {
+            Self::L128 => 128,
+            Self::L192 => 192,
+            Self::L256 => 256,
+        }
+    }
+}
+
+/// Selects the legacy AES/FAEST TPM relation or the SHA-2/VOLEith relation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TpmBackend {
+    Aes,
+    Sha2,
+}
+
+impl TpmBackend {
+    pub fn from_name(name: &str) -> DaaResult<Self> {
+        match name {
+            "aes" | "legacy-aes" => Ok(Self::Aes),
+            "sha" | "sha2" | "sha-2" => Ok(Self::Sha2),
+            _ => Err(DaaError::UnsupportedTpmBackend),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Aes => "aes",
+            Self::Sha2 => "sha2",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +97,7 @@ pub struct ProtocolConfig {
     pub security: SecurityLevel,
     pub deterministic_seed: u64,
     pub proof_mode: ProofMode,
+    pub tpm_backend: TpmBackend,
     pub risc0_segment_limit_po2: Option<u32>,
 }
 
@@ -66,6 +111,7 @@ impl Default for ProtocolConfig {
             backend_hash: "sha-256".to_string(),
             deterministic_seed: 0xdaa5_eeda_2026_0705,
             proof_mode: ProofMode::Real128s,
+            tpm_backend: TpmBackend::Aes,
             risc0_segment_limit_po2: None,
         }
     }
@@ -89,6 +135,28 @@ impl ProtocolConfig {
     pub fn with_proof_mode(mut self, proof_mode: ProofMode) -> Self {
         self.proof_mode = proof_mode;
         self
+    }
+
+    /// Selects the TPM primitive independently from the RISC0 receipt hash.
+    pub fn with_tpm_backend(mut self, tpm_backend: TpmBackend) -> Self {
+        self.tpm_backend = tpm_backend;
+        self
+    }
+
+    /// Returns the public TPM token length for the selected primitive.
+    pub fn tpm_token_bytes(&self) -> usize {
+        match self.tpm_backend {
+            TpmBackend::Aes => self.security.token_bytes(),
+            TpmBackend::Sha2 => self.security.sha_digest_bytes(),
+        }
+    }
+
+    /// Returns the issuer nonce length without conflating it with SHA digests.
+    pub fn issuer_nonce_bytes(&self) -> usize {
+        match self.tpm_backend {
+            TpmBackend::Aes => self.security.token_bytes(),
+            TpmBackend::Sha2 => self.security.key_bytes(),
+        }
     }
 
     /// Selects an optional RISC0 segment limit exponent for host proofs.
@@ -398,6 +466,35 @@ pub struct BenchmarkSizeEntry {
     pub bytes: usize,
 }
 
+/// Circuit-size metadata returned by the TPM-SHA backend.
+#[derive(Debug, Clone, Copy)]
+pub struct TpmShaCircuitStats {
+    pub private_input_bits: usize,
+    pub public_input_bits: usize,
+    pub output_bits: usize,
+    pub and_gates: usize,
+    pub xor_gates: usize,
+    pub total_nodes: usize,
+}
+
+/// One warm-circuit benchmark sample for Join and joint TPM signing.
+#[derive(Debug, Clone)]
+pub struct TpmShaBenchmark {
+    pub security: SecurityLevel,
+    pub hash_name: &'static str,
+    pub key_bytes: usize,
+    pub digest_bytes: usize,
+    pub prepare: Duration,
+    pub join_prove: Duration,
+    pub join_verify: Duration,
+    pub join_proof_bytes: usize,
+    pub join_stats: TpmShaCircuitStats,
+    pub sign_prove: Duration,
+    pub sign_verify: Duration,
+    pub sign_proof_bytes: usize,
+    pub sign_stats: TpmShaCircuitStats,
+}
+
 #[derive(Debug)]
 pub enum DaaError {
     CommitmentMismatch,
@@ -409,6 +506,7 @@ pub enum DaaError {
     InvalidCredential,
     UnsupportedParameterSet,
     UnsupportedProofMode,
+    UnsupportedTpmBackend,
     ExternalHostProof,
 }
 
@@ -423,13 +521,112 @@ impl std::error::Error for DaaError {}
 
 pub type DaaResult<T> = Result<T, DaaError>;
 
+/// Benchmarks prepared TPM-SHA Join and signing circuits without SPHINCS+/RISC0 work.
+pub fn benchmark_tpm_sha(security: SecurityLevel) -> DaaResult<TpmShaBenchmark> {
+    let params = match security {
+        SecurityLevel::L128 => "sha2-128s",
+        SecurityLevel::L192 => "sha2-192s",
+        SecurityLevel::L256 => "sha2-256s",
+    };
+    let config = ProtocolConfig::default()
+        .with_params(params)
+        .with_tpm_backend(TpmBackend::Sha2)
+        .with_proof_mode(ProofMode::RealTpm);
+
+    let prepare_started = Instant::now();
+    if unsafe { daa_tpm_sha_prepare(security.bits()) } != 0 {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    let prepare = prepare_started.elapsed();
+
+    let key_bytes = security.key_bytes();
+    let digest_bytes = security.sha_digest_bytes();
+    let sk: Bytes = (0..key_bytes)
+        .map(|i| (0x11u8).wrapping_add(i as u8))
+        .collect();
+    let s: Bytes = (0..key_bytes)
+        .map(|i| (0xa1u8).wrapping_add(i as u8))
+        .collect();
+    let gid = group_id(&config, b"TPM-SHA benchmark issuer public key");
+    let lid = link_id(&config, b"TPM-SHA benchmark basename");
+    let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
+    let join_context = join_proof_message(&config, &gid, &et);
+    let sign_context = message_prime(&config, b"TPM-SHA benchmark message", b"fixed-rho");
+
+    let join_started = Instant::now();
+    let join_proof = prove_join_sha_real(&config, &sk, &gid, &et, &join_context)?;
+    let join_prove = join_started.elapsed();
+    let join_verify_started = Instant::now();
+    if !verify_join_sha_real(&config, &join_proof, &gid, &et, &join_context) {
+        return Err(DaaError::InvalidJoinProof);
+    }
+    let join_verify = join_verify_started.elapsed();
+
+    let sign_started = Instant::now();
+    let sign_proof =
+        prove_tpm_sha_real(&config, &lid, &gid, &sk, &s, &sign_context, &et, &slt, &hk)?;
+    let sign_prove = sign_started.elapsed();
+    let sign_verify_started = Instant::now();
+    if !verify_tpm_sha_real(&config, &sign_proof, &lid, &gid, &slt, &hk, &sign_context) {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    let sign_verify = sign_verify_started.elapsed();
+
+    let join_stats = tpm_sha_stats(security, false)?;
+    let sign_stats = tpm_sha_stats(security, true)?;
+    Ok(TpmShaBenchmark {
+        security,
+        hash_name: sha2_name(security),
+        key_bytes,
+        digest_bytes,
+        prepare,
+        join_prove,
+        join_verify,
+        join_proof_bytes: join_proof.size_bytes(),
+        join_stats,
+        sign_prove,
+        sign_verify,
+        sign_proof_bytes: sign_proof.size_bytes(),
+        sign_stats,
+    })
+}
+
+/// Converts the stable C ABI statistics structure into the public Rust type.
+fn tpm_sha_stats(security: SecurityLevel, signing: bool) -> DaaResult<TpmShaCircuitStats> {
+    let mut raw = DaaTpmShaStats::default();
+    let ret = unsafe {
+        if signing {
+            daa_tpm_sha_sign_stats(security.bits(), &mut raw)
+        } else {
+            daa_tpm_sha_join_stats(security.bits(), &mut raw)
+        }
+    };
+    if ret != 0 {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    Ok(TpmShaCircuitStats {
+        private_input_bits: raw.private_input_bits,
+        public_input_bits: raw.public_input_bits,
+        output_bits: raw.output_bits,
+        and_gates: raw.and_gates,
+        xor_gates: raw.xor_gates,
+        total_nodes: raw.total_nodes,
+    })
+}
+
 /// Runs issuer setup and initializes the protocol state.
 pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput {
     let mut rng = DeterministicRng::new(config.deterministic_seed);
+    if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
+        trace.scoped("setup.tpm_sha.prepare", || {
+            let ret = unsafe { daa_tpm_sha_prepare(config.security.bits()) };
+            assert_eq!(ret, 0, "TPM_SHA circuit preparation failed");
+        });
+    }
     let (mpk, msk) = match config.proof_mode {
         ProofMode::Simulated => trace.scoped("setup.total", || {
             let msk = rng.bytes(config.security.key_bytes());
-            let mpk = hash_many(config.security.token_bytes(), &[b"issuer-mpk", &msk]);
+            let mpk = hash_many(config.tpm_token_bytes(), &[b"issuer-mpk", &msk]);
             (mpk, msk)
         }),
         ProofMode::RealTpm | ProofMode::Real128s => {
@@ -468,17 +665,22 @@ pub fn join(
 
     let (sk, et) = trace.scoped("join.tpm.keygen_owf", || {
         let mut sk = rng.bytes(setup.config.security.key_bytes());
-        normalize_faest_key(&mut sk);
-        let et = aes_prf(&setup.config, &sk, &gid);
+        if setup.config.tpm_backend == TpmBackend::Aes {
+            normalize_faest_key(&mut sk);
+        }
+        let et = tpm_et(&setup.config, &sk, &gid);
         (sk, et)
     });
-    let join_msg = join_proof_message(&gid, &et);
+    let join_msg = join_proof_message(&setup.config, &gid, &et);
 
     let pi_join = trace.scoped("join.tpm.pi_join_prove", || match setup.config.proof_mode {
         ProofMode::Simulated => Ok(simulated_proof(
             "pi_join",
-            "simulated-faest-join",
-            setup.config.security.token_bytes(),
+            match setup.config.tpm_backend {
+                TpmBackend::Aes => "simulated-faest-join",
+                TpmBackend::Sha2 => "simulated-voleith-sha2-join",
+            },
+            setup.config.tpm_token_bytes(),
             &[&gid, &et],
             &[&sk],
         )),
@@ -487,9 +689,9 @@ pub fn join(
         }
     })?;
 
-    let com = hash_many(setup.config.security.key_bytes(), &[b"join-com", &et, &r]);
+    let com = join_commitment(&setup.config, &et, &r);
     trace.scoped("join.issuer.commit_check", || {
-        let expected = hash_many(setup.config.security.key_bytes(), &[b"join-com", &et, &r]);
+        let expected = join_commitment(&setup.config, &et, &r);
         if expected != com {
             return Err(DaaError::CommitmentMismatch);
         }
@@ -509,7 +711,7 @@ pub fn join(
         Ok(())
     })?;
 
-    let issuer_nonce = rng.bytes(setup.config.security.token_bytes());
+    let issuer_nonce = rng.bytes(setup.config.issuer_nonce_bytes());
     let cred_msg = credential_message(&et, &issuer_nonce);
     let credential = match setup.config.proof_mode {
         ProofMode::Simulated => trace.scoped("join.issuer.credential_sign", || Credential {
@@ -592,20 +794,26 @@ fn sign_internal(
     let rho = rng.bytes(setup.config.security.key_bytes());
     let tpm_msg_prime = message_prime(&setup.config, msg, &rho);
     let mut s = rng.bytes(setup.config.security.key_bytes());
-    normalize_faest_key(&mut s);
+    if setup.config.tpm_backend == TpmBackend::Aes {
+        normalize_faest_key(&mut s);
+    }
 
-    let (et, slt, hk) = trace.scoped("sign.tpm.3aes", || {
-        let et = aes_prf(&setup.config, &tpm.sk, &gid);
-        let slt = aes_prf(&setup.config, &tpm.sk, &lid);
-        let hk = aes_hook(&setup.config, &s, &et);
-        (et, slt, hk)
+    let primitive_step = match setup.config.tpm_backend {
+        TpmBackend::Aes => "sign.tpm.3aes",
+        TpmBackend::Sha2 => "sign.tpm.3sha2",
+    };
+    let (et, slt, hk) = trace.scoped(primitive_step, || {
+        tpm_sign_values(&setup.config, &tpm.sk, &s, &lid, &gid)
     });
 
     let pi_tpm = trace.scoped("sign.tpm.pi_tpm_prove", || match setup.config.proof_mode {
         ProofMode::Simulated => Ok(simulated_proof(
             "pi_tpm",
-            "simulated-faest-3aes",
-            setup.config.security.token_bytes() * 2,
+            match setup.config.tpm_backend {
+                TpmBackend::Aes => "simulated-faest-3aes",
+                TpmBackend::Sha2 => "simulated-voleith-3sha2",
+            },
+            setup.config.tpm_token_bytes() * 2,
             &[&lid, &gid, &slt, &hk, &tpm_msg_prime],
             &[&tpm.sk, &s, &et],
         )),
@@ -624,7 +832,7 @@ fn sign_internal(
 
     let host_precompute_start = Instant::now();
     let msg_prime = message_prime(&setup.config, msg, &rho);
-    let host_hk = aes_hook(&setup.config, &s, &et);
+    let host_hk = tpm_hk(&setup.config, &s, &et);
     host_precompute_elapsed += host_precompute_start.elapsed();
     trace.add("sign.host.precompute", host_precompute_elapsed);
 
@@ -643,7 +851,7 @@ fn sign_internal(
                     Ok(simulated_proof(
                         "pi_host",
                         &format!("simulated-risc0-{}", setup.config.backend_hash),
-                        setup.config.security.token_bytes() * 4,
+                        setup.config.tpm_token_bytes() * 4,
                         &[&hk, &setup.issuer_keys.mpk],
                         &[&et, &s, &host.credential.sigma, &bool_byte(witness_ok)],
                     ))
@@ -880,20 +1088,24 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
         + sign.signature.pi_tpm.size_bytes()
         + sign.signature.pi_host.size_bytes();
 
-    trace.add_size(
-        "size.pi_join.faest_signature_bytes",
-        join.pi_join.size_bytes(),
-    );
+    let join_size_name = if join.pi_join.backend.contains("voleith-") {
+        "size.pi_join.voleith_proof_bytes"
+    } else {
+        "size.pi_join.faest_signature_bytes"
+    };
+    trace.add_size(join_size_name, join.pi_join.size_bytes());
     trace.add_size("size.issuer_credential.sigma", credential_sigma);
     trace.add_size("size.issuer_credential.issuer_nonce", credential_nonce);
     trace.add_size(
         "size.issuer_credential.total",
         credential_sigma + credential_nonce,
     );
-    trace.add_size(
-        "size.signature.pi_tpm.faest_signature_bytes",
-        sign.signature.pi_tpm.size_bytes(),
-    );
+    let tpm_size_name = if sign.signature.pi_tpm.backend.contains("voleith-") {
+        "size.signature.pi_tpm.voleith_proof_bytes"
+    } else {
+        "size.signature.pi_tpm.faest_signature_bytes"
+    };
+    trace.add_size(tpm_size_name, sign.signature.pi_tpm.size_bytes());
     trace.add_size(
         "size.signature.pi_host.serialized_receipt_bytes",
         sign.signature.pi_host.size_bytes(),
@@ -914,17 +1126,32 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
 
 /// Derives the group identifier from the issuer public key.
 pub fn group_id(config: &ProtocolConfig, mpk: &[u8]) -> Bytes {
-    hash_many(16, &[b"gid", mpk, config.sphincs_params.as_bytes()])
+    match config.tpm_backend {
+        TpmBackend::Aes => hash_many(16, &[b"gid", mpk, config.sphincs_params.as_bytes()]),
+        TpmBackend::Sha2 => sha2_hash(
+            config.security,
+            &[b"DAA-GID-v1", mpk, config.sphincs_params.as_bytes()],
+        ),
+    }
 }
 
 /// Derives the basename-specific link identifier.
 pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
-    hash_many(16, &[b"lid", bsn, config.sphincs_params.as_bytes()])
+    match config.tpm_backend {
+        TpmBackend::Aes => hash_many(16, &[b"lid", bsn, config.sphincs_params.as_bytes()]),
+        TpmBackend::Sha2 => sha2_hash(
+            config.security,
+            &[b"DAA-LID-v1", bsn, config.sphincs_params.as_bytes()],
+        ),
+    }
 }
 
 /// Derives the randomized message bound to TPM proofs.
 pub fn message_prime(config: &ProtocolConfig, msg: &[u8], rho: &[u8]) -> Bytes {
-    hash_many(config.security.key_bytes(), &[b"msg-prime", msg, rho])
+    match config.tpm_backend {
+        TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"msg-prime", msg, rho]),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-MSG-PRIME-v1", msg, rho]),
+    }
 }
 
 /// Builds the issuer credential message as et || issuer_nonce.
@@ -987,6 +1214,73 @@ fn issuer_verify_simulated(keys: &IssuerKeypair, msg: &[u8], sig: &[u8]) -> bool
     issuer_sign_simulated(keys, msg) == sig
 }
 
+/// Computes the TPM entry token for the selected primitive.
+fn tpm_et(config: &ProtocolConfig, sk: &[u8], gid: &[u8]) -> Bytes {
+    match config.tpm_backend {
+        TpmBackend::Aes => aes_prf(config, sk, gid),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x02], sk, gid]),
+    }
+}
+
+/// Computes the TPM signing outputs while keeping et internal to the proof relation.
+fn tpm_sign_values(
+    config: &ProtocolConfig,
+    sk: &[u8],
+    s: &[u8],
+    lid: &[u8],
+    gid: &[u8],
+) -> (Bytes, Bytes, Bytes) {
+    match config.tpm_backend {
+        TpmBackend::Aes => {
+            let et = aes_prf(config, sk, gid);
+            let slt = aes_prf(config, sk, lid);
+            let hk = aes_hook(config, s, &et);
+            (et, slt, hk)
+        }
+        TpmBackend::Sha2 => {
+            let et = sha2_hash(config.security, &[&[0x02], sk, gid]);
+            let slt = sha2_hash(config.security, &[&[0x01], sk, lid]);
+            let hk = sha2_hash(config.security, &[&[0x03], s, &et]);
+            (et, slt, hk)
+        }
+    }
+}
+
+/// Computes the host-side hook for the selected primitive.
+fn tpm_hk(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
+    match config.tpm_backend {
+        TpmBackend::Aes => aes_hook(config, s, et),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x03], s, et]),
+    }
+}
+
+/// Hashes a fixed-format transcript with the SHA-2 member of the security level.
+fn sha2_hash(level: SecurityLevel, parts: &[&[u8]]) -> Bytes {
+    match level {
+        SecurityLevel::L128 => {
+            let mut h = Sha256::new();
+            for part in parts {
+                h.update(part);
+            }
+            h.finalize().to_vec()
+        }
+        SecurityLevel::L192 => {
+            let mut h = Sha384::new();
+            for part in parts {
+                h.update(part);
+            }
+            h.finalize().to_vec()
+        }
+        SecurityLevel::L256 => {
+            let mut h = Sha512::new();
+            for part in parts {
+                h.update(part);
+            }
+            h.finalize().to_vec()
+        }
+    }
+}
+
 /// Evaluates the TPM AES PRF or its simulated replacement.
 fn aes_prf(config: &ProtocolConfig, key: &[u8], input: &[u8]) -> Bytes {
     if config.proof_mode.uses_real_proofs() {
@@ -1012,8 +1306,19 @@ fn aes_hook(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
 }
 
 /// Builds the message bound to the join FAEST proof.
-fn join_proof_message(gid: &[u8], et: &[u8]) -> Bytes {
-    hash_many(32, &[b"daa-join-faest", gid, et])
+fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
+    match config.tpm_backend {
+        TpmBackend::Aes => hash_many(32, &[b"daa-join-faest", gid, et]),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-JOIN-VOLEITH-v1", gid, et]),
+    }
+}
+
+/// Computes the Join commitment while preserving the legacy AES transcript exactly.
+fn join_commitment(config: &ProtocolConfig, et: &[u8], r: &[u8]) -> Bytes {
+    match config.tpm_backend {
+        TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"join-com", et, r]),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-JOIN-COM-v1", et, r]),
+    }
 }
 
 /// Clears the first witness bit to satisfy FAEST key restrictions.
@@ -1039,8 +1344,265 @@ fn aes_hook_real(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     out
 }
 
-/// Produces the real FAEST single-AES join proof.
+/// Produces a real Join proof with the selected TPM backend.
 fn prove_join_real(
+    config: &ProtocolConfig,
+    sk: &[u8],
+    gid: &[u8],
+    et: &[u8],
+    msg: &[u8],
+) -> DaaResult<ProofArtifact> {
+    match config.tpm_backend {
+        TpmBackend::Aes => prove_join_aes_real(config, sk, gid, et, msg),
+        TpmBackend::Sha2 => prove_join_sha_real(config, sk, gid, et, msg),
+    }
+}
+
+/// Verifies a real Join proof with the selected TPM backend.
+fn verify_join_real(
+    config: &ProtocolConfig,
+    proof: &ProofArtifact,
+    gid: &[u8],
+    et: &[u8],
+    msg: &[u8],
+) -> bool {
+    match config.tpm_backend {
+        TpmBackend::Aes => verify_join_aes_real(config, proof, gid, et, msg),
+        TpmBackend::Sha2 => verify_join_sha_real(config, proof, gid, et, msg),
+    }
+}
+
+/// Produces a real TPM signing proof with the selected backend.
+#[allow(clippy::too_many_arguments)]
+fn prove_tpm_real(
+    config: &ProtocolConfig,
+    lid: &[u8],
+    gid: &[u8],
+    sk: &[u8],
+    s: &[u8],
+    msg_prime: &[u8],
+    expected_et: &[u8],
+    expected_slt: &[u8],
+    expected_hk: &[u8],
+) -> DaaResult<ProofArtifact> {
+    match config.tpm_backend {
+        TpmBackend::Aes => prove_tpm_aes_real(
+            config,
+            lid,
+            gid,
+            sk,
+            s,
+            msg_prime,
+            expected_et,
+            expected_slt,
+            expected_hk,
+        ),
+        TpmBackend::Sha2 => prove_tpm_sha_real(
+            config,
+            lid,
+            gid,
+            sk,
+            s,
+            msg_prime,
+            expected_et,
+            expected_slt,
+            expected_hk,
+        ),
+    }
+}
+
+/// Verifies a real TPM signing proof with the selected backend.
+fn verify_tpm_real(
+    config: &ProtocolConfig,
+    proof: &ProofArtifact,
+    lid: &[u8],
+    gid: &[u8],
+    slt: &[u8],
+    hk: &[u8],
+    msg_prime: &[u8],
+) -> bool {
+    match config.tpm_backend {
+        TpmBackend::Aes => verify_tpm_aes_real(config, proof, lid, gid, slt, hk, msg_prime),
+        TpmBackend::Sha2 => verify_tpm_sha_real(config, proof, lid, gid, slt, hk, msg_prime),
+    }
+}
+
+/// Returns the SHA-2 name used in proof backend labels.
+fn sha2_name(level: SecurityLevel) -> &'static str {
+    match level {
+        SecurityLevel::L128 => "sha256",
+        SecurityLevel::L192 => "sha384",
+        SecurityLevel::L256 => "sha512",
+    }
+}
+
+/// Fills the prover's explicit 256-bit randomness buffer.
+fn fresh_prover_randomness() -> DaaResult<[u8; 32]> {
+    let mut randomness = [0u8; 32];
+    getrandom::getrandom(&mut randomness).map_err(|_| DaaError::InvalidTpmProof)?;
+    Ok(randomness)
+}
+
+/// Produces the joint VOLEith proof et = H(02 || sk || gid).
+fn prove_join_sha_real(
+    config: &ProtocolConfig,
+    sk: &[u8],
+    gid: &[u8],
+    et: &[u8],
+    context: &[u8],
+) -> DaaResult<ProofArtifact> {
+    let level = config.security.bits();
+    let proof_cap = unsafe { daa_tpm_sha_join_proof_bytes(level) };
+    if proof_cap == 0 {
+        return Err(DaaError::InvalidJoinProof);
+    }
+    let randomness = fresh_prover_randomness().map_err(|_| DaaError::InvalidJoinProof)?;
+    let mut proof = vec![0u8; proof_cap];
+    let mut proof_len = proof.len();
+    let ret = unsafe {
+        daa_tpm_sha_join_prove(
+            level,
+            sk.as_ptr(),
+            sk.len(),
+            gid.as_ptr(),
+            gid.len(),
+            et.as_ptr(),
+            et.len(),
+            context.as_ptr(),
+            context.len(),
+            randomness.as_ptr(),
+            randomness.len(),
+            proof.as_mut_ptr(),
+            &mut proof_len,
+        )
+    };
+    if ret != 0 || proof_len > proof.len() {
+        return Err(DaaError::InvalidJoinProof);
+    }
+    proof.truncate(proof_len);
+    Ok(ProofArtifact {
+        kind: "pi_join".to_string(),
+        backend: format!("voleith-{}-join", sha2_name(config.security)),
+        statement_hash: sha2_hash(SecurityLevel::L128, &[gid, et, context]),
+        proof_bytes: proof,
+        seal_bytes: None,
+    })
+}
+
+/// Verifies the public Join relation without receiving sk.
+fn verify_join_sha_real(
+    config: &ProtocolConfig,
+    proof: &ProofArtifact,
+    gid: &[u8],
+    et: &[u8],
+    context: &[u8],
+) -> bool {
+    unsafe {
+        daa_tpm_sha_join_verify(
+            config.security.bits(),
+            gid.as_ptr(),
+            gid.len(),
+            et.as_ptr(),
+            et.len(),
+            context.as_ptr(),
+            context.len(),
+            proof.proof_bytes.as_ptr(),
+            proof.proof_bytes.len(),
+        ) == 0
+    }
+}
+
+/// Produces one joint proof of the three domain-separated SHA relations.
+#[allow(clippy::too_many_arguments)]
+fn prove_tpm_sha_real(
+    config: &ProtocolConfig,
+    lid: &[u8],
+    gid: &[u8],
+    sk: &[u8],
+    s: &[u8],
+    context: &[u8],
+    expected_et: &[u8],
+    slt: &[u8],
+    hk: &[u8],
+) -> DaaResult<ProofArtifact> {
+    if tpm_et(config, sk, gid) != expected_et {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    let level = config.security.bits();
+    let proof_cap = unsafe { daa_tpm_sha_sign_proof_bytes(level) };
+    if proof_cap == 0 {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    let randomness = fresh_prover_randomness()?;
+    let mut proof = vec![0u8; proof_cap];
+    let mut proof_len = proof.len();
+    let ret = unsafe {
+        daa_tpm_sha_sign_prove(
+            level,
+            sk.as_ptr(),
+            sk.len(),
+            s.as_ptr(),
+            s.len(),
+            lid.as_ptr(),
+            lid.len(),
+            gid.as_ptr(),
+            gid.len(),
+            slt.as_ptr(),
+            slt.len(),
+            hk.as_ptr(),
+            hk.len(),
+            context.as_ptr(),
+            context.len(),
+            randomness.as_ptr(),
+            randomness.len(),
+            proof.as_mut_ptr(),
+            &mut proof_len,
+        )
+    };
+    if ret != 0 || proof_len > proof.len() {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    proof.truncate(proof_len);
+    Ok(ProofArtifact {
+        kind: "pi_tpm".to_string(),
+        backend: format!("voleith-{}-3sha2", sha2_name(config.security)),
+        statement_hash: sha2_hash(SecurityLevel::L128, &[lid, gid, slt, hk, context]),
+        proof_bytes: proof,
+        seal_bytes: None,
+    })
+}
+
+/// Verifies the joint three-SHA public statement.
+fn verify_tpm_sha_real(
+    config: &ProtocolConfig,
+    proof: &ProofArtifact,
+    lid: &[u8],
+    gid: &[u8],
+    slt: &[u8],
+    hk: &[u8],
+    context: &[u8],
+) -> bool {
+    unsafe {
+        daa_tpm_sha_sign_verify(
+            config.security.bits(),
+            lid.as_ptr(),
+            lid.len(),
+            gid.as_ptr(),
+            gid.len(),
+            slt.as_ptr(),
+            slt.len(),
+            hk.as_ptr(),
+            hk.len(),
+            context.as_ptr(),
+            context.len(),
+            proof.proof_bytes.as_ptr(),
+            proof.proof_bytes.len(),
+        ) == 0
+    }
+}
+
+/// Produces the real FAEST single-AES join proof.
+fn prove_join_aes_real(
     config: &ProtocolConfig,
     sk: &[u8],
     gid: &[u8],
@@ -1077,7 +1639,7 @@ fn prove_join_real(
 }
 
 /// Verifies the real FAEST single-AES join proof.
-fn verify_join_real(
+fn verify_join_aes_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
     gid: &[u8],
@@ -1102,7 +1664,7 @@ fn verify_join_real(
 }
 
 /// Produces the real FAEST TPM signing proof.
-fn prove_tpm_real(
+fn prove_tpm_aes_real(
     config: &ProtocolConfig,
     lid: &[u8],
     gid: &[u8],
@@ -1151,7 +1713,7 @@ fn prove_tpm_real(
 }
 
 /// Verifies the real FAEST TPM signing proof.
-fn verify_tpm_real(
+fn verify_tpm_aes_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
     lid: &[u8],
@@ -1387,12 +1949,17 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
             std::env::var("SPHINCS_OPT_LEVEL").unwrap_or_else(|_| "2".to_string()),
         )
         .env("DAA_DETERMINISTIC", "1")
+        .env("DAA_TPM_BACKEND", config.tpm_backend.name())
         .env("RISC0_BACKEND_HASH", &config.backend_hash);
     if let Some(segment_limit_po2) = config.risc0_segment_limit_po2 {
         cmd.env("RISC0_SEGMENT_LIMIT_PO2", segment_limit_po2.to_string());
     }
     if std::env::var_os("CARGO_TARGET_DIR").is_none() {
-        cmd.env("CARGO_TARGET_DIR", "/tmp/sedaa-risc0-shared-target");
+        let target_dir = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .map(|home| home.join(".cache/sedaa-risc0-shared-target"))
+            .unwrap_or_else(|| std::env::temp_dir().join("sedaa-risc0-shared-target"));
+        cmd.env("CARGO_TARGET_DIR", target_dir);
     }
     Ok(cmd)
 }
@@ -1504,6 +2071,18 @@ fn daa_full_root() -> PathBuf {
 
 static HOST_TMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy)]
+struct DaaTpmShaStats {
+    private_input_bits: usize,
+    public_input_bits: usize,
+    output_bits: usize,
+    and_gates: usize,
+    xor_gates: usize,
+    total_nodes: usize,
+    proof_bytes: usize,
+}
+
 /// Provides deterministic randombytes for linked C code in local benchmarks.
 #[no_mangle]
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
@@ -1567,6 +2146,73 @@ extern "C" {
         msg_len: usize,
         sig: *const u8,
         sig_len: usize,
+    ) -> i32;
+    fn daa_tpm_sha_prepare(level: u32) -> i32;
+    fn daa_tpm_sha_join_stats(level: u32, stats: *mut DaaTpmShaStats) -> i32;
+    fn daa_tpm_sha_sign_stats(level: u32, stats: *mut DaaTpmShaStats) -> i32;
+    fn daa_tpm_sha_join_proof_bytes(level: u32) -> usize;
+    fn daa_tpm_sha_sign_proof_bytes(level: u32) -> usize;
+    fn daa_tpm_sha_join_prove(
+        level: u32,
+        sk: *const u8,
+        sk_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        et: *const u8,
+        et_len: usize,
+        context: *const u8,
+        context_len: usize,
+        randomness: *const u8,
+        randomness_len: usize,
+        proof_out: *mut u8,
+        proof_len: *mut usize,
+    ) -> i32;
+    fn daa_tpm_sha_join_verify(
+        level: u32,
+        gid: *const u8,
+        gid_len: usize,
+        et: *const u8,
+        et_len: usize,
+        context: *const u8,
+        context_len: usize,
+        proof: *const u8,
+        proof_len: usize,
+    ) -> i32;
+    fn daa_tpm_sha_sign_prove(
+        level: u32,
+        sk: *const u8,
+        sk_len: usize,
+        s: *const u8,
+        s_len: usize,
+        lid: *const u8,
+        lid_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        slt: *const u8,
+        slt_len: usize,
+        hk: *const u8,
+        hk_len: usize,
+        context: *const u8,
+        context_len: usize,
+        randomness: *const u8,
+        randomness_len: usize,
+        proof_out: *mut u8,
+        proof_len: *mut usize,
+    ) -> i32;
+    fn daa_tpm_sha_sign_verify(
+        level: u32,
+        lid: *const u8,
+        lid_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        slt: *const u8,
+        slt_len: usize,
+        hk: *const u8,
+        hk_len: usize,
+        context: *const u8,
+        context_len: usize,
+        proof: *const u8,
+        proof_len: usize,
     ) -> i32;
 }
 
@@ -1687,5 +2333,90 @@ impl DeterministicRng {
         }
         out.truncate(len);
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_aes_lengths_and_identifiers_are_unchanged() {
+        let config = ProtocolConfig::default().with_params("sha2-192s");
+        assert_eq!(config.tpm_backend, TpmBackend::Aes);
+        assert_eq!(config.tpm_token_bytes(), 32);
+        assert_eq!(config.issuer_nonce_bytes(), 32);
+        assert_eq!(
+            group_id(&config, b"pk"),
+            hash_many(16, &[b"gid", b"pk", b"sha2-192s"])
+        );
+        assert_eq!(
+            link_id(&config, b"bsn"),
+            hash_many(16, &[b"lid", b"bsn", b"sha2-192s"])
+        );
+    }
+
+    #[test]
+    fn sha_backend_uses_full_digest_lengths_and_domain_separation() {
+        for (params, key_len, digest_len) in [
+            ("sha2-128s", 16, 32),
+            ("sha2-192s", 24, 48),
+            ("sha2-256s", 32, 64),
+        ] {
+            let config = ProtocolConfig::default()
+                .with_params(params)
+                .with_tpm_backend(TpmBackend::Sha2);
+            assert_eq!(config.security.key_bytes(), key_len);
+            assert_eq!(config.tpm_token_bytes(), digest_len);
+            assert_eq!(config.issuer_nonce_bytes(), key_len);
+
+            let sk = vec![0x11; key_len];
+            let s = vec![0x22; key_len];
+            let gid = group_id(&config, b"pk");
+            let lid = link_id(&config, b"basename");
+            assert_eq!(gid.len(), digest_len);
+            assert_eq!(lid.len(), digest_len);
+            assert_ne!(gid, lid);
+
+            let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
+            assert_eq!(et, sha2_hash(config.security, &[&[0x02], &sk, &gid]));
+            assert_eq!(slt, sha2_hash(config.security, &[&[0x01], &sk, &lid]));
+            assert_eq!(hk, sha2_hash(config.security, &[&[0x03], &s, &et]));
+            assert_eq!(et.len(), digest_len);
+            assert_eq!(slt.len(), digest_len);
+            assert_eq!(hk.len(), digest_len);
+        }
+    }
+
+    #[test]
+    fn legacy_aes_real_proofs_still_round_trip() {
+        let config = ProtocolConfig::default()
+            .with_params("sha2-128s")
+            .with_tpm_backend(TpmBackend::Aes)
+            .with_proof_mode(ProofMode::RealTpm);
+        let mut sk = vec![0x31; config.security.key_bytes()];
+        let mut s = vec![0x72; config.security.key_bytes()];
+        normalize_faest_key(&mut sk);
+        normalize_faest_key(&mut s);
+        let gid = vec![0x43; 16];
+        let lid = vec![0x54; 16];
+        let et = aes_prf(&config, &sk, &gid);
+        let join_context = join_proof_message(&config, &gid, &et);
+        let join = prove_join_aes_real(&config, &sk, &gid, &et, &join_context).unwrap();
+        assert!(verify_join_aes_real(
+            &config,
+            &join,
+            &gid,
+            &et,
+            &join_context
+        ));
+
+        let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
+        let context = message_prime(&config, b"legacy AES KAT", b"fixed rho");
+        let proof =
+            prove_tpm_aes_real(&config, &lid, &gid, &sk, &s, &context, &et, &slt, &hk).unwrap();
+        assert!(verify_tpm_aes_real(
+            &config, &proof, &lid, &gid, &slt, &hk, &context
+        ));
     }
 }

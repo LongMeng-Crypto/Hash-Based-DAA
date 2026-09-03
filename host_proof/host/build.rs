@@ -12,10 +12,22 @@ fn main() {
     let params = env::var("SPHINCS_PARAMS").unwrap_or_else(|_| "sphincs-sha2-128s".to_string());
     let thash = env::var("SPHINCS_THASH").unwrap_or_else(|_| "simple".to_string());
     let profile = env::var("SPHINCS_PROFILE").unwrap_or_default() == "1";
-    let fs_security = env::var("FSPHINCS_SECURITY")
-        .unwrap_or_else(|_| "128".to_string());
-    if fs_security != "128" && fs_security != "256" {
-        panic!("FSPHINCS_SECURITY must be 128 or 256");
+    let tpm_backend = env::var("DAA_TPM_BACKEND").unwrap_or_else(|_| "aes".to_string());
+    if tpm_backend != "aes" && tpm_backend != "sha2" {
+        panic!("DAA_TPM_BACKEND must be aes or sha2");
+    }
+    let fs_security = env::var("FSPHINCS_SECURITY").unwrap_or_else(|_| "128".to_string());
+    if fs_security != "128" && fs_security != "192" && fs_security != "256" {
+        panic!("FSPHINCS_SECURITY must be 128, 192, or 256");
+    }
+    let fs_k = env::var("FSPHINCS_K").unwrap_or_else(|_| match fs_security.as_str() {
+        "128" => "35".to_string(),
+        "192" => "33".to_string(),
+        "256" => "70".to_string(),
+        _ => unreachable!(),
+    });
+    if !["22", "33", "35", "43", "70"].contains(&fs_k.as_str()) {
+        panic!("FSPHINCS_K must be 22, 33, 35, 43, or 70");
     }
 
     const VALID_PARAMS: &[&str] = &[
@@ -126,6 +138,7 @@ fn main() {
         .include(fs_dir)
         .include(dir)
         .define("FSPHINCS_SECURITY", fs_security.as_str())
+        .define("FSPHINCS_K", fs_k.as_str())
         .opt_level(3)
         .warnings(true)
         .file(format!("{}/fsphincs.c", fs_dir))
@@ -140,7 +153,9 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SPHINCS_PARAMS");
     println!("cargo:rerun-if-env-changed=SPHINCS_THASH");
     println!("cargo:rerun-if-env-changed=SPHINCS_PROFILE");
+    println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
     println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
+    println!("cargo:rerun-if-env-changed=FSPHINCS_K");
 
     // Security level → cfg flag + SPHINCS_N byte count
     let sec_level = if params.contains("-128") {
@@ -161,14 +176,25 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(lambda_192)");
     println!("cargo::rustc-check-cfg=cfg(lambda_256)");
     println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
+    println!("cargo::rustc-check-cfg=cfg(daa_tpm_sha2)");
+    println!("cargo::rustc-check-cfg=cfg(fsphincs_192)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
+    for k in ["22", "33", "35", "43", "70"] {
+        println!("cargo::rustc-check-cfg=cfg(fsphincs_k_{k})");
+    }
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
     if profile {
         println!("cargo:rustc-cfg=sphincs_profile");
     }
-    if fs_security == "256" {
-        println!("cargo:rustc-cfg=fsphincs_256");
+    if tpm_backend == "sha2" {
+        println!("cargo:rustc-cfg=daa_tpm_sha2");
     }
+    match fs_security.as_str() {
+        "192" => println!("cargo:rustc-cfg=fsphincs_192"),
+        "256" => println!("cargo:rustc-cfg=fsphincs_256"),
+        _ => {}
+    }
+    println!("cargo:rustc-cfg=fsphincs_k_{}", fs_k);
     println!("cargo:rustc-env=SPHINCS_N={}", spx_n);
 
     // Expose to host/src/main.rs via env!()
@@ -180,4 +206,6 @@ fn main() {
         if profile { "1" } else { "0" }
     );
     println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
+    println!("cargo:rustc-env=FSPHINCS_K={}", fs_k);
+    println!("cargo:rustc-env=DAA_TPM_BACKEND={}", tpm_backend);
 }

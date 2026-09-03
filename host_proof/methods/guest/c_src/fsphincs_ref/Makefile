@@ -3,6 +3,7 @@ CFLAGS ?= -O3 -std=c11 -Wall -Wextra -Wpedantic
 SPHINCS_REF := ../sphincs_ref
 PARAMS := sphincs-sha2-128s
 FSPHINCS_SECURITY ?= 128
+FSPHINCS_K_FLAG = $(if $(FSPHINCS_K),-DFSPHINCS_K=$(FSPHINCS_K),)
 
 .PHONY: all benchmark kat test clean
 
@@ -19,7 +20,7 @@ test: benchmark kat
 fsphincs_benchmark: fsphincs.c benchmark.c api.h params.h
 	$(CC) $(CFLAGS) -DFSPHINCS_PROFILE \
 	  -I. -I$(SPHINCS_REF) -I$(SPHINCS_REF)/params \
-	  -DPARAMS=$(PARAMS) -DFSPHINCS_SECURITY=$(FSPHINCS_SECURITY) \
+	  -DPARAMS=$(PARAMS) -DFSPHINCS_SECURITY=$(FSPHINCS_SECURITY) $(FSPHINCS_K_FLAG) \
 	  fsphincs.c benchmark.c \
 	  $(SPHINCS_REF)/sha2.c \
 	  -o $@
@@ -27,7 +28,7 @@ fsphincs_benchmark: fsphincs.c benchmark.c api.h params.h
 fsphincs_kat: fsphincs.c kat.c api.h params.h
 	$(CC) $(CFLAGS) \
 	  -I. -I$(SPHINCS_REF) -I$(SPHINCS_REF)/params \
-	  -DPARAMS=$(PARAMS) -DFSPHINCS_SECURITY=$(FSPHINCS_SECURITY) \
+	  -DPARAMS=$(PARAMS) -DFSPHINCS_SECURITY=$(FSPHINCS_SECURITY) $(FSPHINCS_K_FLAG) \
 	  fsphincs.c kat.c \
 	  $(SPHINCS_REF)/sha2.c \
 	  -o $@

@@ -1,18 +1,21 @@
 #![no_main]
 #![no_std]
 
+#[cfg(not(daa_tpm_sha2))]
+use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
 use risc0_zkvm::guest::env;
 #[cfg(sphincs_opt5_padding)]
 use risc0_zkvm_platform::syscall::sys_sha_buffer;
-use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 
-#[cfg(lambda_128)]
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
 use aes::Aes128;
-#[cfg(lambda_192)]
+#[cfg(all(not(daa_tpm_sha2), lambda_192))]
 use aes::Aes192;
-#[cfg(lambda_256)]
+#[cfg(all(not(daa_tpm_sha2), lambda_256))]
 use aes::Aes256;
 
+#[cfg(daa_tpm_sha2)]
+mod daa_sha_hook;
 mod sha_syscalls;
 
 risc0_zkvm::guest::entry!(main);
@@ -50,11 +53,29 @@ const OPT5_PAD_BLOCKS: usize = parse_usize(env!("SPHINCS_OPT5_PAD_BLOCKS"));
 #[cfg(sphincs_profile)]
 const PROFILE_WORDS: usize = 16;
 
-// lambda = 128: AES-128, s=16B, et_u=16B → hk = AES_s(et_u)  (pure ECB, no XOR)
-#[cfg(lambda_128)]
-const ET_GR_BYTES: usize = 16;
-#[cfg(any(lambda_192, lambda_256))]
-const ET_GR_BYTES: usize = 32;
+// AES mode retains its historical wire format.  SHA mode uses full SHA-2
+// digests for et/hk and keeps the issuer nonce at the security-parameter size.
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+const ET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+const ET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+const ET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+const ET_BYTES: usize = 64;
+
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+const NONCE_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+const NONCE_BYTES: usize = 16;
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+const NONCE_BYTES: usize = 24;
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+const NONCE_BYTES: usize = 32;
 
 #[cfg(lambda_128)]
 const S_BYTES: usize = 16;
@@ -63,13 +84,10 @@ const S_BYTES: usize = 24;
 #[cfg(lambda_256)]
 const S_BYTES: usize = 32;
 
-#[cfg(lambda_128)]
-const HK_BYTES: usize = 16;
-#[cfg(any(lambda_192, lambda_256))]
-const HK_BYTES: usize = 32;
+const HK_BYTES: usize = ET_BYTES;
 
-#[cfg(lambda_128)]
-fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
@@ -79,8 +97,8 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
 }
 
 // lambda = 192: AES-192, s=24B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
-#[cfg(lambda_192)]
-fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -93,8 +111,8 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
 }
 
 // lambda = 256: AES-256, s=32B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
-#[cfg(lambda_256)]
-fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -106,6 +124,20 @@ fn aes_hook(s: &[u8; S_BYTES], et_u: &[u8; ET_GR_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
+#[cfg(all(daa_tpm_sha2, lambda_128))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha256_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha2, lambda_192))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha384_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha2, lambda_256))]
+fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    daa_sha_hook::sha512_hook(s, et_u)
+}
 
 #[cfg(sphincs_opt5_padding)]
 fn opt5_bin_forcing_padding() {
@@ -137,8 +169,8 @@ fn main() {
     let mut sig = [0u8; SIG_BYTES];
     let mut hk_pub = [0u8; HK_BYTES];
     let mut s = [0u8; S_BYTES];
-    let mut et_u = [0u8; ET_GR_BYTES];
-    let mut issuer_nonce = [0u8; ET_GR_BYTES];
+    let mut et_u = [0u8; ET_BYTES];
+    let mut issuer_nonce = [0u8; NONCE_BYTES];
 
     env::read_slice(&mut pk);
     env::read_slice(&mut sig);
@@ -147,26 +179,27 @@ fn main() {
     env::read_slice(&mut et_u);
     env::read_slice(&mut issuer_nonce);
 
-    let mut msg = [0u8; 2 * ET_GR_BYTES];
-    msg[..ET_GR_BYTES].copy_from_slice(&et_u);
-    msg[ET_GR_BYTES..].copy_from_slice(&issuer_nonce);
+    let mut msg = [0u8; ET_BYTES + NONCE_BYTES];
+    msg[..ET_BYTES].copy_from_slice(&et_u);
+    msg[ET_BYTES..].copy_from_slice(&issuer_nonce);
 
     // 1) Verify SPHINCS+ signature over the reconstructed secret message
     let ret = unsafe {
         crypto_sign_verify(
-            sig.as_ptr(),  sig.len(),
-            msg.as_ptr(),  msg.len(),
+            sig.as_ptr(),
+            sig.len(),
+            msg.as_ptr(),
+            msg.len(),
             pk.as_ptr(),
         )
     };
     assert!(ret == 0);
 
-    // 2) Recompute and check AES hook. The skip mode is diagnostic only; it
-    // measures how much AES contributes to guest cycles and is not a valid DAA
-    // statement.
-    #[cfg(not(skip_aes_check))]
+    // 2) Recompute and check the selected TPM hook.  The legacy skip switch is
+    // deliberately AES-only; a SHA-mode receipt always proves the SHA hook.
+    #[cfg(any(daa_tpm_sha2, not(skip_aes_check)))]
     {
-        let hk_calc = aes_hook(&s, &et_u);
+        let hk_calc = hook(&s, &et_u);
         assert!(hk_calc == hk_pub);
     }
 
