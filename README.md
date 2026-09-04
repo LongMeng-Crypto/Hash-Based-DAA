@@ -1,83 +1,50 @@
-# DAA_FULL
+# Hash-Based DAA Prototype
 
-`DAA_FULL` is the single-machine wrapper for the hash-based DAA prototype. It
-connects issuer, TPM, host, verifier, linker, and revocation logic with one
-shared protocol variable flow instead of independent proof-of-concept inputs.
+`DAA_FULL` is the complete single-machine implementation of the hash-based
+Direct Anonymous Attestation (DAA) protocol. It connects issuer Setup, TPM
+Join and signing, host-side credential proving, verification, linking, and
+revocation through one shared protocol state. The repository contains both
+the protocol implementation and the scripts used to generate the paper's
+current benchmark tables.
 
-## Repository Layout
+## Protocol and Implementations
 
-`DAA_FULL` contains the full benchmarked DAA protocol and its guests. The
-TPM-side FAEST/AES and VOLEith/SHA-2 implementations remain vendored here, while the RISC0
-proving stack is consumed from a pinned `RISC0-SHA256` Git revision.
-This keeps DAA protocol code separate from the reusable backend.
+### Protocol flow
 
-```text
-Cargo.toml                         workspace and external RISC0 backend patches
-Cargo.lock                         locked dependency graph for reproducible builds
-crates/daa_core/                   protocol state machine, timing trace, FFI glue
-crates/daa_cli/                    command-line runner and benchmark wrapper
-host_proof/                        RISC0 host-side SPHINCS+ proof runner
-host_proof/host/                   native host binary used by daa_core
-host_proof/methods/guest/          RISC0 guest program and SPHINCS+ verifier C code
-vendor/TPM_AES/                    vendored FAEST/AES TPM proof implementation
-vendor/TPM_SHA/                    vendored VOLEith/SHA-2 TPM proof implementation
-scripts/                           full-protocol benchmark helpers
-```
+The implemented protocol has five main stages:
 
-The four `[patch.crates-io]` entries in `Cargo.toml` are pinned to the same
-backend commit. Prover and verifier must use that same revision because
-Succinct and Identity receipts bind to its recursion artifacts and control IDs.
+1. **Setup.** The issuer generates a credential keypair `(mpk, msk)`. The
+   current implementation can additionally generate a deterministic public
+   anchor certificate and the one-time extraction proof `pi_I`.
+2. **Join.** The TPM derives `gid` and the private entry token `et`, proves the
+   corresponding SHA-2 relation, and obtains an issuer credential on
+   `et || issuer_nonce`.
+3. **Sign.** The TPM produces the link token and TPM proof. The host proves
+   knowledge of a valid issuer credential and the private values opening the
+   TPM-to-host hook.
+4. **Verify.** The verifier checks the revocation state, TPM proof, public hook
+   values, and RISC0 host receipt.
+5. **Link.** Two accepted signatures are linked exactly when their public
+   `slt` values match for the same basename.
 
-`vendor/TPM_AES/builddir_rel/` intentionally contains only the generated FAEST
-C/header files needed by `daa_core/build.rs`; it does not contain Meson/Ninja
-build products. Cargo build output lives in `target/` and should not be
-committed.
+The SHA-2 TPM path uses SHA-256, SHA-384, and SHA-512 at the 128-, 192-, and
+256-bit parameter levels. Each level supports a VOLEith `s` profile for a
+smaller proof and an `f` profile for faster proving.
 
-## Implemented Flow
+### Evaluated variants
 
-- `setup`: generates issuer credential keys, the deterministic issuer anchor
-  certificate and its VOLEith proof `pi_I`, then initializes empty revocation
-  state.
-- `join`: computes `gid`, TPM `et`, the selected Join proof, and the issuer credential.
-- `sign`: computes TPM `rho`, `msg'`, `et`, `slt`, `hk`, `pi_TPM`, and host `pi_host`.
-- `verify`: checks empty revocation lists, verifies `pi_TPM`, and verifies `pi_host`.
-- `link`: compares two signatures by `slt`.
-- `revoke`: returns empty key and link revocation lists for the current benchmarks.
+Both variants are implemented in this repository. Variant-1 follows the
+five-function TPM and F-SPHINCS+ structure of CDENW'23, but its SHA-2
+instantiation, VOLEith proof, F-SPHINCS+-SHA256 implementation, and RISC0
+host proof are all implementations from this project rather than results
+reported by CDENW'23.
 
-## Supported Real Parameters
+| Variant | TPM relation | Credential | TPM proof | Host relation | Host proof |
+|---|---|---|---|---|---|
+| Variant-1 | CDENW'23-style 5F instantiated with SHA-2 | F-SPHINCS+-SHA256 | VOLEith | Credential verification plus two SHA-2 hooks | RISC0 SHA-256 |
+| Variant-2 | Ours-3F instantiated with SHA-2 | SPHINCS+-SHA2 | VOLEith | Direct SPHINCS+ or ZK-WOTS+ plus one SHA-2 hook | RISC0 SHA-256 |
 
-The real path supports the six SHA2 SPHINCS+/FAEST-aligned parameter sets:
-
-- `sha2-128s` maps to `sphincs-sha2-128s` and `FAEST-128s`.
-- `sha2-128f` maps to `sphincs-sha2-128f` and `FAEST-128f`.
-- `sha2-192s` maps to `sphincs-sha2-192s` and `FAEST-192s`.
-- `sha2-192f` maps to `sphincs-sha2-192f` and `FAEST-192f`.
-- `sha2-256s` maps to `sphincs-sha2-256s` and `FAEST-256s`.
-- `sha2-256f` maps to `sphincs-sha2-256f` and `FAEST-256f`.
-
-The host proof is generated by the vendored RISC0 runner in:
-
-```text
-host_proof/
-```
-
-The wrapper defaults to the SHA-256 RISC0 backend and can also run the
-Poseidon2 backend through `--backend poseidon2`. SHA-256 supports Composite,
-Succinct, and optional Identity wrapping through `RISC0_RECEIPT_KIND` and
-`RISC0_IDENTITY_WRAP`. The runner records the internal
-`prover_ms` / `verifier_ms` metrics emitted by the host runner. The top-level
-`wall time` includes Cargo/RISC0 wrapper overhead, so use the benchmark step
-table for protocol analysis.
-
-## Proof Modes
-
-- `simulated`: deterministic simulated proofs for fast protocol plumbing tests.
-- `real-tpm`: real FAEST join and TPM signing proofs, plus a simulated host proof.
-- `real-128s`: real FAEST proofs and a real RISC0 host proof. The name is kept
-  for CLI compatibility, but it works for all six SHA2 parameter sets.
-
-The TPM primitive is selected independently with `--tpm-backend aes|sha2`.
-`aes` is the unchanged default. In `sha2` mode the complete TPM path uses
+Variant-2 evaluates the following relation:
 
 ```text
 slt = SHA2(0x01 || sk || lid)
@@ -85,14 +52,12 @@ et  = SHA2(0x02 || sk || gid)
 hk  = SHA2(0x03 || s  || et)
 ```
 
-SHA-256/384/512 are paired with the 128/192/256-bit VOLEith parameter sets.
-Join proves the second relation with public `(gid, et)`. TPM signing produces
-one joint proof with public `(lid, gid, slt, hk)` and private `(sk, s)`; `et`
-is passed directly between the two SHA circuits as an internal wire. The RISC0
-host guest checks the same SHA hook when this backend is selected.
+The Join proof publishes `(gid, et)` and proves knowledge of `sk`. The joint
+TPM-signing proof publishes `(lid, gid, slt, hk)` and proves knowledge of
+`(sk, s)` while carrying `et` directly between the second and third SHA
+circuits.
 
-`--tpm-sha-scheme chen23 --credential-scheme fsphincs` selects the connected
-CDENW'23--Ours-5F comparison path:
+Variant-1 evaluates:
 
 ```text
 slt = SHA2(0x01 || sk  || lid)
@@ -102,428 +67,366 @@ hk  = SHA2(0x05 || sst)
 cet = SHA2(0x06 || sst || et)
 ```
 
-The TPM proof exposes `(slt, hk, cet)` while keeping `(sk, sst, et)` private.
-The exact same `hk` and `cet` are public inputs to the RISC0 host proof; its
-private `sst` and `et` must open both hashes, and its F-SPHINCS+ credential must
-verify on `et || issuer_nonce`. The protocol state also checks that this `et`
-is exactly the entry token credentialed during Join. The F-SPHINCS+ parameters
-for 128/192/256-bit credential security are respectively `k=22/33/43`.
+Its TPM proof publishes `(slt, hk, cet)` and keeps `(sk, sst, et)` private.
+The RISC0 host guest receives the same public `hk` and `cet`, proves their two
+openings using the same private `(sst, et)`, and verifies an F-SPHINCS+
+credential on that `et`.
 
-## Build Cache
+### Issuer extraction proof
 
-Full host-proof benchmarks invoke the vendored RISC0 runner as an external
-Cargo command. If `CARGO_TARGET_DIR` is not set, `daa_core` sets it to:
+The optional `pi_I` construction is a separate Setup-time building block
+under the **global issuer-seed consistency assumption**. It is not repeated
+during Join or signing.
+
+- For SPHINCS+, a deterministic certificate fixes one top-layer WOTS+ leaf
+  and exposes two independently addressed chain starts. Public WOTS/XMSS
+  verification connects them to `PK.root`; `pi_I` proves two secret-dependent
+  SHA-256 compression blocks from the same `SK.seed`.
+- For F-SPHINCS+, the certificate uses the distinct M-FORS nodes
+  `(layer=1,node=0)` and `(layer=0,node=0)`. It retains only the selected
+  secrets and authentication paths plus the remaining public roots; `pi_I`
+  proves eight SHA-256 compression blocks from the same master seed.
+
+The two anchors strengthen the binding of the extracted witness. The global
+seed-consistency assumption separately states that the registered root and
+all issuer credentials use the prescribed derivation from that same seed.
+
+### Host proof modes
+
+The host implementation supports:
+
+| Construction | SPHINCS optimization | Receipts | Identity wrapper |
+|---|---:|---|---|
+| Direct SPHINCS+ | opt2 | Succinct | Required by the evaluated ZK configuration |
+| ZK-WOTS+ | opt4 | Composite or Succinct | Not used |
+| F-SPHINCS+ | constant-structure verifier | Composite or Succinct | Not used |
+
+The SHA-256 RISC0 backend is pinned in `Cargo.toml` to one revision of the
+standalone `RISC0-SHA256` repository. Composite, lift, join, Succinct, and
+Identity artifacts must come from that same revision because receipts bind to
+its recursion control IDs. The stock Poseidon2 path and the historical
+AES/FAEST TPM path remain available for compatibility, but they are not the
+source of the current tables below.
+
+## Repository Layout
 
 ```text
-${HOME}/.cache/sedaa-risc0-shared-target
+Cargo.toml                         workspace and pinned RISC0 backend patches
+Cargo.lock                         reproducible Rust dependency graph
+crates/daa_core/                   protocol state machine, FFI, and metrics
+crates/daa_cli/                    full-protocol and component benchmark CLI
+host_proof/host/                   native RISC0 host runner
+host_proof/methods/guest/          guest and SPHINCS+/F-SPHINCS+ C sources
+vendor/TPM_AES/                    preserved AES/FAEST TPM implementation
+vendor/TPM_SHA/                    SHA-2 circuits and VOLEith proof backend
+scripts/                           reproducible benchmark entry points
+benchmarks/                        consolidated current benchmark logs
+results/                           generated JSON and per-case logs
 ```
 
-This lets default-segment and `--segment-po2 20` runs share CUDA/RISC0/Cargo
-build artifacts. Different SPHINCS+ parameter sets still need their own first
-guest build, but the shared target directory reuses common build output.
+`vendor/TPM_AES/builddir_rel/` contains only the generated FAEST C/header
+sources needed by `daa_core/build.rs`. Cargo, Meson, Ninja, CUDA, and RISC0
+build products belong in persistent external caches and must not be committed.
 
-For a clean standalone benchmark session, run from this project root and set it explicitly:
+## Environment and Reproducible Commands
+
+### Tested environment
+
+The latest measurements were produced on Linux/x86-64 with:
+
+- Rust stable; the current development machine reports Rust/Cargo 1.96.0.
+- GCC/G++ 13.3 with AVX2 and PCLMUL support.
+- Meson 1.3.2 and Ninja 1.11.1.
+- OpenSSL 3.0.13 development libraries.
+- NVIDIA CUDA 12.6 for RISC0 GPU proving.
+- The RISC0 v3.0.4 SHA-256 fork pinned by the workspace lockfile.
+
+A CPU-only simulated protocol run does not require CUDA. Real host proof
+benchmarks require an NVIDIA GPU, a working CUDA toolkit, and the local RISC0
+prover. A fresh checkout must also be able to fetch the pinned
+`LongMeng-Crypto/RISC0-SHA256` Git revision.
+
+### Persistent shared caches
+
+Use the same cache directories for all parameter sets and future sessions:
 
 ```sh
-# If this directory is still inside the larger SEDAA checkout, first run:
-# cd DAA_FULL
+cd ~/SEDAA/DAA_FULL
+
 export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
+export TPM_SHA_BUILD_DIR="${HOME}/.cache/sedaa-tpm-sha-relations"
+export RISC0_PROVER=local
 ```
 
-The first real RISC0/CUDA run can be much slower than the reported protocol
-step time because it may compile vendored RISC0 kernels and guest methods. Use
-`sign.host.pi_host_prove`, not top-level `wall time`, for the paper benchmark.
+These locations survive terminal closure and reboot. Do not put either cache
+inside the Git repository. The first CUDA build is still expensive, but later
+runs reuse the common RISC0, recursion, CUDA, and Cargo artifacts. Each
+SPHINCS+ parameter set needs its own first guest build.
 
-## Commands
+If a local backend checkout exists at `~/RISC0-SHA256`, the host benchmark
+script automatically reuses its matching `recursion_zkr.zip` through
+`RECURSION_SRC_PATH`.
 
-### Quick Standalone Checks
-
-Run these from the project root after cloning or copying only the `DAA_FULL` directory:
+### Quick correctness checks
 
 ```sh
 cargo check -p daa_cli
+cargo test -p daa_core --lib
 cargo run -p daa_cli -- run-full --proof-mode simulated
 ```
 
-A successful simulated run prints:
+A successful simulated run reports `verify accepted: true`, links two
+signatures with the same basename, and does not link different basenames.
 
-```text
-verify accepted           : true
-link same basename        : true
-link different basename   : false
-```
+### Complete connected protocol
 
-### TPM/Issuer FAEST Benchmark Only
-
-This checks the real TPM-side FAEST/AES proofs and issuer SPHINCS+ credential
-logic without the expensive RISC0 host proof:
+Run Variant-2 with the direct SPHINCS+ Succinct/Identity host proof:
 
 ```sh
-cargo run -p daa_cli -- bench \
+RISC0_RECEIPT_KIND=succinct \
+RISC0_IDENTITY_WRAP=1 \
+SPHINCS_OPT_LEVEL=2 \
+cargo run --release -p daa_cli -- run-full \
   --params sha2-128s \
-  --proof-mode real-tpm \
-  --iterations 1 \
-  --json results/standalone_real_tpm_128s.json
+  --tpm-backend sha2 \
+  --tpm-sha-scheme ours \
+  --credential-scheme sphincs \
+  --backend sha-256 \
+  --proof-mode real-128s \
+  --segment-po2 20
 ```
 
-In this mode `pi_host` is simulated, so `size.signature.pi_host.serialized_receipt_bytes`
-will be `64` bytes. Use this mode only for TPM/issuer plumbing and FAEST timing.
-
-### TPM-SHA Join and Signing Benchmark
-
-Benchmark the SHA-256, SHA-384, and SHA-512 VOLEith circuits in both S
-(small-proof) and F (fast-proof) profiles, without running SPHINCS+ or RISC0:
+Run Variant-1 with the F-SPHINCS+ Succinct host proof:
 
 ```sh
-export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
-scripts/benchmark_tpm_sha.sh
-```
-
-The default is 10 measured proofs for each of the six variants. Override it
-with `ITERATIONS=1 scripts/benchmark_tpm_sha.sh` for a quick smoke test. The
-output reports circuit preparation separately, followed by average Join
-prove/verify time, joint TPM-signing prove/verify time, both proof sizes, and
-gate counts. To run one variant directly:
-
-```sh
-cargo run --release -p daa_cli -- \
-  bench-tpm-sha --params sha2-128s --iterations 10
-```
-
-Use any of `sha2-128s`, `sha2-128f`, `sha2-192s`, `sha2-192f`,
-`sha2-256s`, or `sha2-256f`. The suffix selects the TPM-SHA VOLE profile as
-well as the matching issuer parameter label. A complete DAA run using the SHA
-path through Join, TPM signing, and the host hook is selected with
-`--tpm-backend sha2`; the legacy path remains `--tpm-backend aes`.
-
-Run the connected 128-bit 5F comparison without the expensive host prover:
-
-```sh
+RISC0_RECEIPT_KIND=succinct \
+RISC0_IDENTITY_WRAP=0 \
 cargo run --release -p daa_cli -- run-full \
   --params sha2-128s \
   --tpm-backend sha2 \
   --tpm-sha-scheme chen23 \
   --credential-scheme fsphincs \
-  --proof-mode real-tpm \
-  --segment-po2 22
+  --backend sha-256 \
+  --proof-mode real-128s \
+  --segment-po2 20
 ```
 
-Change `--proof-mode` to `real-128s` to generate and verify the real RISC0
-host receipt. The same command accepts `sha2-192s` and `sha2-256s`; their
-F-SPHINCS+ builds select `k=33` and `k=43` automatically.
+The historical CLI name `real-128s` selects real TPM and RISC0 proofs for all
+six `128/192/256-s/f` parameter labels. Use `real-tpm` to run real VOLEith
+proofs with a simulated host proof, or `simulated` for protocol plumbing only.
 
-### Issuer Seed-Extraction Anchor Benchmark
+### TPM SHA-2 benchmarks
 
-The Setup experiment implements a dual-anchor solution under the
-global-seed-consistency assumption. For SPHINCS+, it binds two distinct chains
-of a fixed top-layer WOTS+ leaf to `PK.root`; the public certificate is one
-deterministic WOTS+ signature plus its top XMSS authentication path. For
-F-SPHINCS+, it binds the same master seed at two distinct M-FORS nodes
-`(layer=1,node=0)` and `(layer=0,node=0)`; both M-FORS signatures are compressed
-to the selected secret/path and the remaining public roots. The corresponding
-VOLEith relations contain two and eight secret-dependent SHA-256 compression
-blocks, respectively.
+Benchmark the normalized Variant-1 5F relation and Variant-2 3F relation for
+all SHA-2 security levels and both VOLEith profiles:
 
-Run all credential/security/profile combinations with the persistent shared
-Cargo cache:
+```sh
+ITERATIONS=10 scripts/benchmark_tpm_sha_relations.sh \
+  | tee benchmarks/tpm_sha_ours3h_vs_chen23_5h.log
+```
+
+Benchmark only the connected Variant-2 Join and TPM-signing path through the
+Rust CLI:
+
+```sh
+ITERATIONS=10 scripts/benchmark_tpm_sha.sh
+```
+
+The preparation cost is reported separately and is not included in the warm
+per-proof averages.
+
+### Issuer Setup anchor benchmark
+
+Run both credential schemes, all security levels, and both VOLEith profiles:
 
 ```sh
 ITERATIONS=1 scripts/benchmark_issuer_anchors.sh
 ```
 
-The script covers SPHINCS+ and F-SPHINCS+ at `128s/f`, `192s/f`, and
-`256s/f`. It reports credential key generation, anchor generation, public
-certificate verification, `pi_I` preparation/proving/verification, VOLEith
-proof size, public certificate size, and circuit counts. Its consolidated log
-is written to:
+The script overwrites the consolidated current log:
 
 ```text
 benchmarks/issuer_anchor/issuer_anchor_latest.log
 ```
 
-To benchmark one row directly:
+It checks the public certificate, real `pi_I`, and mutation rejection before
+reporting anchor generation, proof preparation/proving/verification, proof
+size, certificate size, and circuit statistics.
+
+### Complete host-proof benchmark
+
+Run the 30 current SHA-2 host cases at segment size `2^20`:
 
 ```sh
-RISC0_SKIP_BUILD=1 \
-CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target" \
-cargo run --release -p daa_cli -- \
-  bench-issuer-anchor \
-  --params sha2-128s \
-  --credential-scheme sphincs \
-  --iterations 1
+SEGMENT_PO2=20 ITERATIONS=1 scripts/benchmark_host_sha2.sh
 ```
 
-Replace `sphincs` with `fsphincs` for F-SPHINCS+. Its 128/192/256-bit rows
-select `k=22/33/43`; the `s/f` suffix selects only the corresponding VOLEith
-proof profile. The benchmark rejects mutated certificates, proofs, and public
-anchor values before reporting a result.
+This covers:
 
-Single-run results (`ITERATIONS=1`) are shown below. Times are seconds; proof
-and certificate sizes are serialized bytes.
+- six Direct SPHINCS+ Succinct/Identity cases;
+- six ZK-WOTS+ Composite and six ZK-WOTS+ Succinct cases; and
+- three F-SPHINCS+ security levels in Composite/Succinct mode for both the
+  one-hook and two-hook SHA-2 relations.
 
-| Credential | Parameter | SHA-256 compressions | Keygen | Anchor generation | Certificate verify | `pi_I` prepare | `pi_I` prove | `pi_I` verify | `pi_I` proof | Public certificate |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| SPHINCS+ | 128s | 2 | 0.046 | 0.042 | 0.000069 | 0.030 | 0.029 | 0.024 | 63,177 | 720 |
-| SPHINCS+ | 128f | 2 | 0.001 | 0.001 | 0.000071 | 0.031 | 0.010 | 0.007 | 91,260 | 624 |
-| SPHINCS+ | 192s | 2 | 0.057 | 0.058 | 0.000100 | 0.031 | 0.045 | 0.039 | 95,284 | 1,456 |
-| SPHINCS+ | 192f | 2 | 0.001 | 0.001 | 0.000103 | 0.031 | 0.014 | 0.010 | 140,980 | 1,312 |
-| SPHINCS+ | 256s | 2 | 0.039 | 0.039 | 0.000140 | 0.033 | 0.078 | 0.071 | 136,116 | 2,416 |
-| SPHINCS+ | 256f | 2 | 0.002 | 0.002 | 0.000138 | 0.031 | 0.020 | 0.016 | 194,428 | 2,288 |
-| F-SPHINCS+ | 128s | 8 | 1.26 | 2.52 | 0.000041 | 0.110 | 0.072 | 0.064 | 222,908 | 2,448 |
-| F-SPHINCS+ | 128f | 8 | 1.30 | 2.62 | 0.000042 | 0.111 | 0.030 | 0.021 | 323,596 | 2,448 |
-| F-SPHINCS+ | 192s | 8 | 1.97 | 3.93 | 0.000071 | 0.111 | 0.130 | 0.125 | 326,500 | 3,152 |
-| F-SPHINCS+ | 192f | 8 | 1.90 | 3.80 | 0.000099 | 0.106 | 0.041 | 0.034 | 487,804 | 3,152 |
-| F-SPHINCS+ | 256s | 8 | 2.51 | 5.09 | 0.000083 | 0.110 | 0.207 | 0.192 | 452,476 | 3,792 |
-| F-SPHINCS+ | 256f | 8 | 2.53 | 5.08 | 0.000069 | 0.112 | 0.061 | 0.052 | 654,588 | 3,792 |
-
-### Full DAA Benchmark With RISC0-SHA256 Host Proof
-
-This is the main full-protocol benchmark path used by the SHA-256 backend
-results below:
-
-```sh
-export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
-
-cargo run -p daa_cli -- bench \
-  --params sha2-128s \
-  --backend sha-256 \
-  --proof-mode real-128s \
-  --iterations 1 \
-  --json results/standalone_sha256_128s_default.json
-```
-
-For the small-segment version:
-
-```sh
-cargo run -p daa_cli -- bench \
-  --params sha2-128s \
-  --backend sha-256 \
-  --proof-mode real-128s \
-  --segment-po2 20 \
-  --iterations 1 \
-  --json results/standalone_sha256_128s_seg20.json
-```
-
-A successful real run prints a line like:
+Use `SEGMENT_PO2=22` or another supported exponent for segmentation studies.
+Every invocation writes a timestamped combined log, a machine-readable TSV,
+and per-case logs under:
 
 ```text
-iteration   1: verify=true link_same=true link_diff=false
+benchmarks/host_sha2/
+results/host_sha2/<timestamp>/
 ```
 
-### Full 12-Case Benchmark Suite
+Paper timings use the emitted `prover_us` and `verifier_us`, not the outer
+Cargo wall-clock time, because the latter can include compilation and process
+startup.
 
-Each parameter has two host-proof segment settings:
+### Native F-SPHINCS+ checks
 
-- default segment setting: omit `--segment-po2`.
-- small-segment setting: pass `--segment-po2 20`.
-
-Run all six SHA2 parameter sets with both segment settings:
+Run native key generation, signing, verification, profiling, and deterministic
+KATs without RISC0:
 
 ```sh
-export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
-scripts/run_all_benchmarks.sh --backend sha-256
+make -C host_proof/methods/guest/c_src/fsphincs_ref \
+  benchmark FSPHINCS_SECURITY=128
+
+make -C host_proof/methods/guest/c_src/fsphincs_ref \
+  benchmark FSPHINCS_SECURITY=192
+
+make -C host_proof/methods/guest/c_src/fsphincs_ref \
+  benchmark FSPHINCS_SECURITY=256
+
+make -C host_proof/methods/guest/c_src/fsphincs_ref test \
+  FSPHINCS_SECURITY=128
 ```
 
-The script writes JSON traces to:
+The Makefile removes generated benchmark and KAT binaries after each run. The
+current credential-security parameters are `k=22,33,43`; historical `k=35,70`
+remain available through an explicit `FSPHINCS_K` override.
+
+### Compatibility sweeps
+
+`scripts/run_all_benchmarks.sh` retains the older monolithic 12-case full-DAA
+sweep and accepts `--backend sha-256` or `--backend poseidon2`. The current
+paper tables should instead be regenerated with the dedicated TPM, anchor,
+and host scripts above because those scripts select the connected SHA-2 hook
+relations explicitly.
+
+## Current Benchmark Results
+
+The tables below are the canonical README copy of the measurements used by the
+companion paper. Times are seconds. Sizes marked KB use `bytes / 1024`.
+Sub-millisecond host verification is retained rather than rounded to zero.
+Host measurements use SHA-256 RISC0 receipts with segment size `2^20`.
+
+### Credential setup
+
+| Variant | Credential | Parameter | Keygen (s) | PK (B) | SK (B) |
+|---|---|---|---:|---:|---:|
+| Variant-1 | F-SPHINCS+ | 128 | 1.32 | 76 | 108 |
+| Variant-1 | F-SPHINCS+ | 192 | 2.03 | 98 | 130 |
+| Variant-1 | F-SPHINCS+ | 256 | 2.67 | 118 | 150 |
+| Variant-2 | SPHINCS+ | 128s | 0.050 | 32 | 64 |
+| Variant-2 | SPHINCS+ | 128f | 0.001 | 32 | 64 |
+| Variant-2 | SPHINCS+ | 192s | 0.062 | 48 | 96 |
+| Variant-2 | SPHINCS+ | 192f | 0.001 | 48 | 96 |
+| Variant-2 | SPHINCS+ | 256s | 0.038 | 64 | 128 |
+| Variant-2 | SPHINCS+ | 256f | 0.002 | 64 | 128 |
+
+### Setup-time issuer extraction proof
+
+This is a separately replaceable Setup building block; credential key
+generation is excluded from `Anchor gen.`.
+
+| Variant | Credential | Credential parameter | VOLEith | SHA-256 comp. | Anchor gen. (s) | Cert. verify (s) | `pi_I` prepare (s) | `pi_I` prove (s) | `pi_I` verify (s) | `pi_I` proof (KB) | Public cert. (KB) |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Variant-1 | F-SPHINCS+ | 128 | 128s | 8 | 2.52 | 0.00004 | 0.110 | 0.072 | 0.064 | 217.68 | 2.39 |
+| Variant-1 | F-SPHINCS+ | 128 | 128f | 8 | 2.62 | 0.00004 | 0.111 | 0.030 | 0.021 | 316.01 | 2.39 |
+| Variant-1 | F-SPHINCS+ | 192 | 192s | 8 | 3.93 | 0.00007 | 0.111 | 0.130 | 0.125 | 318.85 | 3.08 |
+| Variant-1 | F-SPHINCS+ | 192 | 192f | 8 | 3.80 | 0.00010 | 0.106 | 0.041 | 0.034 | 476.37 | 3.08 |
+| Variant-1 | F-SPHINCS+ | 256 | 256s | 8 | 5.09 | 0.00008 | 0.110 | 0.207 | 0.192 | 441.87 | 3.70 |
+| Variant-1 | F-SPHINCS+ | 256 | 256f | 8 | 5.08 | 0.00007 | 0.112 | 0.061 | 0.052 | 639.25 | 3.70 |
+| Variant-2 | SPHINCS+ | 128s | 128s | 2 | 0.042 | 0.00007 | 0.030 | 0.029 | 0.024 | 61.70 | 0.70 |
+| Variant-2 | SPHINCS+ | 128f | 128f | 2 | 0.001 | 0.00007 | 0.031 | 0.010 | 0.007 | 89.12 | 0.61 |
+| Variant-2 | SPHINCS+ | 192s | 192s | 2 | 0.058 | 0.00010 | 0.031 | 0.045 | 0.039 | 93.05 | 1.42 |
+| Variant-2 | SPHINCS+ | 192f | 192f | 2 | 0.001 | 0.00010 | 0.031 | 0.014 | 0.010 | 137.68 | 1.28 |
+| Variant-2 | SPHINCS+ | 256s | 256s | 2 | 0.039 | 0.00014 | 0.033 | 0.078 | 0.071 | 132.93 | 2.36 |
+| Variant-2 | SPHINCS+ | 256f | 256f | 2 | 0.002 | 0.00014 | 0.031 | 0.020 | 0.016 | 189.87 | 2.23 |
+
+### Join protocol
+
+The one-SHA-2 Join proof is shared by both variants. A complete Join combines
+one row below with the matching credential-issuance row.
+
+| VOLEith | Hash | Prove (s) | Verify (s) | Proof (KB) |
+|---|---|---:|---:|---:|
+| 128s | SHA-256 | 0.018 | 0.015 | 32.42 |
+| 128f | SHA-256 | 0.004 | 0.003 | 46.54 |
+| 192s | SHA-384 | 0.056 | 0.044 | 115.71 |
+| 192f | SHA-384 | 0.012 | 0.010 | 171.66 |
+| 256s | SHA-512 | 0.079 | 0.078 | 165.07 |
+| 256f | SHA-512 | 0.019 | 0.016 | 236.62 |
+
+| Variant | Credential | Parameter | Credential sign (s) | Credential verify (s) | Credential (KB) |
+|---|---|---|---:|---:|---:|
+| Variant-1 | F-SPHINCS+ | 128 | 9.11 | 0.001 | 81.84 |
+| Variant-1 | F-SPHINCS+ | 192 | 13.69 | 0.002 | 122.75 |
+| Variant-1 | F-SPHINCS+ | 256 | 17.75 | 0.002 | 159.94 |
+| Variant-2 | SPHINCS+ | 128s | 0.286 | 0.001 | 7.69 |
+| Variant-2 | SPHINCS+ | 128f | 0.014 | 0.001 | 16.70 |
+| Variant-2 | SPHINCS+ | 192s | 0.516 | 0.001 | 15.88 |
+| Variant-2 | SPHINCS+ | 192f | 0.022 | 0.001 | 34.86 |
+| Variant-2 | SPHINCS+ | 256s | 0.455 | 0.001 | 29.12 |
+| Variant-2 | SPHINCS+ | 256f | 0.046 | 0.002 | 48.72 |
+
+### TPM signing proof
+
+| VOLEith | Variant-1 prove (s) | Variant-1 verify (s) | Variant-1 proof (KB) | Variant-2 prove (s) | Variant-2 verify (s) | Variant-2 proof (KB) | Prove reduction | Proof reduction |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128s | 0.064 | 0.053 | 178.63 | 0.033 | 0.030 | 91.73 | 48.1% | 48.6% |
+| 128f | 0.021 | 0.016 | 259.20 | 0.010 | 0.008 | 132.81 | 52.1% | 48.8% |
+| 192s | 0.247 | 0.223 | 552.82 | 0.134 | 0.119 | 334.46 | 45.9% | 39.5% |
+| 192f | 0.073 | 0.062 | 827.32 | 0.036 | 0.030 | 499.79 | 51.0% | 39.6% |
+| 256s | 0.449 | 0.432 | 920.80 | 0.206 | 0.192 | 470.75 | 54.1% | 48.9% |
+| 256f | 0.120 | 0.105 | 1335.87 | 0.059 | 0.045 | 681.25 | 50.9% | 49.0% |
+
+### Host proof at segment size `2^20`
+
+Direct SPHINCS+ uses Succinct plus Identity. ZK-WOTS+ and F-SPHINCS+ do not
+use the extra Identity wrapper.
+
+| Variant | Host construction | Credential | Composite prove (s) | Composite verify (s) | Composite proof (KB) | Succinct prove (s) | Succinct verify (s) | Succinct proof (KB) |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| Variant-1 | F-SPHINCS+ | 128 | 10.952 | 0.004 | 825.37 | 27.812 | 0.00079 | 268.04 |
+| Variant-1 | F-SPHINCS+ | 192 | 17.915 | 0.006 | 1375.22 | 48.320 | 0.00080 | 268.46 |
+| Variant-1 | F-SPHINCS+ | 256 | 21.449 | 0.007 | 1650.34 | 58.626 | 0.00079 | 268.86 |
+| Variant-2 | Direct SPHINCS+ | 128s | N/A | N/A | N/A | 9.712 | 0.00077 | 267.44 |
+| Variant-2 | Direct SPHINCS+ | 128f | N/A | N/A | N/A | 18.619 | 0.00077 | 267.44 |
+| Variant-2 | Direct SPHINCS+ | 192s | N/A | N/A | N/A | 71.022 | 0.00082 | 267.69 |
+| Variant-2 | Direct SPHINCS+ | 192f | N/A | N/A | N/A | 112.685 | 0.00078 | 267.69 |
+| Variant-2 | Direct SPHINCS+ | 256s | N/A | N/A | N/A | 101.234 | 0.00078 | 267.94 |
+| Variant-2 | Direct SPHINCS+ | 256f | N/A | N/A | N/A | 141.167 | 0.00081 | 267.94 |
+| Variant-2 | ZK-WOTS+ | 128s | 4.545 | 0.002 | 513.75 | 14.626 | 0.00079 | 267.44 |
+| Variant-2 | ZK-WOTS+ | 128f | 11.416 | 0.005 | 1063.18 | 35.234 | 0.00080 | 267.44 |
+| Variant-2 | ZK-WOTS+ | 192s | 28.106 | 0.010 | 2198.60 | 78.629 | 0.00080 | 267.69 |
+| Variant-2 | ZK-WOTS+ | 192f | 49.584 | 0.018 | 4062.79 | 147.892 | 0.00078 | 267.69 |
+| Variant-2 | ZK-WOTS+ | 256s | 40.508 | 0.015 | 3284.77 | 118.326 | 0.00084 | 267.94 |
+| Variant-2 | ZK-WOTS+ | 256f | 61.119 | 0.022 | 4933.06 | 180.533 | 0.00079 | 267.94 |
+
+### Benchmark artifacts
+
+The current tables were transcribed from the following local benchmark
+artifacts. Timestamped host logs may be kept outside Git even though their
+canonical values are preserved in the tables above.
 
 ```text
-results/bench_<backend>_<params>_<segment>.json
+benchmarks/tpm_sha_ours3h_vs_chen23_5h.log
+benchmarks/issuer_anchor/issuer_anchor_latest.log
+benchmarks/host_sha2/host_sha2_all_20260904-012627.log
+benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv
 ```
 
-The Poseidon2 backend can still be run for comparison:
-
-```sh
-scripts/run_all_benchmarks.sh --backend poseidon2 --prefix bench_poseidon2
-```
-
-### Manual Per-Parameter Commands
-
-Use the following commands only when running individual cases manually.
-
-SHA2-128s:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-128s --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_128s_default.json
-cargo run -p daa_cli -- bench --params sha2-128s --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_128s_seg20.json
-```
-
-SHA2-128f:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-128f --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_128f_default.json
-cargo run -p daa_cli -- bench --params sha2-128f --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_128f_seg20.json
-```
-
-SHA2-192s:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-192s --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_192s_default.json
-cargo run -p daa_cli -- bench --params sha2-192s --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_192s_seg20.json
-```
-
-SHA2-192f:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-192f --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_192f_default.json
-cargo run -p daa_cli -- bench --params sha2-192f --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_192f_seg20.json
-```
-
-SHA2-256s:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-256s --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_256s_default.json
-cargo run -p daa_cli -- bench --params sha2-256s --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_256s_seg20.json
-```
-
-SHA2-256f:
-
-```sh
-cargo run -p daa_cli -- bench --params sha2-256f --backend sha-256 --proof-mode real-128s --iterations 1 --json results/bench_real_256f_default.json
-cargo run -p daa_cli -- bench --params sha2-256f --backend sha-256 --proof-mode real-128s --segment-po2 20 --iterations 1 --json results/bench_real_256f_seg20.json
-```
-
-## Benchmark Results
-
-The full protocol, TPM/issuer, and full signature-size tables below use the
-SHA-256 RISC0 backend results. The host-side signature subsection then compares
-the SHA-256 and Poseidon2 RISC0 backends side by side. Times below use the
-protocol step metrics emitted by the wrapper, not the top-level `wall time`.
-
-### Full Protocol Trace
-
-These tables are the canonical source for the compact performance tables in
-`Paper/main.tex`. All time values in this summary are seconds. Values below one
-second use three decimal places; slower results use two. Sizes labeled KB use
-`bytes / 1024`.
-
-#### Credential Scheme Setup
-
-| Variant | Keygen (s) | Public key (B) | Secret key (B) |
-|---|---:|---:|---:|
-| 128s | 0.050 | 32 | 64 |
-| 128f | 0.001 | 32 | 64 |
-| 192s | 0.062 | 48 | 96 |
-| 192f | 0.001 | 48 | 96 |
-| 256s | 0.038 | 64 | 128 |
-| 256f | 0.002 | 64 | 128 |
-| F-128 | 2.17 | 102 | 134 |
-| F-256 | 4.23 | 172 | 204 |
-
-#### Join Protocol
-
-Time values are seconds and size values are KB.
-
-| Variant | Join prove | Join verify | Credential sign | Join total | Join proof | Credential |
-|---|---:|---:|---:|---:|---:|---:|
-| 128s | 0.017 | 0.014 | 0.286 | 0.317 | 4.40 | 7.69 |
-| 128f | 0.007 | 0.006 | 0.014 | 0.027 | 5.79 | 16.70 |
-| 192s | 0.065 | 0.052 | 0.516 | 0.633 | 11.00 | 15.88 |
-| 192f | 0.036 | 0.026 | 0.022 | 0.084 | 14.60 | 34.86 |
-| 256s | 0.102 | 0.088 | 0.455 | 0.645 | 20.21 | 29.12 |
-| 256f | 0.047 | 0.035 | 0.046 | 0.129 | 25.93 | 48.72 |
-| F-128 | 0.017 | 0.014 | 14.89 | 14.92 | 4.40 | 130.20 |
-| F-256 | 0.102 | 0.088 | 29.28 | 29.47 | 20.21 | 260.38 |
-
-#### Signing Protocol
-
-The SHA-256 composite backend uses segment size `2^22`. All times are seconds
-and sizes are KB.
-
-| Variant | TPM sign | Host sign | Sign total | TPM signature | Host signature | Remaining | DAA signature total |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 128s | 0.028 | 26.89 | 26.92 | 7.41 | 299.28 | 0.05 | 306.74 |
-| 128f | 0.018 | 87.30 | 87.32 | 10.16 | 312.28 | 0.05 | 322.49 |
-| 192s | 0.134 | 140.33 | 140.46 | 20.37 | 624.31 | 0.09 | 644.77 |
-| 192f | 0.097 | 229.81 | 229.91 | 28.66 | 1234.86 | 0.09 | 1263.61 |
-| 256s | 0.186 | 209.74 | 209.93 | 35.77 | 936.21 | 0.09 | 972.07 |
-| 256f | 0.123 | 292.29 | 292.41 | 48.55 | 1522.70 | 0.09 | 1571.34 |
-| F-128 | 0.028 | 101.61 | 101.63 | 7.41 | 587.54 | 0.05 | 595.00 |
-| F-256 | 0.186 | 179.02 | 179.20 | 35.77 | 924.05 | 0.09 | 959.91 |
-
-#### Verification Algorithm
-
-All values are seconds.
-
-| Variant | TPM verify | Host verify | Total verify |
-|---|---:|---:|---:|
-| 128s | 0.022 | 0.000 | 0.022 |
-| 128f | 0.013 | 0.001 | 0.014 |
-| 192s | 0.099 | 0.002 | 0.101 |
-| 192f | 0.067 | 0.003 | 0.070 |
-| 256s | 0.151 | 0.003 | 0.154 |
-| 256f | 0.088 | 0.005 | 0.093 |
-| F-128 | 0.022 | 0.002 | 0.024 |
-| F-256 | 0.151 | 0.003 | 0.154 |
-
-#### Fixed-Work ZK-WOTS and F-SPHINCS+ Host Proof
-
-| Credential | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
-|---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 26.89 | 0.000 | 299.28 |
-| 128f | `2^22` | 1 | 87.30 | 0.001 | 312.28 |
-| 192s | `2^22` | 2 | 140.33 | 0.002 | 624.31 |
-| 192f | `2^22` | 4 | 229.81 | 0.003 | 1234.86 |
-| 256s | `2^22` | 3 | 209.74 | 0.003 | 936.21 |
-| 256f | `2^22` | 5 | 292.29 | 0.005 | 1522.70 |
-| F-128 | `2^22` | 2 | 101.61 | 0.002 | 587.54 |
-| F-256 | `2^22` | 3 | 179.02 | 0.003 | 924.05 |
-| 128s | `2^21` | 1 | 27.30 | 0.000 | 299.28 |
-| 128f | `2^21` | 2 | 54.91 | 0.001 | 598.06 |
-| 192s | `2^21` | 4 | 87.44 | 0.003 | 1195.86 |
-| 192f | `2^21` | 7 | 150.59 | 0.007 | 2092.20 |
-| 256s | `2^21` | 6 | 126.76 | 0.005 | 1793.54 |
-| 256f | `2^21` | 9 | 173.94 | 0.008 | 2665.81 |
-| 128s | `2^20` | 2 | 4.56 | 0.002 | 513.62 |
-| 128f | `2^20` | 4 | 11.39 | 0.004 | 1063.05 |
-| 192s | `2^20` | 8 | 27.89 | 0.009 | 2198.47 |
-| 192f | `2^20` | 15 | 50.05 | 0.018 | 4062.66 |
-| 256s | `2^20` | 12 | 41.00 | 0.014 | 3284.52 |
-| 256f | `2^20` | 18 | 61.75 | 0.021 | 4932.81 |
-
-#### Poseidon2 Succinct Host Proof
-
-| SPHINCS+ | Segment size | Underlying chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
-|---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 27.37 | 0.009 | 218.38 |
-| 128f | `2^22` | 2 | 88.84 | 0.009 | 218.38 |
-| 192s | `2^22` | 3 | 140.68 | 0.009 | 218.63 |
-| 192f | `2^22` | 4 | 269.26 | 0.009 | 218.63 |
-| 256s | `2^22` | 3 | 205.20 | 0.009 | 218.76 |
-| 256f | `2^22` | 5 | 292.52 | 0.009 | 218.76 |
-
-#### Variable-WOTS SHA-256 Composite Host Proof
-
-| SPHINCS+ | Segment size | Chunks | Host sign (s) | Host verify (s) | Host signature (KB) |
-|---|---:|---:|---:|---:|---:|
-| 128s | `2^22` | 1 | 3.632 | 0.001 | 275.22 |
-| 128f | `2^22` | 1 | 27.84 | 0.001 | 299.28 |
-| 192s | `2^22` | 2 | 155.98 | 0.002 | 624.31 |
-| 192f | `2^22` | 3 | 234.22 | 0.003 | 936.09 |
-| 256s | `2^22` | 3 | 180.13 | 0.003 | 923.21 |
-| 256f | `2^22` | 4 | 232.42 | 0.004 | 1210.93 |
-| 128s | `2^21` | 1 | 3.640 | 0.001 | 275.22 |
-| 128f | `2^21` | 1 | 29.84 | 0.000 | 299.28 |
-| 192s | `2^21` | 4 | 80.31 | 0.004 | 1171.80 |
-| 192f | `2^21` | 6 | 120.99 | 0.006 | 1756.42 |
-| 256s | `2^21` | 5 | 117.93 | 0.004 | 1494.77 |
-| 256f | `2^21` | 7 | 145.12 | 0.007 | 2068.26 |
-| 128s | `2^20` | 1 | 3.562 | 0.001 | 275.22 |
-| 128f | `2^20` | 2 | 5.782 | 0.002 | 537.00 |
-| 192s | `2^20` | 7 | 24.55 | 0.008 | 1923.76 |
-| 192f | `2^20` | 11 | 38.63 | 0.013 | 3022.62 |
-| 256s | `2^20` | 10 | 33.13 | 0.012 | 2735.09 |
-| 256f | `2^20` | 14 | 46.28 | 0.017 | 3822.01 |
-
-#### Native F-SPHINCS+-SHA256 Credential
-
-| Configuration | k | Keygen (s) | Sign (s) | Verify (s) | PK (B) | SK (B) | Signature (KB) | SHA-256 calls | SHA-256 blocks |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| F-128 | 35 | 2.17 | 14.89 | 0.002 | 102 | 134 | 130.19 | 4,841 | 14,043 |
-| F-256 | 70 | 4.23 | 29.28 | 0.004 | 172 | 204 | 260.34 | 9,673 | 28,075 |
-
-#### Detailed F-SPHINCS+ RISC0 Counters
-
-| Configuration | k | Chunks | Prover (s) | Verifier (s) | Receipt (KB) | Seal (KB) | User cycles | Total cycles | Paging | Reserved |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| F-128 | 35 | 2 | 101.61 | 0.002 | 587.54 | 586.14 | 4,749,081 | 5,242,880 | 62,216 | 431,583 |
-| F-256 | 70 | 3 | 179.02 | 0.003 | 924.05 | 921.80 | 9,397,101 | 10,485,760 | 123,741 | 964,918 |
+For reproducibility, record the DAA commit, pinned RISC0 backend commit, GPU,
+CUDA version, segment exponent, receipt type, Identity setting, and iteration
+count alongside every new result. Do not average outer build time into prover
+time.
