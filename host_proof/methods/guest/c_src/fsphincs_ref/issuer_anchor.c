@@ -26,6 +26,7 @@ enum {
 
 static const uint8_t anchor_magic[8] = {'D', 'A', 'A', 'A', 'N', 'C', '2', 0};
 
+/* Encodes a 32-bit integer in the protocol's big-endian address format. */
 static void put_u32(uint8_t out[4], uint32_t value) {
     out[0] = (uint8_t)(value >> 24);
     out[1] = (uint8_t)(value >> 16);
@@ -33,6 +34,7 @@ static void put_u32(uint8_t out[4], uint32_t value) {
     out[3] = (uint8_t)value;
 }
 
+/* Encodes a 64-bit integer in the protocol's big-endian address format. */
 static void put_u64(uint8_t out[8], uint64_t value) {
     for (int i = 7; i >= 0; --i) {
         out[i] = (uint8_t)value;
@@ -40,6 +42,7 @@ static void put_u64(uint8_t out[8], uint64_t value) {
     }
 }
 
+/* Builds one domain-separated F-SPHINCS+ address. */
 static void make_addr(uint8_t out[32], uint8_t domain, uint32_t layer,
                       uint64_t node, uint32_t tree, uint32_t height,
                       uint32_t index) {
@@ -52,6 +55,7 @@ static void make_addr(uint8_t out[32], uint8_t domain, uint32_t layer,
     put_u32(out + 24, index);
 }
 
+/* Initializes the public-seed and address prefix used by public hashing. */
 static void init_prefix(uint8_t *out, const uint8_t pub_seed[FS_N],
                         uint8_t domain, uint32_t layer, uint64_t node,
                         uint32_t tree) {
@@ -63,6 +67,7 @@ static void init_prefix(uint8_t *out, const uint8_t pub_seed[FS_N],
     put_u32(out + FS_N + 16, tree);
 }
 
+/* Derives an M-FORS node seed from the global issuer seed and node address. */
 static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
                              const uint8_t address[32]) {
     uint8_t input[FS_N + 32];
@@ -71,6 +76,7 @@ static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
     sha256(out, input, sizeof(input));
 }
 
+/* Derives the selected M-FORS secret leaf from its node seed and address. */
 static void derive_leaf_secret(uint8_t out[FS_N],
                                const uint8_t node_seed[FS_N],
                                const uint8_t address[32]) {
@@ -80,6 +86,7 @@ static void derive_leaf_secret(uint8_t out[FS_N],
     sha256(out, input, sizeof(input));
 }
 
+/* Hashes a selected M-FORS secret into its public leaf value. */
 static void hash_leaf(uint8_t out[FS_N], const uint8_t secret[FS_N],
                       const uint8_t pub_seed[FS_N], uint32_t layer,
                       uint64_t node, uint32_t tree, uint32_t leaf) {
@@ -90,6 +97,7 @@ static void hash_leaf(uint8_t out[FS_N], const uint8_t secret[FS_N],
     sha256(out, input, sizeof(input));
 }
 
+/* Hashes two M-FORS children into their addressed parent node. */
 static void hash_node(uint8_t out[FS_N], const uint8_t left[FS_N],
                       const uint8_t right[FS_N],
                       const uint8_t pub_seed[FS_N], uint32_t layer,
@@ -104,6 +112,7 @@ static void hash_node(uint8_t out[FS_N], const uint8_t left[FS_N],
     sha256(out, input, sizeof(input));
 }
 
+/* Reconstructs one M-FORS tree root from a secret and authentication path. */
 static void root_from_auth(uint8_t root[FS_N], const uint8_t secret[FS_N],
                            const uint8_t *auth, uint32_t target,
                            const uint8_t pub_seed[FS_N], uint32_t layer,
@@ -125,6 +134,7 @@ static void root_from_auth(uint8_t root[FS_N], const uint8_t secret[FS_N],
     memcpy(root, current, FS_N);
 }
 
+/* Aggregates the k M-FORS tree roots into the node's common root. */
 static void aggregate_roots(uint8_t root[FS_N], const uint8_t *roots,
                             const uint8_t pub_seed[FS_N], uint32_t layer,
                             uint64_t node) {
@@ -148,6 +158,7 @@ static void aggregate_roots(uint8_t root[FS_N], const uint8_t *roots,
     memcpy(root, nodes, FS_N);
 }
 
+/* Expands a seed into the requested domain-separated byte string. */
 static void expand(uint8_t *out, size_t outlen, uint8_t domain,
                    const uint8_t seed[FS_N], const uint8_t address[32]) {
     uint8_t input[1 + FS_N + 32 + 4], digest[FS_N];
@@ -164,6 +175,7 @@ static void expand(uint8_t *out, size_t outlen, uint8_t domain,
     }
 }
 
+/* Converts an aggregated M-FORS root into the value signed by the next node. */
 static void root_to_pk(uint8_t pk_value[FS_MFORS_MSG_BYTES],
                        const uint8_t root[FS_N],
                        const uint8_t pub_seed[FS_N], uint32_t layer,
@@ -177,15 +189,18 @@ static void root_to_pk(uint8_t pk_value[FS_MFORS_MSG_BYTES],
     expand(pk_value, FS_MFORS_MSG_BYTES, DOM_H2, seed, address);
 }
 
+/* Decodes the selected leaf index for one M-FORS tree. */
 static uint32_t md_index(const uint8_t md[FS_MFORS_MSG_BYTES],
                          uint32_t tree) {
     return ((uint32_t)md[2 * tree] << 8) | md[2 * tree + 1];
 }
 
+/* Returns the compressed certificate size of one selected M-FORS component. */
 static size_t component_bytes(void) {
     return (size_t)(FS_D + FS_K) * FS_N;
 }
 
+/* Keeps one secret/path and replaces all other tree paths by public roots. */
 static void compress_signature(uint8_t *out, const uint8_t *signature,
                                const uint8_t md[FS_MFORS_MSG_BYTES],
                                const uint8_t pub_seed[FS_N], uint32_t layer,
@@ -201,6 +216,7 @@ static void compress_signature(uint8_t *out, const uint8_t *signature,
     }
 }
 
+/* Recovers one M-FORS public value from a compressed certificate component. */
 static void recover_component(uint8_t pk_value[FS_MFORS_MSG_BYTES],
                               const uint8_t *component,
                               const uint8_t md[FS_MFORS_MSG_BYTES],
@@ -215,10 +231,12 @@ static void recover_component(uint8_t pk_value[FS_MFORS_MSG_BYTES],
     root_to_pk(pk_value, aggregate, pub_seed, layer, node);
 }
 
+/* Returns the serialized size of the two-node F-SPHINCS+ certificate. */
 size_t fsphincs_issuer_anchor_certificate_bytes(void) {
     return ANCHOR_HEADER_BYTES + 2u * component_bytes();
 }
 
+/* Serializes the parameter-bound F-SPHINCS+ anchor header. */
 static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     memcpy(out, anchor_magic, sizeof(anchor_magic));
     out[8] = ANCHOR_KIND_FSPHINCS;
@@ -231,6 +249,7 @@ static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     out[15] = 0;
 }
 
+/* Checks that a certificate header and length match the compiled parameters. */
 static int valid_header(const uint8_t *certificate, size_t certificate_len) {
     uint8_t expected[ANCHOR_HEADER_BYTES];
     if (certificate == NULL ||
@@ -240,6 +259,7 @@ static int valid_header(const uint8_t *certificate, size_t certificate_len) {
     return memcmp(certificate, expected, sizeof(expected)) == 0;
 }
 
+/* Generates and compresses the lower and top deterministic M-FORS nodes. */
 int fsphincs_issuer_anchor_generate(uint8_t *certificate,
                                     size_t certificate_len,
                                     const uint8_t *pk,
@@ -281,6 +301,7 @@ fail:
     return -1;
 }
 
+/* Publicly reconstructs both M-FORS nodes and checks the registered root. */
 int fsphincs_issuer_anchor_verify(const uint8_t *certificate,
                                   size_t certificate_len,
                                   const uint8_t *pk) {
@@ -297,6 +318,7 @@ int fsphincs_issuer_anchor_verify(const uint8_t *certificate,
     return memcmp(top_pk, pk + FS_N, FS_MFORS_MSG_BYTES) == 0 ? 0 : -1;
 }
 
+/* Exports the two-node master-seed relation consumed by the VOLEith prover. */
 int fsphincs_issuer_anchor_relation(uint8_t master_seed[FS_N],
                                     uint8_t node_addresses[64],
                                     uint8_t leaf_addresses[64],

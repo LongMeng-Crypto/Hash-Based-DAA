@@ -10,13 +10,16 @@
 extern "C" {
 #endif
 
+/* Returns the serialized two-node M-FORS certificate size. */
 size_t fsphincs_issuer_anchor_certificate_bytes(void);
 
+/* Generates the deterministic certificate for an existing issuer keypair. */
 int fsphincs_issuer_anchor_generate(uint8_t *certificate,
                                     size_t certificate_len,
                                     const uint8_t *pk,
                                     const uint8_t *sk);
 
+/* Verifies both public M-FORS components against the registered root. */
 int fsphincs_issuer_anchor_verify(const uint8_t *certificate,
                                   size_t certificate_len,
                                   const uint8_t *pk);

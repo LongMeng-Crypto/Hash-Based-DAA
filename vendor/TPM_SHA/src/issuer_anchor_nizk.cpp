@@ -16,6 +16,7 @@ namespace {
 
 thread_local std::string anchor_last_error;
 
+// Converts the stable C security-level enum into the backend type.
 vole_backend::SecurityLevel level_from_c(daa_tpm_sha_level level) {
   switch (level) {
   case DAA_TPM_SHA_128: return vole_backend::SecurityLevel::Bits128;
@@ -25,6 +26,7 @@ vole_backend::SecurityLevel level_from_c(daa_tpm_sha_level level) {
   throw std::invalid_argument("invalid issuer-anchor security level");
 }
 
+// Converts the stable C profile enum into the backend type.
 vole_backend::VoleProfile profile_from_c(daa_tpm_sha_profile profile) {
   switch (profile) {
   case DAA_TPM_SHA_SMALL: return vole_backend::VoleProfile::Small;
@@ -33,6 +35,7 @@ vole_backend::VoleProfile profile_from_c(daa_tpm_sha_profile profile) {
   throw std::invalid_argument("invalid issuer-anchor VOLE profile");
 }
 
+// Converts the stable C credential-kind enum into the relation type.
 daa::issuer_anchor::Kind kind_from_c(daa_issuer_anchor_kind kind) {
   switch (kind) {
   case DAA_ISSUER_ANCHOR_SPHINCS: return daa::issuer_anchor::Kind::Sphincs;
@@ -41,13 +44,16 @@ daa::issuer_anchor::Kind kind_from_c(daa_issuer_anchor_kind kind) {
   throw std::invalid_argument("invalid issuer-anchor credential kind");
 }
 
+// Owns one immutable relation and its prepared VOLEith circuit.
 struct CachedRelation {
+  // Constructs and prepares one relation for reuse by all later proofs.
   CachedRelation(vole_backend::SecurityLevel level, daa::issuer_anchor::Kind kind)
       : relation(level, kind), prepared(relation.binary_circuit()) {}
   daa::issuer_anchor::Relation relation;
   vole_backend::PreparedBinaryCircuit prepared;
 };
 
+// Returns the process-wide prepared relation for one level and scheme.
 CachedRelation& cache(daa_tpm_sha_level level, daa_issuer_anchor_kind kind) {
 #define ANCHOR_CACHE_CASE(C_LEVEL, CPP_LEVEL, C_KIND, CPP_KIND, NAME)          \
   if (level == C_LEVEL && kind == C_KIND) {                                   \
@@ -73,6 +79,7 @@ CachedRelation& cache(daa_tpm_sha_level level, daa_issuer_anchor_kind kind) {
   throw std::invalid_argument("unsupported issuer-anchor relation");
 }
 
+// Validates a C byte pointer and exposes it as a read-only span.
 std::span<const std::uint8_t> bytes(const std::uint8_t* pointer,
                                     std::size_t length, const char* name) {
   if (pointer == nullptr && length != 0)
@@ -80,6 +87,7 @@ std::span<const std::uint8_t> bytes(const std::uint8_t* pointer,
   return {pointer, length};
 }
 
+// Parses exactly 32 bytes of caller-provided prover randomness.
 vole_backend::ProverRandomness randomness(const std::uint8_t* pointer,
                                           std::size_t length) {
   const auto input = bytes(pointer, length, "randomness");
@@ -90,6 +98,7 @@ vole_backend::ProverRandomness randomness(const std::uint8_t* pointer,
   return result;
 }
 
+// Builds the public VOLEith statement from relation fields and endpoints.
 vole_backend::PublicStatement statement(
     const daa::issuer_anchor::Relation& relation,
     std::span<const std::uint8_t> public_a,
@@ -99,6 +108,7 @@ vole_backend::PublicStatement statement(
           relation.output_bits(anchor_value)};
 }
 
+// Copies a serialized proof into the caller's size-checked output buffer.
 int write_proof(std::span<const std::uint8_t> proof, std::uint8_t* output,
                 std::size_t* output_length) {
   if (output_length == nullptr) {
@@ -115,6 +125,7 @@ int write_proof(std::span<const std::uint8_t> proof, std::uint8_t* output,
   return DAA_TPM_SHA_OK;
 }
 
+// Translates C++ exceptions into the stable C error interface.
 template <typename Function>
 int ffi(Function&& function) noexcept {
   anchor_last_error.clear();
@@ -137,6 +148,7 @@ int ffi(Function&& function) noexcept {
 
 extern "C" {
 
+// Prepares and caches the requested issuer-anchor relation.
 int daa_issuer_anchor_prepare(daa_tpm_sha_level level,
                               daa_tpm_sha_profile profile,
                               daa_issuer_anchor_kind kind) {
@@ -146,6 +158,7 @@ int daa_issuer_anchor_prepare(daa_tpm_sha_level level,
   });
 }
 
+// Returns circuit and serialized-proof statistics for one relation/profile.
 int daa_issuer_anchor_stats(daa_tpm_sha_level level,
                             daa_tpm_sha_profile profile,
                             daa_issuer_anchor_kind kind,
@@ -165,6 +178,7 @@ int daa_issuer_anchor_stats(daa_tpm_sha_level level,
   });
 }
 
+// Returns the exact serialized proof length, or zero on invalid parameters.
 size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
                                      daa_tpm_sha_profile profile,
                                      daa_issuer_anchor_kind kind) {
@@ -175,6 +189,7 @@ size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
              : 0;
 }
 
+// Produces a context-bound VOLEith proof of the dual-anchor relation.
 int daa_issuer_anchor_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind, const uint8_t* seed, size_t seed_len,
@@ -206,6 +221,7 @@ int daa_issuer_anchor_prove(
   }
 }
 
+// Verifies a context-bound VOLEith proof against the public anchor statement.
 int daa_issuer_anchor_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind,
@@ -236,6 +252,7 @@ int daa_issuer_anchor_verify(
   }
 }
 
+// Returns the thread-local diagnostic for the most recent C API call.
 const char* daa_issuer_anchor_last_error(void) {
   return anchor_last_error.c_str();
 }

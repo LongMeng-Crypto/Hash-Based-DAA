@@ -17,11 +17,13 @@ extern "C" {
  */
 size_t sphincs_issuer_anchor_certificate_bytes(void);
 
+/* Generates the deterministic certificate for an existing issuer keypair. */
 int sphincs_issuer_anchor_generate(uint8_t *certificate,
                                    size_t certificate_len,
                                    const uint8_t *pk,
                                    const uint8_t *sk);
 
+/* Verifies the public certificate against the registered SPHINCS+ root. */
 int sphincs_issuer_anchor_verify(const uint8_t *certificate,
                                  size_t certificate_len,
                                  const uint8_t *pk);

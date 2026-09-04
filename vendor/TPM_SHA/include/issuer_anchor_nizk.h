@@ -16,13 +16,16 @@ typedef enum daa_issuer_anchor_kind {
   DAA_ISSUER_ANCHOR_FSPHINCS = 2,
 } daa_issuer_anchor_kind;
 
+/* Prepares and caches the requested issuer-anchor circuit. */
 int daa_issuer_anchor_prepare(daa_tpm_sha_level level,
                               daa_tpm_sha_profile profile,
                               daa_issuer_anchor_kind kind);
+/* Returns circuit and proof-size statistics for one profile. */
 int daa_issuer_anchor_stats(daa_tpm_sha_level level,
                             daa_tpm_sha_profile profile,
                             daa_issuer_anchor_kind kind,
                             daa_tpm_sha_stats* stats_out);
+/* Returns the exact serialized proof size, or zero on error. */
 size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
                                      daa_tpm_sha_profile profile,
                                      daa_issuer_anchor_kind kind);
@@ -31,6 +34,7 @@ size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
  *   SPHINCS+: 32-byte seeded SHA state and two 22-byte WOTS+ addresses;
  *   F-SPHINCS+: two 32-byte node addresses and two 32-byte leaf addresses.
  */
+/* Generates a context-bound proof for the supplied public anchor statement. */
 int daa_issuer_anchor_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind,
@@ -42,6 +46,7 @@ int daa_issuer_anchor_prove(
     const uint8_t* randomness, size_t randomness_len,
     uint8_t* proof_out, size_t* proof_len);
 
+/* Verifies a context-bound proof against its public anchor statement. */
 int daa_issuer_anchor_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind,
@@ -51,6 +56,7 @@ int daa_issuer_anchor_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
+/* Returns the thread-local diagnostic for the most recent API call. */
 const char* daa_issuer_anchor_last_error(void);
 
 #ifdef __cplusplus

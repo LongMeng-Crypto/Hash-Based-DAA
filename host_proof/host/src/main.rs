@@ -691,6 +691,7 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
+/// Builds native anchor material from an existing issuer keypair.
 fn protocol_issuer_anchor(
     input_path: &Path,
     output_path: &Path,
@@ -720,6 +721,7 @@ fn protocol_issuer_anchor(
     Ok(())
 }
 
+/// Carries the native certificate and exact public/private NIZK relation fields.
 struct NativeAnchorMaterial {
     certificate: Vec<u8>,
     witness: Vec<u8>,
@@ -730,6 +732,7 @@ struct NativeAnchorMaterial {
     verify_us: u128,
 }
 
+/// Generates, verifies, mutation-tests, and exports one scheme-specific anchor.
 fn generate_anchor_material(
     pk: &[u8],
     sk: &[u8],
@@ -842,6 +845,7 @@ fn generate_anchor_material(
     })
 }
 
+/// Emits stable machine-readable native anchor benchmark metrics.
 fn print_anchor_metrics(material: &NativeAnchorMaterial) {
     println!("accepted=1");
     println!("anchor_generation_us={}", material.generation_us);
@@ -850,6 +854,7 @@ fn print_anchor_metrics(material: &NativeAnchorMaterial) {
     println!("certificate_mutation_test=ok");
 }
 
+/// Performs issuer key generation and anchor construction as one Setup command.
 fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut pk = vec![0u8; credential_pk_bytes()];
     let mut sk = vec![0u8; credential_sk_bytes()];
@@ -885,6 +890,7 @@ fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// Verifies a serialized public anchor certificate without secret material.
 fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parts = read_parts(input_path)?;
     if parts.len() != 2 {

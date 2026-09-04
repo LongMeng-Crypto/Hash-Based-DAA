@@ -12,6 +12,7 @@ mkdir -p "${log_dir}"
 log_file="${LOG_FILE:-${log_dir}/issuer_anchor_latest.log}"
 : >"${log_file}"
 
+# Benchmarks one credential and VOLEith parameter combination.
 run_one() {
   local credential="$1"
   local params="$2"

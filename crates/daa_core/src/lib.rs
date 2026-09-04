@@ -837,6 +837,7 @@ fn tpm_sha_stats(
     })
 }
 
+/// Reads the prepared issuer-anchor circuit statistics through the C ABI.
 fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats> {
     let mut raw = DaaTpmShaStats::default();
     let ret = unsafe {
@@ -2430,6 +2431,7 @@ struct IssuerSignResult {
     sign_millis: u128,
 }
 
+/// Native certificate material exported by the credential implementation.
 #[derive(Debug, Clone)]
 struct IssuerAnchorNative {
     certificate: Bytes,
@@ -2441,6 +2443,7 @@ struct IssuerAnchorNative {
     certificate_verify: Duration,
 }
 
+/// Combined external issuer key-generation and anchor-construction result.
 #[derive(Debug, Clone)]
 struct IssuerSetupAnchorExternal {
     pk: Bytes,
@@ -2449,6 +2452,7 @@ struct IssuerSetupAnchorExternal {
     anchor: IssuerAnchorNative,
 }
 
+/// Maps the selected credential scheme to the stable issuer-anchor ABI tag.
 fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     match config.credential_scheme {
         CredentialScheme::SphincsPlus => 1,
@@ -2456,6 +2460,7 @@ fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     }
 }
 
+/// Domain-separates and binds pi_I to one issuer key and public certificate.
 fn issuer_anchor_context(config: &ProtocolConfig, pk: &[u8], certificate: &[u8]) -> Bytes {
     let mut hash = Sha256::new();
     hash.update(b"DAA-ISSUER-ANCHOR-PI-v1");
@@ -2469,6 +2474,7 @@ fn issuer_anchor_context(config: &ProtocolConfig, pk: &[u8], certificate: &[u8])
     hash.finalize().to_vec()
 }
 
+/// Generates the real VOLEith pi_I for the native dual-anchor statement.
 fn prove_issuer_anchor_real(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -2534,6 +2540,7 @@ fn prove_issuer_anchor_real(
     })
 }
 
+/// Verifies pi_I and its Rust-side statement binding.
 fn verify_issuer_anchor_real(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -2569,6 +2576,7 @@ fn verify_issuer_anchor_real(
         }
 }
 
+/// Runs native issuer key generation and deterministic anchor construction.
 fn issuer_setup_anchor_external(config: &ProtocolConfig) -> DaaResult<IssuerSetupAnchorExternal> {
     let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
     let output_path = std::env::temp_dir().join(format!("sedaa-issuer-setup-anchor-{stamp}.out"));

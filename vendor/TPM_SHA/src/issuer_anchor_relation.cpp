@@ -4,8 +4,6 @@
 
 #include "circuits/sha256/sha256_core.hpp"
 
-#include <algorithm>
-#include <array>
 #include <stdexcept>
 #include <string>
 
@@ -15,6 +13,7 @@ namespace {
 using Wire = vole_backend::Wire;
 using FipsBits = std::vector<Wire>;
 
+// Allocates bytes as FIPS-ordered public or private circuit inputs.
 FipsBits allocate_bytes(vole_backend::BinaryCircuit& circuit,
                         std::size_t bytes, bool secret) {
   FipsBits result(bytes * 8);
@@ -26,6 +25,7 @@ FipsBits allocate_bytes(vole_backend::BinaryCircuit& circuit,
   return result;
 }
 
+// Converts one constant byte into FIPS-ordered circuit wires.
 FipsBits constant_byte(std::uint8_t value) {
   FipsBits result;
   result.reserve(8);
@@ -36,15 +36,18 @@ FipsBits constant_byte(std::uint8_t value) {
   return result;
 }
 
+// Appends a wire span without changing its bit order.
 void append(FipsBits& output, std::span<const Wire> input) {
   output.insert(output.end(), input.begin(), input.end());
 }
 
+// Appends one constant byte in FIPS bit order.
 void append_constant(FipsBits& output, std::uint8_t value) {
   const auto bits = constant_byte(value);
   append(output, bits);
 }
 
+// Exposes the requested leading digest bytes as circuit outputs.
 void add_truncated_outputs(vole_backend::BinaryCircuit& circuit,
                            std::span<const Wire> digest_fips_bits,
                            std::size_t bytes) {
@@ -55,6 +58,7 @@ void add_truncated_outputs(vole_backend::BinaryCircuit& circuit,
       circuit.add_output(digest_fips_bits[8 * byte + (7 - storage_bit)]);
 }
 
+// Converts protocol bytes into the backend's least-significant-bit storage order.
 std::vector<std::uint8_t> bytes_to_bits(std::span<const std::uint8_t> bytes) {
   std::vector<std::uint8_t> result;
   result.reserve(bytes.size() * 8);
@@ -64,6 +68,7 @@ std::vector<std::uint8_t> bytes_to_bits(std::span<const std::uint8_t> bytes) {
   return result;
 }
 
+// Rejects an input whose serialized length does not match the relation.
 void require_size(std::span<const std::uint8_t> value, std::size_t expected,
                   const char* name) {
   if (value.size() != expected)
@@ -72,6 +77,7 @@ void require_size(std::span<const std::uint8_t> value, std::size_t expected,
 
 } // namespace
 
+// Builds the scheme-specific dual-anchor SHA-256 relation once.
 Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
     : level_(level), kind_(kind) {
   const auto seed = allocate_bytes(circuit_, seed_bytes(), true);
@@ -121,33 +127,40 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
     throw std::logic_error("invalid issuer-anchor circuit: " + error);
 }
 
+// Returns the private global-seed length for the selected credential scheme.
 std::size_t Relation::seed_bytes() const {
   if (kind_ == Kind::FSphincs) return 32;
   return vole_backend::security_parameters(level_).lambda_bytes;
 }
 
+// Returns the first public-input field length.
 std::size_t Relation::public_a_bytes() const {
   return kind_ == Kind::Sphincs ? 32 : 64;
 }
 
+// Returns the second public-input field length.
 std::size_t Relation::public_b_bytes() const {
   return kind_ == Kind::Sphincs ? 44 : 64;
 }
 
+// Returns the combined length of the two public anchor values.
 std::size_t Relation::anchor_bytes() const {
   return kind_ == Kind::Sphincs ? 2 * seed_bytes() : 64;
 }
 
+// Reports the number of secret-dependent SHA-256 compression blocks.
 std::size_t Relation::compression_blocks() const {
   return kind_ == Kind::Sphincs ? 2 : 8;
 }
 
+// Serializes the private seed into backend input bits.
 std::vector<std::uint8_t> Relation::private_bits(
     std::span<const std::uint8_t> seed) const {
   require_size(seed, seed_bytes(), "seed");
   return bytes_to_bits(seed);
 }
 
+// Serializes both public relation fields into backend input bits.
 std::vector<std::uint8_t> Relation::public_bits(
     std::span<const std::uint8_t> public_a,
     std::span<const std::uint8_t> public_b) const {
@@ -159,6 +172,7 @@ std::vector<std::uint8_t> Relation::public_bits(
   return result;
 }
 
+// Serializes the public anchor endpoints into circuit output bits.
 std::vector<std::uint8_t> Relation::output_bits(
     std::span<const std::uint8_t> anchor_value) const {
   require_size(anchor_value, anchor_bytes(), "anchor_value");

@@ -16,14 +16,17 @@
 
 static const uint8_t anchor_magic[8] = {'D', 'A', 'A', 'A', 'N', 'C', '2', 0};
 
+/* Returns the byte length of the fixed top-layer WOTS signature and path. */
 static size_t top_signature_bytes(void) {
     return (size_t)SPX_WOTS_BYTES + (size_t)SPX_TREE_HEIGHT * SPX_N;
 }
 
+/* Returns the serialized size of a SPHINCS+ issuer-anchor certificate. */
 size_t sphincs_issuer_anchor_certificate_bytes(void) {
     return ANCHOR_HEADER_BYTES + top_signature_bytes();
 }
 
+/* Serializes the parameter-bound SPHINCS+ anchor header. */
 static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     memcpy(out, anchor_magic, sizeof(anchor_magic));
     out[8] = ANCHOR_KIND_SPHINCS;
@@ -36,6 +39,7 @@ static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     out[15] = 0;
 }
 
+/* Checks that a certificate header and length match the compiled parameters. */
 static int valid_header(const uint8_t *certificate, size_t certificate_len) {
     uint8_t expected[ANCHOR_HEADER_BYTES];
     if (certificate == NULL ||
@@ -45,6 +49,7 @@ static int valid_header(const uint8_t *certificate, size_t certificate_len) {
     return memcmp(certificate, expected, sizeof(expected)) == 0;
 }
 
+/* Constructs the fixed top-layer WOTS and XMSS addresses used by Setup. */
 static void top_addresses(uint32_t wots_addr[8], uint32_t tree_addr[8]) {
     memset(wots_addr, 0, 8 * sizeof(uint32_t));
     memset(tree_addr, 0, 8 * sizeof(uint32_t));
@@ -56,6 +61,7 @@ static void top_addresses(uint32_t wots_addr[8], uint32_t tree_addr[8]) {
     set_type(wots_addr, SPX_ADDR_TYPE_WOTS);
 }
 
+/* Generates the deterministic top-WOTS certificate bound to the issuer root. */
 int sphincs_issuer_anchor_generate(uint8_t *certificate,
                                    size_t certificate_len,
                                    const uint8_t *pk,
@@ -80,6 +86,7 @@ int sphincs_issuer_anchor_generate(uint8_t *certificate,
     return memcmp(message, pk + SPX_N, SPX_N) == 0 ? 0 : -1;
 }
 
+/* Publicly reconstructs the top WOTS leaf and checks its path to PK.root. */
 int sphincs_issuer_anchor_verify(const uint8_t *certificate,
                                  size_t certificate_len,
                                  const uint8_t *pk) {
@@ -105,6 +112,7 @@ int sphincs_issuer_anchor_verify(const uint8_t *certificate,
     return memcmp(root, pk + SPX_N, SPX_N) == 0 ? 0 : -1;
 }
 
+/* Exports the dual-chain seed relation consumed by the VOLEith prover. */
 int sphincs_issuer_anchor_relation(uint8_t seed[SPX_N],
                                    uint8_t seeded_state[32],
                                    uint8_t compressed_addresses[44],
