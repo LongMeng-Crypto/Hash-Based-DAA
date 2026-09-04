@@ -3,20 +3,36 @@
 This directory ports the RISC0-friendly SPHINCS+ DAA host-side proof into the
 vendored RISC0 SHA-256 backend fork inside `DAA_FULL`.
 
-The guest verifies a SPHINCS+ signature over `et_u || gr_u`, keeps `et_u`
-private, checks the selected TPM hook output `hk`, and commits
-`ok || hk || issuer_pk` to the journal.  The historical AES hook remains the
-default; the SHA path is selected at build time with:
+The guest verifies a credential signature over `et_u || gr_u`, keeps the
+credential and hook preimages private, checks the selected TPM-to-Host hook,
+and binds its public outputs and issuer key in the journal. The historical AES
+hook remains available; select the SHA path at build time with:
 
 ```text
 DAA_TPM_BACKEND=sha2
 ```
 
-The SHA guest checks `hk = SHA2(0x03 || s || et_u)`.  At the 128-, 192-, and
-256-bit parameter levels it uses SHA-256, SHA-384, and SHA-512 respectively.
-The corresponding `et_u`/`hk` lengths are 32/48/64 bytes, while `s` and the
-issuer nonce use 16/24/32 bytes.  SHA-256 goes through RISC0's guest SHA
-implementation and syscall; SHA-384/512 use the no-std software path.
+The SHA path has two separately compiled Host relations:
+
+```text
+DAA_TPM_SHA_SCHEME=ours    (default)
+  hk  = SHA2(0x03 || s || et_u)
+  journal = ok || hk || issuer_pk
+
+DAA_TPM_SHA_SCHEME=chen23
+  hk  = SHA2(0x05 || sst)
+  cet = SHA2(0x06 || sst || et_u)
+  journal = ok || hk || cet || issuer_pk
+```
+
+The first is `Ours-3F + one-SHA-2 hook`; the second is the
+`CDENW'23--Ours-5F + two-SHA-2 hook` comparison relation. At the 128-, 192-,
+and 256-bit levels they use SHA-256, SHA-384, and SHA-512 respectively. Full
+digest outputs and `et_u` are 32/48/64 bytes. Ours uses a 16/24/32-byte `s`;
+CDENW'23 uses the 32/48/64-byte hidden `sst`. SHA-256 goes through RISC0's
+guest SHA implementation and syscall; SHA-384/512 use the no-std software
+path. `DAA_TPM_SHA_SCHEME=chen23` is rejected unless
+`DAA_TPM_BACKEND=sha2`.
 
 The proof-system backend hash suite defaults to `sha-256` through:
 
@@ -33,12 +49,10 @@ the PQCrypto 2023 hash-based DAA paper is maintained next to `sphincs_ref`:
 methods/guest/c_src/fsphincs_ref/
 ```
 
-It supports the paper's two concrete configurations
-`n=256, d=16, q=1024, h=6` with `k=35` (128) or `k=70` (256), and
-instantiates the abstract hash/PRF interfaces with domain-separated SHA-256.
-Here 128/256 names the paper's two concrete MPCitH-soundness configurations;
-it is not by itself a new concrete EU-CMA proof for the SHA-256 credential
-instantiation.
+It keeps the paper's historical `k=35,70` configurations and also supports
+the recalibrated `k=22,33,43` credential-security points used for the current
+128/192/256 comparison. All use `n=256, d=16, q=1024, h=6` and instantiate
+the abstract hash/PRF interfaces with domain-separated SHA-256.
 Run its native key-generation, signing, and verification benchmark without
 building the RISC0 prover:
 
@@ -59,10 +73,9 @@ make -C methods/guest/c_src/fsphincs_ref test
 
 ## F-SPHINCS+ RISC0 GPU benchmark
 
-The verification-only guest reads the 133,312-byte signature directly into
-guest static memory, verifies it in place, and uses the existing SHA-256
-syscalls. Key generation and signing remain native host operations. Run the
-default SHA-256/composite GPU benchmark from `DAA_FULL`:
+The verification-only guest streams one M-FORS layer at a time and uses the
+existing SHA-256 syscalls. Key generation and signing remain native host
+operations. Run the default SHA-256/composite GPU benchmark from `DAA_FULL`:
 
 ```bash
 FSPHINCS_SECURITY=128 bash host_proof/scripts/bench_fsphincs_risc0_gpu.sh
@@ -87,13 +100,27 @@ lowered to profile segmentation and paging.
 
 Full DAA benchmark commands are documented in `../README.md`.
 
-To benchmark an F-SPHINCS+ host proof with the new SHA hook, add
-`DAA_TPM_BACKEND=sha2`; omitting it continues to run the legacy AES hook:
+To benchmark F-SPHINCS+ with the one-SHA Ours relation, select `ours`. The
+example uses the recalibrated 128-bit credential parameter `k=22`:
 
 ```bash
-DAA_TPM_BACKEND=sha2 FSPHINCS_SECURITY=128 FSPHINCS_K=22 \
+DAA_TPM_BACKEND=sha2 DAA_TPM_SHA_SCHEME=ours \
+  FSPHINCS_SECURITY=128 FSPHINCS_K=22 \
   bash host_proof/scripts/bench_fsphincs_risc0_gpu.sh
 ```
+
+For the CDENW'23 comparison, change only the relation selector. This proves
+both SHA-2 hooks and publicly binds both `hk` and `cet`:
+
+```bash
+DAA_TPM_BACKEND=sha2 DAA_TPM_SHA_SCHEME=chen23 \
+  FSPHINCS_SECURITY=128 FSPHINCS_K=22 \
+  bash host_proof/scripts/bench_fsphincs_risc0_gpu.sh
+```
+
+The intended paper comparison uses CDENW'23 only with F-SPHINCS+ (`k=22,33,43`).
+Ours supports Direct SPHINCS+, ZK-WOTS+, and F-SPHINCS+. Omitting
+`DAA_TPM_BACKEND=sha2` retains the legacy AES hook.
 
 ## One-Variant CUDA Benchmark
 

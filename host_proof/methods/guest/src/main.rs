@@ -77,17 +77,27 @@ const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const NONCE_BYTES: usize = 32;
 
-#[cfg(lambda_128)]
-const S_BYTES: usize = 16;
-#[cfg(lambda_192)]
-const S_BYTES: usize = 24;
-#[cfg(lambda_256)]
-const S_BYTES: usize = 32;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_128))]
+const HOOK_SECRET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_192))]
+const HOOK_SECRET_BYTES: usize = 24;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_256))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+const HOOK_SECRET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+const HOOK_SECRET_BYTES: usize = 64;
 
 const HK_BYTES: usize = ET_BYTES;
+#[cfg(not(daa_tpm_sha_chen23))]
+const HOOK_PUBLIC_BYTES: usize = HK_BYTES;
+#[cfg(daa_tpm_sha_chen23)]
+const HOOK_PUBLIC_BYTES: usize = 2 * HK_BYTES;
 
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
@@ -98,7 +108,7 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 
 // lambda = 192: AES-192, s=24B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_192))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -112,7 +122,7 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 
 // lambda = 256: AES-256, s=32B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_256))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -124,19 +134,43 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_128))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_192))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_256))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha512_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha256_cdenw23_hooks(sst, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha384_cdenw23_hooks(sst, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha512_cdenw23_hooks(sst, et_u)
 }
 
 #[cfg(sphincs_opt5_padding)]
@@ -168,14 +202,18 @@ fn main() {
     let mut pk = [0u8; PK_BYTES];
     let mut sig = [0u8; SIG_BYTES];
     let mut hk_pub = [0u8; HK_BYTES];
-    let mut s = [0u8; S_BYTES];
+    #[cfg(daa_tpm_sha_chen23)]
+    let mut cet_pub = [0u8; HK_BYTES];
+    let mut hook_secret = [0u8; HOOK_SECRET_BYTES];
     let mut et_u = [0u8; ET_BYTES];
     let mut issuer_nonce = [0u8; NONCE_BYTES];
 
     env::read_slice(&mut pk);
     env::read_slice(&mut sig);
     env::read_slice(&mut hk_pub);
-    env::read_slice(&mut s);
+    #[cfg(daa_tpm_sha_chen23)]
+    env::read_slice(&mut cet_pub);
+    env::read_slice(&mut hook_secret);
     env::read_slice(&mut et_u);
     env::read_slice(&mut issuer_nonce);
 
@@ -197,10 +235,17 @@ fn main() {
 
     // 2) Recompute and check the selected TPM hook.  The legacy skip switch is
     // deliberately AES-only; a SHA-mode receipt always proves the SHA hook.
-    #[cfg(any(daa_tpm_sha2, not(skip_aes_check)))]
+    #[cfg(all(not(daa_tpm_sha_chen23), any(daa_tpm_sha2, not(skip_aes_check))))]
     {
-        let hk_calc = hook(&s, &et_u);
+        let hk_calc = hook(&hook_secret, &et_u);
         assert!(hk_calc == hk_pub);
+    }
+
+    #[cfg(daa_tpm_sha_chen23)]
+    {
+        let (hk_calc, cet_calc) = cdenw23_hooks(&hook_secret, &et_u);
+        assert!(hk_calc == hk_pub);
+        assert!(cet_calc == cet_pub);
     }
 
     #[cfg(sphincs_opt5_padding)]
@@ -208,10 +253,17 @@ fn main() {
 
     #[cfg(not(sphincs_profile))]
     {
-        let mut journal = [0u8; 4 + HK_BYTES + PK_BYTES];
+        let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES];
         journal[..4].copy_from_slice(&1u32.to_le_bytes());
         journal[4..4 + HK_BYTES].copy_from_slice(&hk_pub);
-        journal[4 + HK_BYTES..].copy_from_slice(&pk);
+        #[allow(unused_mut)]
+        let mut public_end = 4 + HK_BYTES;
+        #[cfg(daa_tpm_sha_chen23)]
+        {
+            journal[public_end..public_end + HK_BYTES].copy_from_slice(&cet_pub);
+            public_end += HK_BYTES;
+        }
+        journal[public_end..].copy_from_slice(&pk);
         env::commit_slice(&journal);
     }
 
@@ -220,11 +272,18 @@ fn main() {
         let mut counters = [0u64; PROFILE_WORDS];
         unsafe { spx_profile_snapshot(counters.as_mut_ptr()) };
 
-        let mut journal = [0u8; 4 + HK_BYTES + PK_BYTES + PROFILE_WORDS * 8];
+        let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES + PROFILE_WORDS * 8];
         journal[..4].copy_from_slice(&1u32.to_le_bytes());
         journal[4..4 + HK_BYTES].copy_from_slice(&hk_pub);
-        journal[4 + HK_BYTES..4 + HK_BYTES + PK_BYTES].copy_from_slice(&pk);
-        let mut off = 4 + HK_BYTES + PK_BYTES;
+        #[allow(unused_mut)]
+        let mut public_end = 4 + HK_BYTES;
+        #[cfg(daa_tpm_sha_chen23)]
+        {
+            journal[public_end..public_end + HK_BYTES].copy_from_slice(&cet_pub);
+            public_end += HK_BYTES;
+        }
+        journal[public_end..public_end + PK_BYTES].copy_from_slice(&pk);
+        let mut off = public_end + PK_BYTES;
         let mut i = 0;
         while i < PROFILE_WORDS {
             journal[off..off + 8].copy_from_slice(&counters[i].to_le_bytes());

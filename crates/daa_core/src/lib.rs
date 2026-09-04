@@ -104,6 +104,54 @@ pub enum TpmBackend {
     Sha2,
 }
 
+/// Selects the SHA-2 TPM signing relation without changing the Join relation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TpmShaScheme {
+    Ours3F,
+    Cdenw23Ours5F,
+}
+
+impl TpmShaScheme {
+    pub fn from_name(name: &str) -> DaaResult<Self> {
+        match name {
+            "ours" | "ours-3f" | "3f" => Ok(Self::Ours3F),
+            "chen23" | "cdenw23" | "cdenw23-5f" | "5f" => Ok(Self::Cdenw23Ours5F),
+            _ => Err(DaaError::UnsupportedTpmShaScheme),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Ours3F => "ours",
+            Self::Cdenw23Ours5F => "chen23",
+        }
+    }
+}
+
+/// Selects the issuer credential verified inside the RISC0 host proof.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CredentialScheme {
+    SphincsPlus,
+    FSphincsPlus,
+}
+
+impl CredentialScheme {
+    pub fn from_name(name: &str) -> DaaResult<Self> {
+        match name {
+            "sphincs" | "sphincs+" => Ok(Self::SphincsPlus),
+            "fsphincs" | "f-sphincs" | "f-sphincs+" => Ok(Self::FSphincsPlus),
+            _ => Err(DaaError::UnsupportedCredentialScheme),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::SphincsPlus => "sphincs",
+            Self::FSphincsPlus => "fsphincs",
+        }
+    }
+}
+
 impl TpmBackend {
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
@@ -129,7 +177,9 @@ pub struct ProtocolConfig {
     pub deterministic_seed: u64,
     pub proof_mode: ProofMode,
     pub tpm_backend: TpmBackend,
+    pub tpm_sha_scheme: TpmShaScheme,
     pub tpm_sha_profile: TpmShaProfile,
+    pub credential_scheme: CredentialScheme,
     pub risc0_segment_limit_po2: Option<u32>,
 }
 
@@ -144,7 +194,9 @@ impl Default for ProtocolConfig {
             deterministic_seed: 0xdaa5_eeda_2026_0705,
             proof_mode: ProofMode::Real128s,
             tpm_backend: TpmBackend::Aes,
+            tpm_sha_scheme: TpmShaScheme::Ours3F,
             tpm_sha_profile: TpmShaProfile::Small,
+            credential_scheme: CredentialScheme::SphincsPlus,
             risc0_segment_limit_po2: None,
         }
     }
@@ -174,6 +226,18 @@ impl ProtocolConfig {
     /// Selects the TPM primitive independently from the RISC0 receipt hash.
     pub fn with_tpm_backend(mut self, tpm_backend: TpmBackend) -> Self {
         self.tpm_backend = tpm_backend;
+        self
+    }
+
+    /// Selects Ours-3F or the CDENW'23--Ours-5F SHA-2 signing relation.
+    pub fn with_tpm_sha_scheme(mut self, scheme: TpmShaScheme) -> Self {
+        self.tpm_sha_scheme = scheme;
+        self
+    }
+
+    /// Selects SPHINCS+ or F-SPHINCS+ as the issuer credential.
+    pub fn with_credential_scheme(mut self, scheme: CredentialScheme) -> Self {
+        self.credential_scheme = scheme;
         self
     }
 
@@ -209,6 +273,12 @@ impl ProtocolConfig {
     fn ensure_real_supported(&self) -> DaaResult<()> {
         if self.proof_mode.uses_real_proofs() && param_spec(&self.sphincs_params).is_none() {
             return Err(DaaError::UnsupportedParameterSet);
+        }
+        if self.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F
+            && (self.tpm_backend != TpmBackend::Sha2
+                || self.credential_scheme != CredentialScheme::FSphincsPlus)
+        {
+            return Err(DaaError::UnsupportedProtocolCombination);
         }
         Ok(())
     }
@@ -309,6 +379,8 @@ pub struct TpmState {
 pub struct HostState {
     pub member_id: u64,
     pub credential: Credential,
+    /// Entry token on which the issuer credential was issued during Join.
+    pub credential_et: Bytes,
 }
 
 #[derive(Debug, Clone)]
@@ -343,6 +415,8 @@ pub struct DaaSignature {
     pub rho: Bytes,
     pub slt: Bytes,
     pub hk: Bytes,
+    /// Public only for CDENW'23--Ours-5F; empty for Ours-3F and legacy AES.
+    pub cet: Bytes,
     pub pi_tpm: ProofArtifact,
     pub pi_host: ProofArtifact,
 }
@@ -548,6 +622,9 @@ pub enum DaaError {
     UnsupportedParameterSet,
     UnsupportedProofMode,
     UnsupportedTpmBackend,
+    UnsupportedTpmShaScheme,
+    UnsupportedCredentialScheme,
+    UnsupportedProtocolCombination,
     ExternalHostProof,
 }
 
@@ -596,25 +673,25 @@ pub fn benchmark_tpm_sha(
         .collect();
     let gid = group_id(&config, b"TPM-SHA benchmark issuer public key");
     let lid = link_id(&config, b"TPM-SHA benchmark basename");
-    let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
-    let join_context = join_proof_message(&config, &gid, &et);
     let sign_context = message_prime(&config, b"TPM-SHA benchmark message", b"fixed-rho");
+    let values = tpm_sign_values(&config, &sk, &s, &sign_context, &lid, &gid);
+    let (et, slt, hk) = (&values.et, &values.slt, &values.hk);
+    let join_context = join_proof_message(&config, &gid, et);
 
     let join_started = Instant::now();
-    let join_proof = prove_join_sha_real(&config, &sk, &gid, &et, &join_context)?;
+    let join_proof = prove_join_sha_real(&config, &sk, &gid, et, &join_context)?;
     let join_prove = join_started.elapsed();
     let join_verify_started = Instant::now();
-    if !verify_join_sha_real(&config, &join_proof, &gid, &et, &join_context) {
+    if !verify_join_sha_real(&config, &join_proof, &gid, et, &join_context) {
         return Err(DaaError::InvalidJoinProof);
     }
     let join_verify = join_verify_started.elapsed();
 
     let sign_started = Instant::now();
-    let sign_proof =
-        prove_tpm_sha_real(&config, &lid, &gid, &sk, &s, &sign_context, &et, &slt, &hk)?;
+    let sign_proof = prove_tpm_sha_real(&config, &lid, &gid, &sk, &s, &sign_context, et, slt, hk)?;
     let sign_prove = sign_started.elapsed();
     let sign_verify_started = Instant::now();
-    if !verify_tpm_sha_real(&config, &sign_proof, &lid, &gid, &slt, &hk, &sign_context) {
+    if !verify_tpm_sha_real(&config, &sign_proof, &lid, &gid, slt, hk, &sign_context) {
         return Err(DaaError::InvalidTpmProof);
     }
     let sign_verify = sign_verify_started.elapsed();
@@ -672,7 +749,15 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
     if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
         trace.scoped("setup.tpm_sha.prepare", || {
             let ret = unsafe {
-                daa_tpm_sha_prepare(config.security.bits(), config.tpm_sha_profile.code())
+                match config.tpm_sha_scheme {
+                    TpmShaScheme::Ours3F => {
+                        daa_tpm_sha_prepare(config.security.bits(), config.tpm_sha_profile.code())
+                    }
+                    TpmShaScheme::Cdenw23Ours5F => daa_tpm_sha_chen23_prepare(
+                        config.security.bits(),
+                        config.tpm_sha_profile.code(),
+                    ),
+                }
             };
             assert_eq!(ret, 0, "TPM_SHA circuit preparation failed");
         });
@@ -684,7 +769,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             (mpk, msk)
         }),
         ProofMode::RealTpm | ProofMode::Real128s => {
-            let issuer = issuer_keygen_external(&config).expect("SPHINCS+ issuer keygen failed");
+            let issuer = issuer_keygen_external(&config).expect("issuer credential keygen failed");
             trace.add_millis("setup.total", issuer.keygen_millis);
             (issuer.pk, issuer.sk)
         }
@@ -802,6 +887,7 @@ pub fn join(
         host_state: HostState {
             member_id,
             credential,
+            credential_et: et.clone(),
         },
         et,
         pi_join,
@@ -852,41 +938,53 @@ fn sign_internal(
         normalize_faest_key(&mut s);
     }
 
-    let primitive_step = match setup.config.tpm_backend {
-        TpmBackend::Aes => "sign.tpm.3aes",
-        TpmBackend::Sha2 => "sign.tpm.3sha2",
+    let primitive_step = match (setup.config.tpm_backend, setup.config.tpm_sha_scheme) {
+        (TpmBackend::Aes, _) => "sign.tpm.3aes",
+        (TpmBackend::Sha2, TpmShaScheme::Ours3F) => "sign.tpm.3sha2",
+        (TpmBackend::Sha2, TpmShaScheme::Cdenw23Ours5F) => "sign.tpm.5sha2",
     };
-    let (et, slt, hk) = trace.scoped(primitive_step, || {
-        tpm_sign_values(&setup.config, &tpm.sk, &s, &lid, &gid)
+    let values = trace.scoped(primitive_step, || {
+        tpm_sign_values(&setup.config, &tpm.sk, &s, &tpm_msg_prime, &lid, &gid)
     });
+    let et = &values.et;
+    let slt = &values.slt;
+    let hk = &values.hk;
+    let cet = &values.cet;
+    if et != &host.credential_et {
+        return Err(DaaError::InvalidCredential);
+    }
 
     let pi_tpm = trace.scoped("sign.tpm.pi_tpm_prove", || match setup.config.proof_mode {
         ProofMode::Simulated => Ok(simulated_proof(
             "pi_tpm",
             match setup.config.tpm_backend {
                 TpmBackend::Aes => "simulated-faest-3aes",
-                TpmBackend::Sha2 => "simulated-voleith-3sha2",
+                TpmBackend::Sha2 if setup.config.tpm_sha_scheme == TpmShaScheme::Ours3F => {
+                    "simulated-voleith-3sha2"
+                }
+                TpmBackend::Sha2 => "simulated-voleith-5sha2",
             },
-            setup.config.tpm_token_bytes() * 2,
-            &[&lid, &gid, &slt, &hk, &tpm_msg_prime],
-            &[&tpm.sk, &s, &et],
+            setup.config.tpm_token_bytes() * 3,
+            &[&lid, &gid, slt, hk, cet, &tpm_msg_prime],
+            &[&tpm.sk, &s, et, &values.hook_secret],
         )),
         ProofMode::RealTpm | ProofMode::Real128s => prove_tpm_real(
             &setup.config,
             &lid,
             &gid,
             &tpm.sk,
-            &s,
+            &values.hook_secret,
             &tpm_msg_prime,
-            &et,
-            &slt,
-            &hk,
+            et,
+            slt,
+            hk,
+            cet,
         ),
     })?;
 
     let host_precompute_start = Instant::now();
     let msg_prime = message_prime(&setup.config, msg, &rho);
-    let host_hk = tpm_hk(&setup.config, &s, &et);
+    let (host_hk, host_cet) = host_hook_outputs(&setup.config, &values.hook_secret, et);
     host_precompute_elapsed += host_precompute_start.elapsed();
     trace.add("sign.host.precompute", host_precompute_elapsed);
 
@@ -898,7 +996,7 @@ fn sign_internal(
             }
             ProofMode::RealTpm | ProofMode::Real128s => true,
         };
-        let witness_ok = host_hk == hk && credential_ok;
+        let witness_ok = host_hk == *hk && host_cet == *cet && credential_ok;
         match (setup.config.proof_mode, prove_host) {
             (ProofMode::Simulated, _) | (ProofMode::RealTpm, _) | (_, false) => {
                 trace.scoped("sign.host.pi_host_prove", || {
@@ -906,8 +1004,13 @@ fn sign_internal(
                         "pi_host",
                         &format!("simulated-risc0-{}", setup.config.backend_hash),
                         setup.config.tpm_token_bytes() * 4,
-                        &[&hk, &setup.issuer_keys.mpk],
-                        &[&et, &s, &host.credential.sigma, &bool_byte(witness_ok)],
+                        &[hk, cet, &setup.issuer_keys.mpk],
+                        &[
+                            et,
+                            &values.hook_secret,
+                            &host.credential.sigma,
+                            &bool_byte(witness_ok),
+                        ],
                     ))
                 })
             }
@@ -919,9 +1022,10 @@ fn sign_internal(
                     &setup.config,
                     &setup.issuer_keys.mpk,
                     &host.credential.sigma,
-                    &hk,
-                    &s,
-                    &et,
+                    hk,
+                    cet,
+                    &values.hook_secret,
+                    et,
                     &host.credential.issuer_nonce,
                 )?;
                 trace.add_millis("sign.host.pi_host_prove", host_proof.prover_millis);
@@ -931,7 +1035,7 @@ fn sign_internal(
                         "risc0-{}-{}",
                         setup.config.backend_hash, setup.config.sphincs_params
                     ),
-                    statement_hash: hash_many(32, &[&hk, &setup.issuer_keys.mpk]),
+                    statement_hash: hash_many(32, &[hk, cet, &setup.issuer_keys.mpk]),
                     proof_bytes: host_proof.proof_bytes,
                     seal_bytes: host_proof.seal_bytes,
                 })
@@ -951,12 +1055,13 @@ fn sign_internal(
     Ok(SignOutput {
         signature: DaaSignature {
             rho,
-            slt,
-            hk,
+            slt: slt.clone(),
+            hk: hk.clone(),
+            cet: cet.clone(),
             pi_tpm,
             pi_host,
         },
-        et,
+        et: et.clone(),
         msg_prime,
     })
 }
@@ -995,7 +1100,14 @@ pub fn verify(
         let ok = match setup.config.proof_mode {
             ProofMode::Simulated => verify_statement_only(
                 &signature.pi_tpm,
-                &[&lid, &gid, &signature.slt, &signature.hk, &msg_prime],
+                &[
+                    &lid,
+                    &gid,
+                    &signature.slt,
+                    &signature.hk,
+                    &signature.cet,
+                    &msg_prime,
+                ],
             ),
             ProofMode::RealTpm | ProofMode::Real128s => verify_tpm_real(
                 &setup.config,
@@ -1004,6 +1116,7 @@ pub fn verify(
                 &gid,
                 &signature.slt,
                 &signature.hk,
+                &signature.cet,
                 &msg_prime,
             ),
         };
@@ -1018,7 +1131,7 @@ pub fn verify(
             trace.scoped("verify.pi_host_verify", || {
                 let ok = verify_statement_only(
                     &signature.pi_host,
-                    &[&signature.hk, &setup.issuer_keys.mpk],
+                    &[&signature.hk, &signature.cet, &setup.issuer_keys.mpk],
                 );
                 if !ok {
                     return Err(DaaError::InvalidHostProof);
@@ -1032,6 +1145,7 @@ pub fn verify(
                 &signature.pi_host,
                 &setup.issuer_keys.mpk,
                 &signature.hk,
+                &signature.cet,
             )?;
             trace.add_millis("verify.pi_host_verify", verification.verifier_millis);
             if !verification.accepted {
@@ -1136,8 +1250,10 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
 fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &SignOutput) {
     let credential_sigma = join.host_state.credential.sigma.len();
     let credential_nonce = join.host_state.credential.issuer_nonce.len();
-    let signature_remaining =
-        sign.signature.rho.len() + sign.signature.slt.len() + sign.signature.hk.len();
+    let signature_remaining = sign.signature.rho.len()
+        + sign.signature.slt.len()
+        + sign.signature.hk.len()
+        + sign.signature.cet.len();
     let signature_total = signature_remaining
         + sign.signature.pi_tpm.size_bytes()
         + sign.signature.pi_host.size_bytes();
@@ -1276,26 +1392,63 @@ fn tpm_et(config: &ProtocolConfig, sk: &[u8], gid: &[u8]) -> Bytes {
     }
 }
 
-/// Computes the TPM signing outputs while keeping et internal to the proof relation.
+/// Values shared by the TPM proof, issuer credential, and RISC0 host proof.
+struct TpmSignValues {
+    et: Bytes,
+    slt: Bytes,
+    hk: Bytes,
+    cet: Bytes,
+    /// `s` for Ours-3F and `sst` for CDENW'23--Ours-5F.
+    hook_secret: Bytes,
+}
+
+/// Computes the TPM signing outputs while keeping et and hook secrets private.
 fn tpm_sign_values(
     config: &ProtocolConfig,
     sk: &[u8],
     s: &[u8],
+    sid: &[u8],
     lid: &[u8],
     gid: &[u8],
-) -> (Bytes, Bytes, Bytes) {
+) -> TpmSignValues {
     match config.tpm_backend {
         TpmBackend::Aes => {
             let et = aes_prf(config, sk, gid);
             let slt = aes_prf(config, sk, lid);
             let hk = aes_hook(config, s, &et);
-            (et, slt, hk)
+            TpmSignValues {
+                et,
+                slt,
+                hk,
+                cet: Vec::new(),
+                hook_secret: s.to_vec(),
+            }
         }
-        TpmBackend::Sha2 => {
+        TpmBackend::Sha2 if config.tpm_sha_scheme == TpmShaScheme::Ours3F => {
             let et = sha2_hash(config.security, &[&[0x02], sk, gid]);
             let slt = sha2_hash(config.security, &[&[0x01], sk, lid]);
             let hk = sha2_hash(config.security, &[&[0x03], s, &et]);
-            (et, slt, hk)
+            TpmSignValues {
+                et,
+                slt,
+                hk,
+                cet: Vec::new(),
+                hook_secret: s.to_vec(),
+            }
+        }
+        TpmBackend::Sha2 => {
+            let slt = sha2_hash(config.security, &[&[0x01], sk, lid]);
+            let sst = sha2_hash(config.security, &[&[0x04], sk, sid]);
+            let et = sha2_hash(config.security, &[&[0x02], sk, gid]);
+            let hk = sha2_hash(config.security, &[&[0x05], &sst]);
+            let cet = sha2_hash(config.security, &[&[0x06], &sst, &et]);
+            TpmSignValues {
+                et,
+                slt,
+                hk,
+                cet,
+                hook_secret: sst,
+            }
         }
     }
 }
@@ -1305,6 +1458,20 @@ fn tpm_hk(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => aes_hook(config, s, et),
         TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x03], s, et]),
+    }
+}
+
+/// Recomputes exactly the public hook outputs checked by the host guest.
+fn host_hook_outputs(config: &ProtocolConfig, hook_secret: &[u8], et: &[u8]) -> (Bytes, Bytes) {
+    if config.tpm_backend == TpmBackend::Sha2
+        && config.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F
+    {
+        (
+            sha2_hash(config.security, &[&[0x05], hook_secret]),
+            sha2_hash(config.security, &[&[0x06], hook_secret, et]),
+        )
+    } else {
+        (tpm_hk(config, hook_secret, et), Vec::new())
     }
 }
 
@@ -1433,11 +1600,12 @@ fn prove_tpm_real(
     lid: &[u8],
     gid: &[u8],
     sk: &[u8],
-    s: &[u8],
+    hook_secret: &[u8],
     msg_prime: &[u8],
     expected_et: &[u8],
     expected_slt: &[u8],
     expected_hk: &[u8],
+    expected_cet: &[u8],
 ) -> DaaResult<ProofArtifact> {
     match config.tpm_backend {
         TpmBackend::Aes => prove_tpm_aes_real(
@@ -1445,22 +1613,34 @@ fn prove_tpm_real(
             lid,
             gid,
             sk,
-            s,
+            hook_secret,
             msg_prime,
             expected_et,
             expected_slt,
             expected_hk,
         ),
-        TpmBackend::Sha2 => prove_tpm_sha_real(
+        TpmBackend::Sha2 if config.tpm_sha_scheme == TpmShaScheme::Ours3F => prove_tpm_sha_real(
             config,
             lid,
             gid,
             sk,
-            s,
+            hook_secret,
             msg_prime,
             expected_et,
             expected_slt,
             expected_hk,
+        ),
+        TpmBackend::Sha2 => prove_tpm_sha_chen23_real(
+            config,
+            lid,
+            gid,
+            sk,
+            msg_prime,
+            hook_secret,
+            expected_et,
+            expected_slt,
+            expected_hk,
+            expected_cet,
         ),
     }
 }
@@ -1473,11 +1653,17 @@ fn verify_tpm_real(
     gid: &[u8],
     slt: &[u8],
     hk: &[u8],
+    cet: &[u8],
     msg_prime: &[u8],
 ) -> bool {
     match config.tpm_backend {
         TpmBackend::Aes => verify_tpm_aes_real(config, proof, lid, gid, slt, hk, msg_prime),
-        TpmBackend::Sha2 => verify_tpm_sha_real(config, proof, lid, gid, slt, hk, msg_prime),
+        TpmBackend::Sha2 if config.tpm_sha_scheme == TpmShaScheme::Ours3F => {
+            verify_tpm_sha_real(config, proof, lid, gid, slt, hk, msg_prime)
+        }
+        TpmBackend::Sha2 => {
+            verify_tpm_sha_chen23_real(config, proof, lid, gid, slt, hk, cet, msg_prime)
+        }
     }
 }
 
@@ -1669,6 +1855,150 @@ fn verify_tpm_sha_real(
     }
 }
 
+/// Produces the CDENW'23--Ours-5F proof and checks all shared values first.
+#[allow(clippy::too_many_arguments)]
+fn prove_tpm_sha_chen23_real(
+    config: &ProtocolConfig,
+    lid: &[u8],
+    gid: &[u8],
+    sk: &[u8],
+    sid: &[u8],
+    expected_sst: &[u8],
+    expected_et: &[u8],
+    expected_slt: &[u8],
+    expected_hk: &[u8],
+    expected_cet: &[u8],
+) -> DaaResult<ProofArtifact> {
+    let digest_len = config.security.sha_digest_bytes();
+    let mut slt = vec![0u8; digest_len];
+    let mut sst = vec![0u8; digest_len];
+    let mut et = vec![0u8; digest_len];
+    let mut hk = vec![0u8; digest_len];
+    let mut cet = vec![0u8; digest_len];
+    let evaluated = unsafe {
+        daa_tpm_sha_chen23_evaluate_sign(
+            config.security.bits(),
+            sk.as_ptr(),
+            sk.len(),
+            sid.as_ptr(),
+            sid.len(),
+            gid.as_ptr(),
+            gid.len(),
+            lid.as_ptr(),
+            lid.len(),
+            slt.as_mut_ptr(),
+            slt.len(),
+            sst.as_mut_ptr(),
+            sst.len(),
+            et.as_mut_ptr(),
+            et.len(),
+            hk.as_mut_ptr(),
+            hk.len(),
+            cet.as_mut_ptr(),
+            cet.len(),
+        )
+    };
+    if evaluated != 0
+        || et != expected_et
+        || sst != expected_sst
+        || slt != expected_slt
+        || hk != expected_hk
+        || cet != expected_cet
+    {
+        return Err(DaaError::InvalidTpmProof);
+    }
+
+    let level = config.security.bits();
+    let profile = config.tpm_sha_profile.code();
+    let proof_cap = unsafe { daa_tpm_sha_chen23_sign_proof_bytes(level, profile) };
+    if proof_cap == 0 {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    let randomness = fresh_prover_randomness()?;
+    let mut proof = vec![0u8; proof_cap];
+    let mut proof_len = proof.len();
+    let ret = unsafe {
+        daa_tpm_sha_chen23_sign_prove(
+            level,
+            profile,
+            sk.as_ptr(),
+            sk.len(),
+            sid.as_ptr(),
+            sid.len(),
+            gid.as_ptr(),
+            gid.len(),
+            lid.as_ptr(),
+            lid.len(),
+            expected_slt.as_ptr(),
+            expected_slt.len(),
+            expected_hk.as_ptr(),
+            expected_hk.len(),
+            expected_cet.as_ptr(),
+            expected_cet.len(),
+            sid.as_ptr(),
+            sid.len(),
+            randomness.as_ptr(),
+            randomness.len(),
+            proof.as_mut_ptr(),
+            &mut proof_len,
+        )
+    };
+    if ret != 0 || proof_len > proof.len() {
+        return Err(DaaError::InvalidTpmProof);
+    }
+    proof.truncate(proof_len);
+    Ok(ProofArtifact {
+        kind: "pi_tpm".to_string(),
+        backend: format!(
+            "voleith-{}{}-cdenw23-5sha2",
+            sha2_name(config.security),
+            config.tpm_sha_profile.name()
+        ),
+        statement_hash: sha2_hash(
+            SecurityLevel::L128,
+            &[sid, gid, lid, expected_slt, expected_hk, expected_cet],
+        ),
+        proof_bytes: proof,
+        seal_bytes: None,
+    })
+}
+
+/// Verifies the public CDENW'23--Ours-5F statement, including the shared cet.
+#[allow(clippy::too_many_arguments)]
+fn verify_tpm_sha_chen23_real(
+    config: &ProtocolConfig,
+    proof: &ProofArtifact,
+    lid: &[u8],
+    gid: &[u8],
+    slt: &[u8],
+    hk: &[u8],
+    cet: &[u8],
+    sid: &[u8],
+) -> bool {
+    unsafe {
+        daa_tpm_sha_chen23_sign_verify(
+            config.security.bits(),
+            config.tpm_sha_profile.code(),
+            sid.as_ptr(),
+            sid.len(),
+            gid.as_ptr(),
+            gid.len(),
+            lid.as_ptr(),
+            lid.len(),
+            slt.as_ptr(),
+            slt.len(),
+            hk.as_ptr(),
+            hk.len(),
+            cet.as_ptr(),
+            cet.len(),
+            sid.as_ptr(),
+            sid.len(),
+            proof.proof_bytes.as_ptr(),
+            proof.proof_bytes.len(),
+        ) == 0
+    }
+}
+
 /// Produces the real FAEST single-AES join proof.
 fn prove_join_aes_real(
     config: &ProtocolConfig,
@@ -1815,7 +2145,8 @@ fn prove_host_risc0_128s(
     issuer_pk: &[u8],
     credential_sig: &[u8],
     hk: &[u8],
-    s: &[u8],
+    cet: &[u8],
+    hook_secret: &[u8],
     et: &[u8],
     issuer_nonce: &[u8],
 ) -> DaaResult<HostProofResult> {
@@ -1823,7 +2154,8 @@ fn prove_host_risc0_128s(
         issuer_pk,
         credential_sig,
         hk,
-        s,
+        cet,
+        hook_secret,
         et,
         issuer_nonce,
     };
@@ -1836,12 +2168,14 @@ fn verify_host_risc0_128s(
     proof: &ProofArtifact,
     issuer_pk: &[u8],
     hk: &[u8],
+    cet: &[u8],
 ) -> DaaResult<HostVerifyResult> {
     let input = HostProofInput {
         issuer_pk,
         credential_sig: &[],
         hk,
-        s: &[],
+        cet,
+        hook_secret: &[],
         et: &[],
         issuer_nonce: &[],
     };
@@ -1856,7 +2190,8 @@ struct HostProofInput<'a> {
     issuer_pk: &'a [u8],
     credential_sig: &'a [u8],
     hk: &'a [u8],
-    s: &'a [u8],
+    cet: &'a [u8],
+    hook_secret: &'a [u8],
     et: &'a [u8],
     issuer_nonce: &'a [u8],
 }
@@ -1958,7 +2293,7 @@ fn run_host_proof_command(
     let dir = std::env::temp_dir();
     let input_path = dir.join(format!("sedaa-host-proof-{stamp}.bin"));
     let receipt_path = dir.join(format!("sedaa-host-proof-{stamp}.receipt"));
-    write_host_input(&input_path, input).map_err(|_| DaaError::ExternalHostProof)?;
+    write_host_input(config, &input_path, input).map_err(|_| DaaError::ExternalHostProof)?;
     if let Some(bytes) = receipt {
         std::fs::write(&receipt_path, bytes).map_err(|_| DaaError::ExternalHostProof)?;
     }
@@ -1968,6 +2303,7 @@ fn run_host_proof_command(
     let output = cmd.output().map_err(|_| DaaError::ExternalHostProof)?;
     let _ = std::fs::remove_file(&input_path);
     if !output.status.success() {
+        eprintln!("external host proof failed:\n{}", command_text(&output));
         let _ = std::fs::remove_file(&receipt_path);
         return Err(DaaError::ExternalHostProof);
     }
@@ -2018,6 +2354,17 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         )
         .env("DAA_DETERMINISTIC", "1")
         .env("DAA_TPM_BACKEND", config.tpm_backend.name())
+        .env("DAA_TPM_SHA_SCHEME", config.tpm_sha_scheme.name())
+        .env("DAA_CREDENTIAL_SCHEME", config.credential_scheme.name())
+        .env("FSPHINCS_SECURITY", config.security.bits().to_string())
+        .env(
+            "FSPHINCS_K",
+            match config.security {
+                SecurityLevel::L128 => "22",
+                SecurityLevel::L192 => "33",
+                SecurityLevel::L256 => "43",
+            },
+        )
         .env("RISC0_BACKEND_HASH", &config.backend_hash);
     if let Some(segment_limit_po2) = config.risc0_segment_limit_po2 {
         cmd.env("RISC0_SEGMENT_LIMIT_PO2", segment_limit_po2.to_string());
@@ -2082,18 +2429,37 @@ fn parse_metric_value<'a>(output: &'a str, key: &str) -> Option<&'a str> {
 }
 
 /// Writes a length-prefixed binary input file for the RISC0 host runner.
-fn write_host_input(path: &PathBuf, input: &HostProofInput<'_>) -> std::io::Result<()> {
-    write_length_prefixed_parts(
-        path,
-        &[
-            input.issuer_pk,
-            input.credential_sig,
-            input.hk,
-            input.s,
-            input.et,
-            input.issuer_nonce,
-        ],
-    )
+fn write_host_input(
+    config: &ProtocolConfig,
+    path: &PathBuf,
+    input: &HostProofInput<'_>,
+) -> std::io::Result<()> {
+    if config.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F {
+        write_length_prefixed_parts(
+            path,
+            &[
+                input.issuer_pk,
+                input.credential_sig,
+                input.hk,
+                input.cet,
+                input.hook_secret,
+                input.et,
+                input.issuer_nonce,
+            ],
+        )
+    } else {
+        write_length_prefixed_parts(
+            path,
+            &[
+                input.issuer_pk,
+                input.credential_sig,
+                input.hk,
+                input.hook_secret,
+                input.et,
+                input.issuer_nonce,
+            ],
+        )
+    }
 }
 
 /// Writes a length-prefixed sequence of byte strings.
@@ -2286,6 +2652,73 @@ extern "C" {
         proof: *const u8,
         proof_len: usize,
     ) -> i32;
+    fn daa_tpm_sha_chen23_prepare(level: u32, profile: u32) -> i32;
+    fn daa_tpm_sha_chen23_sign_proof_bytes(level: u32, profile: u32) -> usize;
+    fn daa_tpm_sha_chen23_evaluate_sign(
+        level: u32,
+        sk: *const u8,
+        sk_len: usize,
+        sid: *const u8,
+        sid_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        lid: *const u8,
+        lid_len: usize,
+        slt_out: *mut u8,
+        slt_len: usize,
+        sst_out: *mut u8,
+        sst_len: usize,
+        et_out: *mut u8,
+        et_len: usize,
+        hk_out: *mut u8,
+        hk_len: usize,
+        cet_out: *mut u8,
+        cet_len: usize,
+    ) -> i32;
+    fn daa_tpm_sha_chen23_sign_prove(
+        level: u32,
+        profile: u32,
+        sk: *const u8,
+        sk_len: usize,
+        sid: *const u8,
+        sid_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        lid: *const u8,
+        lid_len: usize,
+        slt: *const u8,
+        slt_len: usize,
+        hk: *const u8,
+        hk_len: usize,
+        cet: *const u8,
+        cet_len: usize,
+        context: *const u8,
+        context_len: usize,
+        randomness: *const u8,
+        randomness_len: usize,
+        proof_out: *mut u8,
+        proof_len: *mut usize,
+    ) -> i32;
+    fn daa_tpm_sha_chen23_sign_verify(
+        level: u32,
+        profile: u32,
+        sid: *const u8,
+        sid_len: usize,
+        gid: *const u8,
+        gid_len: usize,
+        lid: *const u8,
+        lid_len: usize,
+        slt: *const u8,
+        slt_len: usize,
+        hk: *const u8,
+        hk_len: usize,
+        cet: *const u8,
+        cet_len: usize,
+        context: *const u8,
+        context_len: usize,
+        proof: *const u8,
+        proof_len: usize,
+    ) -> i32;
 }
 
 /// Builds a deterministic simulated proof artifact for fast protocol tests.
@@ -2450,13 +2883,20 @@ mod tests {
             assert_eq!(lid.len(), digest_len);
             assert_ne!(gid, lid);
 
-            let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
-            assert_eq!(et, sha2_hash(config.security, &[&[0x02], &sk, &gid]));
-            assert_eq!(slt, sha2_hash(config.security, &[&[0x01], &sk, &lid]));
-            assert_eq!(hk, sha2_hash(config.security, &[&[0x03], &s, &et]));
-            assert_eq!(et.len(), digest_len);
-            assert_eq!(slt.len(), digest_len);
-            assert_eq!(hk.len(), digest_len);
+            let values = tpm_sign_values(&config, &sk, &s, b"sid", &lid, &gid);
+            assert_eq!(values.et, sha2_hash(config.security, &[&[0x02], &sk, &gid]));
+            assert_eq!(
+                values.slt,
+                sha2_hash(config.security, &[&[0x01], &sk, &lid])
+            );
+            assert_eq!(
+                values.hk,
+                sha2_hash(config.security, &[&[0x03], &s, &values.et])
+            );
+            assert!(values.cet.is_empty());
+            assert_eq!(values.et.len(), digest_len);
+            assert_eq!(values.slt.len(), digest_len);
+            assert_eq!(values.hk.len(), digest_len);
         }
     }
 
@@ -2483,12 +2923,52 @@ mod tests {
             &join_context
         ));
 
-        let (et, slt, hk) = tpm_sign_values(&config, &sk, &s, &lid, &gid);
         let context = message_prime(&config, b"legacy AES KAT", b"fixed rho");
-        let proof =
-            prove_tpm_aes_real(&config, &lid, &gid, &sk, &s, &context, &et, &slt, &hk).unwrap();
+        let values = tpm_sign_values(&config, &sk, &s, &context, &lid, &gid);
+        let proof = prove_tpm_aes_real(
+            &config,
+            &lid,
+            &gid,
+            &sk,
+            &s,
+            &context,
+            &values.et,
+            &values.slt,
+            &values.hk,
+        )
+        .unwrap();
         assert!(verify_tpm_aes_real(
-            &config, &proof, &lid, &gid, &slt, &hk, &context
+            &config,
+            &proof,
+            &lid,
+            &gid,
+            &values.slt,
+            &values.hk,
+            &context
         ));
+    }
+
+    #[test]
+    fn cdenw23_values_bind_join_et_and_both_host_hooks() {
+        let config = ProtocolConfig::default()
+            .with_tpm_backend(TpmBackend::Sha2)
+            .with_tpm_sha_scheme(TpmShaScheme::Cdenw23Ours5F)
+            .with_credential_scheme(CredentialScheme::FSphincsPlus);
+        let sk = vec![0x31; config.security.key_bytes()];
+        let gid = group_id(&config, b"issuer-pk");
+        let lid = link_id(&config, b"basename");
+        let sid = message_prime(&config, b"message", b"rho");
+        let values = tpm_sign_values(&config, &sk, b"unused", &sid, &lid, &gid);
+
+        assert_eq!(values.et, tpm_et(&config, &sk, &gid));
+        assert_eq!(
+            values.hook_secret,
+            sha2_hash(config.security, &[&[0x04], &sk, &sid])
+        );
+        assert_eq!(
+            (values.hk.clone(), values.cet.clone()),
+            host_hook_outputs(&config, &values.hook_secret, &values.et)
+        );
+        assert_eq!(values.cet.len(), config.tpm_token_bytes());
     }
 }

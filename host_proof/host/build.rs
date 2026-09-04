@@ -16,6 +16,18 @@ fn main() {
     if tpm_backend != "aes" && tpm_backend != "sha2" {
         panic!("DAA_TPM_BACKEND must be aes or sha2");
     }
+    let tpm_sha_scheme = env::var("DAA_TPM_SHA_SCHEME").unwrap_or_else(|_| "ours".to_string());
+    if tpm_sha_scheme != "ours" && tpm_sha_scheme != "chen23" {
+        panic!("DAA_TPM_SHA_SCHEME must be ours or chen23");
+    }
+    if tpm_backend != "sha2" && tpm_sha_scheme != "ours" {
+        panic!("DAA_TPM_SHA_SCHEME=chen23 requires DAA_TPM_BACKEND=sha2");
+    }
+    let credential_scheme =
+        env::var("DAA_CREDENTIAL_SCHEME").unwrap_or_else(|_| "sphincs".to_string());
+    if credential_scheme != "sphincs" && credential_scheme != "fsphincs" {
+        panic!("DAA_CREDENTIAL_SCHEME must be sphincs or fsphincs");
+    }
     let fs_security = env::var("FSPHINCS_SECURITY").unwrap_or_else(|_| "128".to_string());
     if fs_security != "128" && fs_security != "192" && fs_security != "256" {
         panic!("FSPHINCS_SECURITY must be 128, 192, or 256");
@@ -154,6 +166,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SPHINCS_THASH");
     println!("cargo:rerun-if-env-changed=SPHINCS_PROFILE");
     println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
+    println!("cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME");
+    println!("cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME");
     println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
     println!("cargo:rerun-if-env-changed=FSPHINCS_K");
 
@@ -177,6 +191,7 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(lambda_256)");
     println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
     println!("cargo::rustc-check-cfg=cfg(daa_tpm_sha2)");
+    println!("cargo::rustc-check-cfg=cfg(daa_tpm_sha_chen23)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_192)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
     for k in ["22", "33", "35", "43", "70"] {
@@ -188,6 +203,9 @@ fn main() {
     }
     if tpm_backend == "sha2" {
         println!("cargo:rustc-cfg=daa_tpm_sha2");
+    }
+    if tpm_sha_scheme == "chen23" {
+        println!("cargo:rustc-cfg=daa_tpm_sha_chen23");
     }
     match fs_security.as_str() {
         "192" => println!("cargo:rustc-cfg=fsphincs_192"),
@@ -208,4 +226,9 @@ fn main() {
     println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
     println!("cargo:rustc-env=FSPHINCS_K={}", fs_k);
     println!("cargo:rustc-env=DAA_TPM_BACKEND={}", tpm_backend);
+    println!("cargo:rustc-env=DAA_TPM_SHA_SCHEME={}", tpm_sha_scheme);
+    println!(
+        "cargo:rustc-env=DAA_CREDENTIAL_SCHEME={}",
+        credential_scheme
+    );
 }

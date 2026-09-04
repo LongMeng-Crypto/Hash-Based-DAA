@@ -89,6 +89,24 @@ one joint proof with public `(lid, gid, slt, hk)` and private `(sk, s)`; `et`
 is passed directly between the two SHA circuits as an internal wire. The RISC0
 host guest checks the same SHA hook when this backend is selected.
 
+`--tpm-sha-scheme chen23 --credential-scheme fsphincs` selects the connected
+CDENW'23--Ours-5F comparison path:
+
+```text
+slt = SHA2(0x01 || sk  || lid)
+sst = SHA2(0x04 || sk  || msg')
+et  = SHA2(0x02 || sk  || gid)
+hk  = SHA2(0x05 || sst)
+cet = SHA2(0x06 || sst || et)
+```
+
+The TPM proof exposes `(slt, hk, cet)` while keeping `(sk, sst, et)` private.
+The exact same `hk` and `cet` are public inputs to the RISC0 host proof; its
+private `sst` and `et` must open both hashes, and its F-SPHINCS+ credential must
+verify on `et || issuer_nonce`. The protocol state also checks that this `et`
+is exactly the entry token credentialed during Join. The F-SPHINCS+ parameters
+for 128/192/256-bit credential security are respectively `k=22/33/43`.
+
 ## Build Cache
 
 Full host-proof benchmarks invoke the vendored RISC0 runner as an external
@@ -175,6 +193,22 @@ Use any of `sha2-128s`, `sha2-128f`, `sha2-192s`, `sha2-192f`,
 well as the matching issuer parameter label. A complete DAA run using the SHA
 path through Join, TPM signing, and the host hook is selected with
 `--tpm-backend sha2`; the legacy path remains `--tpm-backend aes`.
+
+Run the connected 128-bit 5F comparison without the expensive host prover:
+
+```sh
+cargo run --release -p daa_cli -- run-full \
+  --params sha2-128s \
+  --tpm-backend sha2 \
+  --tpm-sha-scheme chen23 \
+  --credential-scheme fsphincs \
+  --proof-mode real-tpm \
+  --segment-po2 22
+```
+
+Change `--proof-mode` to `real-128s` to generate and verify the real RISC0
+host receipt. The same command accepts `sha2-192s` and `sha2-256s`; their
+F-SPHINCS+ builds select `k=33` and `k=43` automatically.
 
 ### Full DAA Benchmark With RISC0-SHA256 Host Proof
 

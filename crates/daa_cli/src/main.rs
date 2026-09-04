@@ -5,8 +5,8 @@ use std::process;
 use std::time::Instant;
 
 use daa_core::{
-    benchmark_tpm_sha, run_full, BenchmarkTrace, ProofMode, ProtocolConfig, SecurityLevel,
-    TpmBackend, TpmShaProfile,
+    benchmark_tpm_sha, run_full, BenchmarkTrace, CredentialScheme, ProofMode, ProtocolConfig,
+    SecurityLevel, TpmBackend, TpmShaProfile, TpmShaScheme,
 };
 
 /// Starts the CLI and prints fatal errors.
@@ -132,6 +132,10 @@ fn run_full_cmd(opts: CliOptions) -> Result<(), String> {
     println!(
         "  signature hk              : {} bytes",
         output.signature.hk.len()
+    );
+    println!(
+        "  signature cet             : {} bytes",
+        output.signature.cet.len()
     );
     println!(
         "  pi_tpm                    : {} bytes ({})",
@@ -289,6 +293,8 @@ struct CliOptions {
     backend: String,
     proof_mode: ProofMode,
     tpm_backend: TpmBackend,
+    tpm_sha_scheme: TpmShaScheme,
+    credential_scheme: CredentialScheme,
     segment_po2: Option<u32>,
     iterations: usize,
     json: Option<PathBuf>,
@@ -302,6 +308,8 @@ impl CliOptions {
             backend: "sha-256".to_string(),
             proof_mode: ProofMode::Real128s,
             tpm_backend: TpmBackend::Aes,
+            tpm_sha_scheme: TpmShaScheme::Ours3F,
+            credential_scheme: CredentialScheme::SphincsPlus,
             segment_po2: None,
             iterations: 1,
             json: None,
@@ -327,6 +335,18 @@ impl CliOptions {
                     i += 1;
                     opts.tpm_backend = TpmBackend::from_name(&value(args, i, "--tpm-backend")?)
                         .map_err(|err| err.to_string())?;
+                }
+                "--tpm-sha-scheme" => {
+                    i += 1;
+                    opts.tpm_sha_scheme =
+                        TpmShaScheme::from_name(&value(args, i, "--tpm-sha-scheme")?)
+                            .map_err(|err| err.to_string())?;
+                }
+                "--credential-scheme" => {
+                    i += 1;
+                    opts.credential_scheme =
+                        CredentialScheme::from_name(&value(args, i, "--credential-scheme")?)
+                            .map_err(|err| err.to_string())?;
                 }
                 "--segment-po2" => {
                     i += 1;
@@ -365,6 +385,8 @@ impl CliOptions {
             .with_backend(self.backend.clone())
             .with_proof_mode(self.proof_mode)
             .with_tpm_backend(self.tpm_backend)
+            .with_tpm_sha_scheme(self.tpm_sha_scheme)
+            .with_credential_scheme(self.credential_scheme)
             .with_risc0_segment_limit_po2(self.segment_po2)
     }
 }
@@ -389,6 +411,8 @@ fn print_help() {
     println!("  --params NAME       security/profile label (e.g. sha2-128s or sha2-128f)");
     println!("  --backend NAME      host proof backend label, default sha-256");
     println!("  --tpm-backend NAME  TPM primitive: aes (default) or sha2");
+    println!("  --tpm-sha-scheme S  SHA relation: ours (3F) or chen23 (5F)");
+    println!("  --credential-scheme C  issuer credential: sphincs or fsphincs");
     println!(
         "  --proof-mode MODE   real-128s, real-tpm, or simulated; real-128s covers all real params"
     );

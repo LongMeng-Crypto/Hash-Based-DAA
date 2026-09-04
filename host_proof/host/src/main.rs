@@ -3,7 +3,7 @@ use std::path::Path;
 use std::time::Instant;
 use std::{env, fs};
 
-use methods::{GUEST_ELF, GUEST_ID};
+use methods::{FSPHINCS_GUEST_ELF, FSPHINCS_GUEST_ID, GUEST_ELF, GUEST_ID};
 use risc0_zkvm::recursion::identity as recursion_identity;
 use risc0_zkvm::{
     default_prover, ExecutorEnv, InnerReceipt, ProverOpts, Receipt, ReceiptKind, VerifierContext,
@@ -35,6 +35,72 @@ extern "C" {
     fn sphincs_sig_bytes() -> usize;
     fn sphincs_pk_bytes() -> usize;
     fn sphincs_sk_bytes() -> usize;
+    fn fsphincs_publickeybytes() -> usize;
+    fn fsphincs_secretkeybytes() -> usize;
+    fn fsphincs_signaturebytes() -> usize;
+    fn fsphincs_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+    fn fsphincs_sign_signature(
+        sig: *mut u8,
+        siglen: *mut usize,
+        msg: *const u8,
+        msglen: usize,
+        sk: *const u8,
+    ) -> i32;
+    fn fsphincs_verify(
+        sig: *const u8,
+        siglen: usize,
+        msg: *const u8,
+        msglen: usize,
+        pk: *const u8,
+    ) -> i32;
+}
+
+const FSPHINCS_N: usize = 32;
+const FSPHINCS_D: usize = 16;
+#[cfg(fsphincs_k_22)]
+const FSPHINCS_K: usize = 22;
+#[cfg(fsphincs_k_33)]
+const FSPHINCS_K: usize = 33;
+#[cfg(fsphincs_k_35)]
+const FSPHINCS_K: usize = 35;
+#[cfg(fsphincs_k_43)]
+const FSPHINCS_K: usize = 43;
+#[cfg(fsphincs_k_70)]
+const FSPHINCS_K: usize = 70;
+const FSPHINCS_LAYER_SIG_BYTES: usize = FSPHINCS_K * (FSPHINCS_D + 1) * FSPHINCS_N;
+
+fn credential_is_fsphincs() -> bool {
+    env!("DAA_CREDENTIAL_SCHEME") == "fsphincs"
+}
+
+fn credential_pk_bytes() -> usize {
+    unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_publickeybytes()
+        } else {
+            sphincs_pk_bytes()
+        }
+    }
+}
+
+fn credential_sk_bytes() -> usize {
+    unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_secretkeybytes()
+        } else {
+            sphincs_sk_bytes()
+        }
+    }
+}
+
+fn credential_sig_bytes() -> usize {
+    unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_signaturebytes()
+        } else {
+            sphincs_sig_bytes()
+        }
+    }
 }
 
 fn receipt_kind_from_env() -> ReceiptKind {
@@ -148,19 +214,40 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     hk
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_128))]
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha256_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_192))]
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha384_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
-#[cfg(all(daa_tpm_sha2, lambda_256))]
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha512_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let (hk, cet) =
+        daa_sha_hook::sha256_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
+    (hk.to_vec(), cet.to_vec())
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let (hk, cet) =
+        daa_sha_hook::sha384_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
+    (hk.to_vec(), cet.to_vec())
+}
+
+#[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let (hk, cet) =
+        daa_sha_hook::sha512_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
+    (hk.to_vec(), cet.to_vec())
 }
 
 // ── Compile-time sizes (bytes) ─────────────────────────────────────────────
@@ -187,12 +274,22 @@ const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const NONCE_BYTES: usize = 32;
 
-#[cfg(lambda_128)]
-const S_BYTES: usize = 16;
-#[cfg(lambda_192)]
-const S_BYTES: usize = 24;
-#[cfg(lambda_256)]
-const S_BYTES: usize = 32;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_128))]
+const HOOK_SECRET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_192))]
+const HOOK_SECRET_BYTES: usize = 24;
+#[cfg(all(not(daa_tpm_sha_chen23), lambda_256))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+const HOOK_SECRET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+const HOOK_SECRET_BYTES: usize = 64;
+#[cfg(not(daa_tpm_sha_chen23))]
+const CET_BYTES: usize = 0;
+#[cfg(daa_tpm_sha_chen23)]
+const CET_BYTES: usize = ET_BYTES;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -290,24 +387,33 @@ fn main() {
         keygen_ms, sign_ms
     );
     println!(
-        "DAA message: et_u={}B || gr_u={}B, hook={} key={}B hk={}B",
+        "DAA message: et_u={}B || gr_u={}B, hook_backend={} relation={} secret={}B hk={}B",
         ET_BYTES,
         NONCE_BYTES,
         env!("DAA_TPM_BACKEND"),
-        S_BYTES,
+        env!("DAA_TPM_SHA_SCHEME"),
+        HOOK_SECRET_BYTES,
         ET_BYTES,
     );
 
     // ── 4) TPM hook witnesses ─────────────────────────────────────────────
-    // s is the secret hook key/preimage.
-    let mut s = vec![0u8; S_BYTES];
+    // Ours uses s as the secret hook preimage; CDENW'23 uses the hidden sst.
+    let mut hook_secret = vec![0u8; HOOK_SECRET_BYTES];
     if deterministic {
-        deterministic_rng.fill_bytes(&mut s);
+        deterministic_rng.fill_bytes(&mut hook_secret);
     } else {
-        rand::thread_rng().fill_bytes(&mut s);
+        rand::thread_rng().fill_bytes(&mut hook_secret);
     }
 
-    let hk = hook(&s, &et_u);
+    #[cfg(not(daa_tpm_sha_chen23))]
+    let (hk, cet) = (hook(&hook_secret, &et_u), Vec::<u8>::new());
+    #[cfg(daa_tpm_sha_chen23)]
+    let (hk, cet) = cdenw23_hooks(&hook_secret, &et_u);
+    println!(
+        "DAA hook public outputs: hk={}B cet={}B",
+        hk.len(),
+        cet.len()
+    );
 
     // ── 5) Build guest env ────────────────────────────────────────────────
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
@@ -325,16 +431,19 @@ fn main() {
     // All values are private witnesses fed to the zkVM guest.
     // The guest reconstructs msg = et_u || gr_u internally — et_u is never exposed.
     // Order must match guest env::read() order exactly.
-    let env = ExecutorEnv::builder()
+    let mut env_builder = ExecutorEnv::builder();
+    env_builder
         .segment_limit_po2(seg_po2)
         .write_slice(&pk)
         .write_slice(&sig)
-        .write_slice(&hk)
-        .write_slice(&s)
+        .write_slice(&hk);
+    #[cfg(daa_tpm_sha_chen23)]
+    env_builder.write_slice(&cet);
+    env_builder
+        .write_slice(&hook_secret)
         .write_slice(&et_u)
-        .write_slice(&issuer_nonce)
-        .build()
-        .unwrap();
+        .write_slice(&issuer_nonce);
+    let env = env_builder.build().unwrap();
 
     // ── 6) Prove ──────────────────────────────────────────────────────────
     let prover = default_prover();
@@ -351,26 +460,35 @@ fn main() {
     let stats = prove_info.stats.clone();
 
     let receipt = maybe_identity_wrap_receipt(prove_info.receipt);
-    let prove_ms = t0.elapsed().as_millis();
+    let prove_elapsed = t0.elapsed();
     print_and_check_segment_hashes(&receipt, &backend_hash);
     let journal = receipt.journal.bytes.as_slice();
     assert_eq!(&journal[..4], &1u32.to_le_bytes());
     assert_eq!(&journal[4..4 + hk.len()], hk.as_slice());
-    assert_eq!(
-        &journal[4 + hk.len()..4 + hk.len() + pk.len()],
-        pk.as_slice()
-    );
+    #[allow(unused_mut)]
+    let mut public_end = 4 + hk.len();
+    #[cfg(daa_tpm_sha_chen23)]
+    {
+        assert_eq!(&journal[public_end..public_end + cet.len()], cet.as_slice());
+        public_end += cet.len();
+    }
+    assert_eq!(&journal[public_end..public_end + pk.len()], pk.as_slice());
     #[cfg(not(sphincs_profile))]
-    assert_eq!(journal.len(), 4 + hk.len() + pk.len());
+    assert_eq!(journal.len(), public_end + pk.len());
     #[cfg(sphincs_profile)]
-    print_profile(&journal[4 + hk.len() + pk.len()..]);
+    print_profile(&journal[public_end + pk.len()..]);
 
     let proof_bytes =
         risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
+    let seal_bytes = receipt.seal_size();
     println!(
-        "done proving, prover time = {} ms, proof size = {} bytes",
-        prove_ms, proof_bytes
+        "done proving, prover time = {:.3} ms, proof size = {} bytes",
+        prove_elapsed.as_secs_f64() * 1000.0,
+        proof_bytes
     );
+    println!("prover_us={}", prove_elapsed.as_micros());
+    println!("proof_bytes={proof_bytes}");
+    println!("seal_bytes={seal_bytes}");
     println!(
         "guest cycles: user={} total={} paging={} reserved={} segments={}",
         stats.user_cycles,
@@ -386,8 +504,12 @@ fn main() {
     receipt
         .verify_with_context(&verifier_ctx, GUEST_ID)
         .unwrap();
-    let verify_ms = t1.elapsed().as_millis();
-    println!("verify ok, verifier time = {} ms", verify_ms);
+    let verify_elapsed = t1.elapsed();
+    println!(
+        "verify ok, verifier time = {:.3} ms",
+        verify_elapsed.as_secs_f64() * 1000.0
+    );
+    println!("verifier_us={}", verify_elapsed.as_micros());
 }
 
 fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
@@ -408,12 +530,18 @@ fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn protocol_issuer_keygen(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let pk_bytes = unsafe { sphincs_pk_bytes() };
-    let sk_bytes = unsafe { sphincs_sk_bytes() };
+    let pk_bytes = credential_pk_bytes();
+    let sk_bytes = credential_sk_bytes();
     let mut pk = vec![0u8; pk_bytes];
     let mut sk = vec![0u8; sk_bytes];
     let t0 = Instant::now();
-    let ret = unsafe { crypto_sign_keypair(pk.as_mut_ptr(), sk.as_mut_ptr()) };
+    let ret = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
+        } else {
+            crypto_sign_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
+        }
+    };
     if ret != 0 {
         return Err("SPHINCS+ keygen failed".into());
     }
@@ -435,23 +563,42 @@ fn protocol_issuer_sign(
     }
     let sk = &parts[0];
     let msg = &parts[1];
-    let sig_bytes = unsafe { sphincs_sig_bytes() };
-    let mut signed = vec![0u8; sig_bytes + msg.len() + 64];
-    let mut signed_len = 0u64;
+    let sig_bytes = credential_sig_bytes();
     let t0 = Instant::now();
-    let ret = unsafe {
-        crypto_sign(
-            signed.as_mut_ptr(),
-            &mut signed_len,
-            msg.as_ptr(),
-            msg.len() as u64,
-            sk.as_ptr(),
-        )
+    let signature = if credential_is_fsphincs() {
+        let mut signature = vec![0u8; sig_bytes];
+        let mut signature_len = 0usize;
+        let ret = unsafe {
+            fsphincs_sign_signature(
+                signature.as_mut_ptr(),
+                &mut signature_len,
+                msg.as_ptr(),
+                msg.len(),
+                sk.as_ptr(),
+            )
+        };
+        if ret != 0 || signature_len != sig_bytes {
+            return Err("F-SPHINCS+ signing failed".into());
+        }
+        signature
+    } else {
+        let mut signed = vec![0u8; sig_bytes + msg.len() + 64];
+        let mut signed_len = 0u64;
+        let ret = unsafe {
+            crypto_sign(
+                signed.as_mut_ptr(),
+                &mut signed_len,
+                msg.as_ptr(),
+                msg.len() as u64,
+                sk.as_ptr(),
+            )
+        };
+        if ret != 0 || (signed_len as usize) < sig_bytes {
+            return Err("SPHINCS+ signing failed".into());
+        }
+        signed[..sig_bytes].to_vec()
     };
-    if ret != 0 || (signed_len as usize) < sig_bytes {
-        return Err("SPHINCS+ signing failed".into());
-    }
-    write_parts(output_path, &[&signed[..sig_bytes]])?;
+    write_parts(output_path, &[&signature])?;
     println!("accepted=1");
     println!("sign_ms={}", t0.elapsed().as_millis());
     println!("sig_bytes={sig_bytes}");
@@ -465,13 +612,23 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
     }
     let t0 = Instant::now();
     let ret = unsafe {
-        crypto_sign_verify(
-            parts[2].as_ptr(),
-            parts[2].len(),
-            parts[1].as_ptr(),
-            parts[1].len(),
-            parts[0].as_ptr(),
-        )
+        if credential_is_fsphincs() {
+            fsphincs_verify(
+                parts[2].as_ptr(),
+                parts[2].len(),
+                parts[1].as_ptr(),
+                parts[1].len(),
+                parts[0].as_ptr(),
+            )
+        } else {
+            crypto_sign_verify(
+                parts[2].as_ptr(),
+                parts[2].len(),
+                parts[1].as_ptr(),
+                parts[1].len(),
+                parts[0].as_ptr(),
+            )
+        }
     };
     println!("accepted={}", if ret == 0 { 1 } else { 0 });
     println!("verifier_ms={}", t0.elapsed().as_millis());
@@ -482,7 +639,8 @@ struct ProtocolInput {
     issuer_pk: Vec<u8>,
     credential_sig: Vec<u8>,
     hk: Vec<u8>,
-    s: Vec<u8>,
+    cet: Vec<u8>,
+    hook_secret: Vec<u8>,
     et_u: Vec<u8>,
     issuer_nonce: Vec<u8>,
 }
@@ -506,26 +664,51 @@ fn protocol_prove(
         );
     }
 
-    let env = ExecutorEnv::builder()
-        .segment_limit_po2(seg_po2)
-        .write_slice(&input.issuer_pk)
-        .write_slice(&input.credential_sig)
-        .write_slice(&input.hk)
-        .write_slice(&input.s)
-        .write_slice(&input.et_u)
-        .write_slice(&input.issuer_nonce)
-        .build()?;
+    let mut env_builder = ExecutorEnv::builder();
+    env_builder.segment_limit_po2(seg_po2);
+    if credential_is_fsphincs() {
+        env_builder
+            .write_slice(&input.issuer_pk)
+            .write_slice(&input.hk);
+        #[cfg(daa_tpm_sha_chen23)]
+        env_builder.write_slice(&input.cet);
+        env_builder
+            .write_slice(&input.hook_secret)
+            .write_slice(&input.et_u)
+            .write_slice(&input.issuer_nonce)
+            .write_slice(&input.credential_sig[..FSPHINCS_N]);
+        for layer in input.credential_sig[FSPHINCS_N..].chunks_exact(FSPHINCS_LAYER_SIG_BYTES) {
+            env_builder.write_slice(layer);
+        }
+    } else {
+        env_builder
+            .write_slice(&input.issuer_pk)
+            .write_slice(&input.credential_sig)
+            .write_slice(&input.hk);
+        #[cfg(daa_tpm_sha_chen23)]
+        env_builder.write_slice(&input.cet);
+        env_builder
+            .write_slice(&input.hook_secret)
+            .write_slice(&input.et_u)
+            .write_slice(&input.issuer_nonce);
+    }
+    let env = env_builder.build()?;
 
     let backend_hash =
         std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
     let opts = prover_opts_from_env(backend_hash.clone());
     let t0 = Instant::now();
-    let prove_info = default_prover().prove_with_opts(env, GUEST_ELF, &opts)?;
+    let guest_elf = if credential_is_fsphincs() {
+        FSPHINCS_GUEST_ELF
+    } else {
+        GUEST_ELF
+    };
+    let prove_info = default_prover().prove_with_opts(env, guest_elf, &opts)?;
     let prove_ms = t0.elapsed().as_millis();
     let stats = prove_info.stats.clone();
     let receipt = prove_info.receipt;
     print_and_check_segment_hashes(&receipt, &backend_hash);
-    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk)?;
+    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk, &input.cet)?;
     write_receipt_words(receipt_path, &receipt)?;
     let proof_bytes = risc0_zkvm::serde::to_vec(&receipt)?.len() * core::mem::size_of::<u32>();
     let seal_bytes = receipt.seal_size();
@@ -538,27 +721,29 @@ fn protocol_prove(
 }
 
 fn validate_protocol_witness(input: &ProtocolInput) -> Result<(), Box<dyn std::error::Error>> {
-    if input.issuer_pk.len() != unsafe { sphincs_pk_bytes() } {
+    if input.issuer_pk.len() != credential_pk_bytes() {
         return Err("host proof issuer public-key length mismatch".into());
     }
-    if input.credential_sig.len() != unsafe { sphincs_sig_bytes() } {
+    if input.credential_sig.len() != credential_sig_bytes() {
         return Err("host proof credential-signature length mismatch".into());
     }
     if input.hk.len() != ET_BYTES
         || input.et_u.len() != ET_BYTES
-        || input.s.len() != S_BYTES
+        || input.hook_secret.len() != HOOK_SECRET_BYTES
         || input.issuer_nonce.len() != NONCE_BYTES
+        || input.cet.len() != CET_BYTES
     {
         return Err(format!(
-            "{} hook length mismatch: expected hk/et/s/nonce={}/{}/{}/{} bytes, got {}/{}/{}/{}",
+            "{}:{} hook length mismatch: expected hk/et/secret/nonce={}/{}/{}/{} bytes, got {}/{}/{}/{}",
             env!("DAA_TPM_BACKEND"),
+            env!("DAA_TPM_SHA_SCHEME"),
             ET_BYTES,
             ET_BYTES,
-            S_BYTES,
+            HOOK_SECRET_BYTES,
             NONCE_BYTES,
             input.hk.len(),
             input.et_u.len(),
-            input.s.len(),
+            input.hook_secret.len(),
             input.issuer_nonce.len(),
         )
         .into());
@@ -587,9 +772,14 @@ fn protocol_verify(
         std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
     let verifier_ctx = verifier_context_for_hashfn(&backend_hash, seg_po2);
     let t0 = Instant::now();
-    receipt.verify_with_context(&verifier_ctx, GUEST_ID)?;
+    let guest_id = if credential_is_fsphincs() {
+        FSPHINCS_GUEST_ID
+    } else {
+        GUEST_ID
+    };
+    receipt.verify_with_context(&verifier_ctx, guest_id)?;
     let verify_ms = t0.elapsed().as_millis();
-    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk)?;
+    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk, &input.cet)?;
     println!("accepted=1");
     println!("verifier_ms={verify_ms}");
     Ok(())
@@ -599,9 +789,11 @@ fn check_protocol_journal(
     receipt: &Receipt,
     issuer_pk: &[u8],
     hk: &[u8],
+    cet: &[u8],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let journal = receipt.journal.bytes.as_slice();
-    if journal.len() < 4 + hk.len() + issuer_pk.len() {
+    let public_hook_len = hk.len() + cet.len();
+    if journal.len() < 4 + public_hook_len + issuer_pk.len() {
         return Err("journal is too short".into());
     }
     if &journal[..4] != 1u32.to_le_bytes().as_slice() {
@@ -610,7 +802,16 @@ fn check_protocol_journal(
     if &journal[4..4 + hk.len()] != hk {
         return Err("journal hk mismatch".into());
     }
-    if &journal[4 + hk.len()..4 + hk.len() + issuer_pk.len()] != issuer_pk {
+    #[allow(unused_mut)]
+    let mut public_end = 4 + hk.len();
+    #[cfg(daa_tpm_sha_chen23)]
+    {
+        if &journal[public_end..public_end + cet.len()] != cet {
+            return Err("journal cet mismatch".into());
+        }
+        public_end += cet.len();
+    }
+    if &journal[public_end..public_end + issuer_pk.len()] != issuer_pk {
         return Err("journal issuer pk mismatch".into());
     }
     Ok(())
@@ -619,13 +820,27 @@ fn check_protocol_journal(
 fn read_protocol_input(path: &Path) -> Result<ProtocolInput, Box<dyn std::error::Error>> {
     let bytes = fs::read(path)?;
     let mut pos = 0usize;
+    let issuer_pk = read_part(&bytes, &mut pos)?;
+    let credential_sig = read_part(&bytes, &mut pos)?;
+    let hk = read_part(&bytes, &mut pos)?;
+    #[cfg(daa_tpm_sha_chen23)]
+    let cet = read_part(&bytes, &mut pos)?;
+    #[cfg(not(daa_tpm_sha_chen23))]
+    let cet = Vec::new();
+    let hook_secret = read_part(&bytes, &mut pos)?;
+    let et_u = read_part(&bytes, &mut pos)?;
+    let issuer_nonce = read_part(&bytes, &mut pos)?;
+    if pos != bytes.len() {
+        return Err("unexpected trailing protocol input".into());
+    }
     Ok(ProtocolInput {
-        issuer_pk: read_part(&bytes, &mut pos)?,
-        credential_sig: read_part(&bytes, &mut pos)?,
-        hk: read_part(&bytes, &mut pos)?,
-        s: read_part(&bytes, &mut pos)?,
-        et_u: read_part(&bytes, &mut pos)?,
-        issuer_nonce: read_part(&bytes, &mut pos)?,
+        issuer_pk,
+        credential_sig,
+        hk,
+        cet,
+        hook_secret,
+        et_u,
+        issuer_nonce,
     })
 }
 
@@ -718,6 +933,9 @@ fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
                 "succinct control_proof_len = {}",
                 inner.control_inclusion_proof.digests.len()
             );
+        }
+        _ if matches!(env::var("RISC0_DEV_MODE").as_deref(), Ok("1") | Ok("true")) => {
+            println!("receipt kind = dev-mode fake receipt");
         }
         _ => {
             panic!("expected composite or succinct receipt");

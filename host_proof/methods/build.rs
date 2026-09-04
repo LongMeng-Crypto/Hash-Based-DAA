@@ -6,6 +6,8 @@ fn main() {
     println!("cargo:rerun-if-changed=guest/src");
     println!("cargo:rerun-if-changed=guest/src/bin");
     println!("cargo:rerun-if-changed=guest/c_src");
+    println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
+    println!("cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME");
 
     // 让 risc0-build 生成 (OUT_DIR)/methods.rs，并编译/嵌入 guest ELF
     risc0_build::embed_methods();

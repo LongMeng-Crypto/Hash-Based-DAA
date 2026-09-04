@@ -56,12 +56,18 @@ const NONCE_BYTES: usize = 16;
 const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, fsphincs_256))]
 const NONCE_BYTES: usize = 32;
-#[cfg(not(any(fsphincs_192, fsphincs_256)))]
-const S_BYTES: usize = 16;
-#[cfg(fsphincs_192)]
-const S_BYTES: usize = 24;
-#[cfg(fsphincs_256)]
-const S_BYTES: usize = 32;
+#[cfg(all(not(daa_tpm_sha_chen23), not(any(fsphincs_192, fsphincs_256))))]
+const HOOK_SECRET_BYTES: usize = 16;
+#[cfg(all(not(daa_tpm_sha_chen23), fsphincs_192))]
+const HOOK_SECRET_BYTES: usize = 24;
+#[cfg(all(not(daa_tpm_sha_chen23), fsphincs_256))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, not(any(fsphincs_192, fsphincs_256))))]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(all(daa_tpm_sha_chen23, fsphincs_192))]
+const HOOK_SECRET_BYTES: usize = 48;
+#[cfg(all(daa_tpm_sha_chen23, fsphincs_256))]
+const HOOK_SECRET_BYTES: usize = 64;
 const HK_BYTES: usize = ET_BYTES;
 const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 
@@ -101,7 +107,7 @@ fn receipt_kind() -> ReceiptKind {
 }
 
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
@@ -111,7 +117,7 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -124,7 +130,7 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
     for chunk in 0..2 {
@@ -136,19 +142,47 @@ fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(
+    daa_tpm_sha2,
+    not(daa_tpm_sha_chen23),
+    not(any(fsphincs_192, fsphincs_256))
+))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, fsphincs_192))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_192))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, fsphincs_256))]
-fn hook(s: &[u8; S_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_256))]
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha512_hook(s, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, not(any(fsphincs_192, fsphincs_256))))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha256_cdenw23_hooks(sst, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, fsphincs_192))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha384_cdenw23_hooks(sst, et_u)
+}
+
+#[cfg(all(daa_tpm_sha_chen23, fsphincs_256))]
+fn cdenw23_hooks(
+    sst: &[u8; HOOK_SECRET_BYTES],
+    et_u: &[u8; ET_BYTES],
+) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
+    daa_sha_hook::sha512_cdenw23_hooks(sst, et_u)
 }
 
 fn main() {
@@ -169,7 +203,7 @@ fn main() {
     let mut sig = vec![0u8; SIG_BYTES];
     let mut et_u = [0u8; ET_BYTES];
     let mut issuer_nonce = [0u8; NONCE_BYTES];
-    let mut s = [0u8; S_BYTES];
+    let mut hook_secret = [0u8; HOOK_SECRET_BYTES];
     let mut message = [0u8; MSG_BYTES];
     use rand::RngCore;
     use rand_core::SeedableRng;
@@ -178,11 +212,11 @@ fn main() {
     if deterministic {
         deterministic_rng.fill_bytes(&mut et_u);
         deterministic_rng.fill_bytes(&mut issuer_nonce);
-        deterministic_rng.fill_bytes(&mut s);
+        deterministic_rng.fill_bytes(&mut hook_secret);
     } else {
         rand::thread_rng().fill_bytes(&mut et_u);
         rand::thread_rng().fill_bytes(&mut issuer_nonce);
-        rand::thread_rng().fill_bytes(&mut s);
+        rand::thread_rng().fill_bytes(&mut hook_secret);
     }
     message[..ET_BYTES].copy_from_slice(&et_u);
     message[ET_BYTES..].copy_from_slice(&issuer_nonce);
@@ -210,7 +244,13 @@ fn main() {
     let sign_ms = sign_start.elapsed().as_secs_f64() * 1000.0;
     assert_eq!(siglen, SIG_BYTES);
 
-    let hk = hook(&s, &et_u);
+    #[cfg(not(daa_tpm_sha_chen23))]
+    let (hk, cet): ([u8; HK_BYTES], Option<[u8; HK_BYTES]>) = (hook(&hook_secret, &et_u), None);
+    #[cfg(daa_tpm_sha_chen23)]
+    let (hk, cet) = {
+        let (hk, cet) = cdenw23_hooks(&hook_secret, &et_u);
+        (hk, Some(cet))
+    };
 
     /* Stream the randomizer and seven M-FORS layers in verifier consumption
      * order. The guest retains only one layer instead of the whole signature. */
@@ -218,8 +258,11 @@ fn main() {
     env_builder
         .segment_limit_po2(seg_po2)
         .write_slice(&pk)
-        .write_slice(&hk)
-        .write_slice(&s)
+        .write_slice(&hk);
+    #[cfg(daa_tpm_sha_chen23)]
+    env_builder.write_slice(cet.as_ref().unwrap());
+    env_builder
+        .write_slice(&hook_secret)
         .write_slice(&et_u)
         .write_slice(&issuer_nonce)
         .write_slice(&sig[..N]);
@@ -249,12 +292,14 @@ fn main() {
         PK_BYTES, SK_BYTES, SIG_BYTES, MSG_BYTES
     );
     println!(
-        "DAA hook: backend={} et_u={} B gr_u={} B s={} B hk={} B",
+        "DAA hook: backend={} relation={} et_u={} B gr_u={} B secret={} B hk={} B cet={} B",
         env!("DAA_TPM_BACKEND"),
+        env!("DAA_TPM_SHA_SCHEME"),
         ET_BYTES,
         NONCE_BYTES,
-        S_BYTES,
-        HK_BYTES
+        HOOK_SECRET_BYTES,
+        HK_BYTES,
+        cet.as_ref().map_or(0, |value| value.len())
     );
     println!("native keygen_ms={keygen_ms:.3} sign_ms={sign_ms:.3}");
 
@@ -262,7 +307,7 @@ fn main() {
     let prove_info = default_prover()
         .prove_with_opts(env, FSPHINCS_GUEST_ELF, &opts)
         .expect("F-SPHINCS+ RISC0 proving failed");
-    let prover_ms = prove_start.elapsed().as_millis();
+    let prove_elapsed = prove_start.elapsed();
     let stats = prove_info.stats.clone();
     let receipt = prove_info.receipt;
 
@@ -273,13 +318,19 @@ fn main() {
     receipt
         .verify_with_context(&verifier_context, FSPHINCS_GUEST_ID)
         .expect("F-SPHINCS+ receipt verification failed");
-    let verifier_ms = verify_start.elapsed().as_millis();
+    let verify_elapsed = verify_start.elapsed();
 
     let journal = receipt.journal.bytes.as_slice();
-    assert_eq!(journal.len(), 4 + HK_BYTES + PK_BYTES);
+    let public_hook_bytes = HK_BYTES + cet.as_ref().map_or(0, |value| value.len());
+    assert_eq!(journal.len(), 4 + public_hook_bytes + PK_BYTES);
     assert_eq!(&journal[..4], 1u32.to_le_bytes().as_slice());
     assert_eq!(&journal[4..4 + HK_BYTES], &hk);
-    assert_eq!(&journal[4 + HK_BYTES..], &pk);
+    let mut public_end = 4 + HK_BYTES;
+    if let Some(cet) = &cet {
+        assert_eq!(&journal[public_end..public_end + cet.len()], cet);
+        public_end += cet.len();
+    }
+    assert_eq!(&journal[public_end..], &pk);
 
     let proof_bytes =
         risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
@@ -294,8 +345,10 @@ fn main() {
         }
         other => println!("receipt={other:?}"),
     }
-    println!("prover_ms={prover_ms}");
-    println!("verifier_ms={verifier_ms}");
+    println!("prover_ms={:.3}", prove_elapsed.as_secs_f64() * 1000.0);
+    println!("prover_us={}", prove_elapsed.as_micros());
+    println!("verifier_ms={:.3}", verify_elapsed.as_secs_f64() * 1000.0);
+    println!("verifier_us={}", verify_elapsed.as_micros());
     println!("proof_bytes={proof_bytes}");
     println!("seal_bytes={seal_bytes}");
     println!(
