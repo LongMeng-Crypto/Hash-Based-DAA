@@ -177,6 +177,73 @@ Sha256DigestWires build_sha256(
   return digest;
 }
 
+Sha256DigestWires build_sha256_compression(
+    vole_backend::BinaryCircuit& circuit,
+    std::span<const vole_backend::Wire> initial_state_fips_bits,
+    std::span<const vole_backend::Wire> block_fips_bits,
+    Sha256CoreStatistics* statistics) {
+  if (initial_state_fips_bits.size() != 256)
+    throw std::invalid_argument("SHA-256 initial state must contain 256 bits");
+  if (block_fips_bits.size() != 512)
+    throw std::invalid_argument("SHA-256 compression block must contain 512 bits");
+  const auto valid_wire = [&circuit](Wire wire) {
+    return wire < circuit.nodes().size();
+  };
+  if (!std::all_of(initial_state_fips_bits.begin(), initial_state_fips_bits.end(),
+                   valid_wire) ||
+      !std::all_of(block_fips_bits.begin(), block_fips_bits.end(), valid_wire))
+    throw std::invalid_argument("SHA-256 compression wire is out of range");
+
+  Builder b(circuit);
+  Sha256CoreStatistics local{};
+  std::array<Word, 8> chaining{};
+  for (std::size_t word = 0; word != chaining.size(); ++word)
+    for (std::size_t fips_bit = 0; fips_bit != 32; ++fips_bit)
+      chaining[word][31 - fips_bit] =
+          initial_state_fips_bits[word * 32 + fips_bit];
+
+  const auto schedule_before = b.multiplications();
+  std::array<Word, 64> schedule{};
+  for (std::size_t word = 0; word != 16; ++word)
+    for (std::size_t fips_bit = 0; fips_bit != 32; ++fips_bit)
+      schedule[word][31 - fips_bit] = block_fips_bits[word * 32 + fips_bit];
+  for (std::size_t round = 16; round != schedule.size(); ++round) {
+    auto value = b.add(b.small_sigma1(schedule[round - 2]), schedule[round - 7]);
+    value = b.add(value, b.small_sigma0(schedule[round - 15]));
+    schedule[round] = b.add(value, schedule[round - 16]);
+  }
+  local.schedule_multiplications = b.multiplications() - schedule_before;
+
+  const auto rounds_before = b.multiplications();
+  auto state = chaining;
+  for (std::size_t round = 0; round != schedule.size(); ++round) {
+    auto t1 = b.add(state[7], b.big_sigma1(state[4]));
+    t1 = b.add(t1, b.choice(state[4], state[5], state[6]));
+    t1 = b.add(t1, schedule[round]);
+    t1 = b.add(t1, b.constant_word(round_constants[round]));
+    const auto t2 = b.add(b.big_sigma0(state[0]),
+                          b.majority(state[0], state[1], state[2]));
+    const auto new_a = b.add(t1, t2);
+    const auto new_e = b.add(state[3], t1);
+    state = {new_a, state[0], state[1], state[2],
+             new_e, state[4], state[5], state[6]};
+  }
+  local.round_multiplications = b.multiplications() - rounds_before;
+
+  const auto feed_before = b.multiplications();
+  for (std::size_t word = 0; word != state.size(); ++word)
+    state[word] = b.add(state[word], chaining[word]);
+  local.feed_forward_multiplications = b.multiplications() - feed_before;
+
+  Sha256DigestWires digest;
+  digest.fips_bits.reserve(256);
+  for (const auto& word : state)
+    for (std::size_t fips_bit = 0; fips_bit != 32; ++fips_bit)
+      digest.fips_bits.push_back(word[31 - fips_bit]);
+  if (statistics != nullptr) *statistics = local;
+  return digest;
+}
+
 void add_sha256_digest_outputs(vole_backend::BinaryCircuit& circuit,
                                const Sha256DigestWires& digest) {
   if (digest.fips_bits.size() != 256)

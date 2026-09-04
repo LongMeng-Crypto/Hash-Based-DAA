@@ -398,6 +398,16 @@ pub struct ProofArtifact {
     pub seal_bytes: Option<usize>,
 }
 
+/// Public Setup material for extracting the issuer's credential-capable seed.
+#[derive(Debug, Clone)]
+pub struct IssuerAnchorOutput {
+    pub certificate: Bytes,
+    pub public_a: Bytes,
+    pub public_b: Bytes,
+    pub anchor_value: Bytes,
+    pub pi_i: ProofArtifact,
+}
+
 impl ProofArtifact {
     /// Returns the serialized proof size in bytes.
     pub fn size_bytes(&self) -> usize {
@@ -425,6 +435,7 @@ pub struct DaaSignature {
 pub struct SetupOutput {
     pub config: ProtocolConfig,
     pub issuer_keys: IssuerKeypair,
+    pub issuer_anchor: IssuerAnchorOutput,
     pub issuer_state: IssuerState,
     pub revocation_state: RevocationState,
 }
@@ -610,6 +621,24 @@ pub struct TpmShaBenchmark {
     pub sign_stats: TpmShaCircuitStats,
 }
 
+/// One Setup issuer-anchor benchmark sample.
+#[derive(Debug, Clone)]
+pub struct IssuerAnchorBenchmark {
+    pub security: SecurityLevel,
+    pub profile: TpmShaProfile,
+    pub credential_scheme: CredentialScheme,
+    pub compression_blocks: usize,
+    pub keygen: Duration,
+    pub anchor_generation: Duration,
+    pub certificate_verify: Duration,
+    pub proof_prepare: Duration,
+    pub proof_prove: Duration,
+    pub proof_verify: Duration,
+    pub proof_bytes: usize,
+    pub certificate_bytes: usize,
+    pub proof_stats: TpmShaCircuitStats,
+}
+
 #[derive(Debug)]
 pub enum DaaError {
     CommitmentMismatch,
@@ -619,6 +648,7 @@ pub enum DaaError {
     RevokedKey,
     RevokedLinkToken,
     InvalidCredential,
+    InvalidIssuerAnchor,
     UnsupportedParameterSet,
     UnsupportedProofMode,
     UnsupportedTpmBackend,
@@ -716,6 +746,70 @@ pub fn benchmark_tpm_sha(
     })
 }
 
+/// Benchmarks the real deterministic issuer anchor and its VOLEith pi_I.
+pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchorBenchmark> {
+    config.ensure_real_supported()?;
+    if !config.proof_mode.uses_real_proofs() {
+        return Err(DaaError::UnsupportedProofMode);
+    }
+    let setup = issuer_setup_anchor_external(&config)?;
+    let keygen = setup.keygen;
+    let pk = setup.pk;
+    let native = setup.anchor;
+    let prepared = Instant::now();
+    if unsafe {
+        daa_issuer_anchor_prepare(
+            config.security.bits(),
+            config.tpm_sha_profile.code(),
+            issuer_anchor_kind(&config),
+        )
+    } != 0
+    {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let proof_prepare = prepared.elapsed();
+    let context = issuer_anchor_context(&config, &pk, &native.certificate);
+    let prove_started = Instant::now();
+    let pi_i = prove_issuer_anchor_real(&config, &native, &context)?;
+    let proof_prove = prove_started.elapsed();
+    let verify_started = Instant::now();
+    if !verify_issuer_anchor_real(&config, &native, &context, &pi_i) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let proof_verify = verify_started.elapsed();
+    let mut malformed_proof = pi_i.clone();
+    let proof_offset = malformed_proof.proof_bytes.len() / 2;
+    malformed_proof.proof_bytes[proof_offset] ^= 1;
+    if verify_issuer_anchor_real(&config, &native, &context, &malformed_proof) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let mut wrong_statement = native.clone();
+    wrong_statement.anchor_value[0] ^= 1;
+    if verify_issuer_anchor_real(&config, &wrong_statement, &context, &pi_i) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let proof_stats = issuer_anchor_stats(&config)?;
+    Ok(IssuerAnchorBenchmark {
+        security: config.security,
+        profile: config.tpm_sha_profile,
+        credential_scheme: config.credential_scheme,
+        compression_blocks: if config.credential_scheme == CredentialScheme::SphincsPlus {
+            2
+        } else {
+            8
+        },
+        keygen,
+        anchor_generation: native.generation,
+        certificate_verify: native.certificate_verify,
+        proof_prepare,
+        proof_prove,
+        proof_verify,
+        proof_bytes: pi_i.size_bytes(),
+        certificate_bytes: native.certificate.len(),
+        proof_stats,
+    })
+}
+
 /// Converts the stable C ABI statistics structure into the public Rust type.
 fn tpm_sha_stats(
     security: SecurityLevel,
@@ -732,6 +826,29 @@ fn tpm_sha_stats(
     };
     if ret != 0 {
         return Err(DaaError::InvalidTpmProof);
+    }
+    Ok(TpmShaCircuitStats {
+        private_input_bits: raw.private_input_bits,
+        public_input_bits: raw.public_input_bits,
+        output_bits: raw.output_bits,
+        and_gates: raw.and_gates,
+        xor_gates: raw.xor_gates,
+        total_nodes: raw.total_nodes,
+    })
+}
+
+fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats> {
+    let mut raw = DaaTpmShaStats::default();
+    let ret = unsafe {
+        daa_issuer_anchor_stats(
+            config.security.bits(),
+            config.tpm_sha_profile.code(),
+            issuer_anchor_kind(config),
+            &mut raw,
+        )
+    };
+    if ret != 0 {
+        return Err(DaaError::InvalidIssuerAnchor);
     }
     Ok(TpmShaCircuitStats {
         private_input_bits: raw.private_input_bits,
@@ -762,6 +879,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             assert_eq!(ret, 0, "TPM_SHA circuit preparation failed");
         });
     }
+    let mut external_anchor = None;
     let (mpk, msk) = match config.proof_mode {
         ProofMode::Simulated => trace.scoped("setup.total", || {
             let msk = rng.bytes(config.security.key_bytes());
@@ -769,14 +887,109 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             (mpk, msk)
         }),
         ProofMode::RealTpm | ProofMode::Real128s => {
-            let issuer = issuer_keygen_external(&config).expect("issuer credential keygen failed");
-            trace.add_millis("setup.total", issuer.keygen_millis);
+            let issuer = issuer_setup_anchor_external(&config)
+                .expect("issuer credential setup and anchor generation failed");
+            trace.add("setup.total", issuer.keygen);
+            external_anchor = Some(issuer.anchor);
             (issuer.pk, issuer.sk)
         }
     };
+    let issuer_anchor = match config.proof_mode {
+        ProofMode::Simulated => {
+            let certificate = hash_many(32, &[b"issuer-anchor-certificate", &mpk]);
+            let public_a = hash_many(
+                if config.credential_scheme == CredentialScheme::SphincsPlus {
+                    32
+                } else {
+                    64
+                },
+                &[b"issuer-anchor-public-a", &mpk],
+            );
+            let public_b = hash_many(
+                if config.credential_scheme == CredentialScheme::SphincsPlus {
+                    44
+                } else {
+                    64
+                },
+                &[b"issuer-anchor-public-b", &mpk],
+            );
+            let anchor_value = hash_many(
+                if config.credential_scheme == CredentialScheme::SphincsPlus {
+                    2 * config.security.key_bytes()
+                } else {
+                    64
+                },
+                &[&msk, &public_b],
+            );
+            let pi_i = trace.scoped("setup.pi_i.prove", || {
+                simulated_proof(
+                    "pi_i",
+                    "simulated-voleith-sha256-anchor",
+                    config.security.key_bytes(),
+                    &[&public_a, &public_b, &anchor_value, &certificate, &mpk],
+                    &[&msk],
+                )
+            });
+            trace.scoped("setup.pi_i.verify", || {
+                assert!(verify_simulated_proof(
+                    &pi_i,
+                    &[&public_a, &public_b, &anchor_value, &certificate, &mpk],
+                    &[&msk],
+                ));
+            });
+            IssuerAnchorOutput {
+                certificate,
+                public_a,
+                public_b,
+                anchor_value,
+                pi_i,
+            }
+        }
+        ProofMode::RealTpm | ProofMode::Real128s => {
+            let native = external_anchor
+                .take()
+                .expect("issuer anchor material missing after real setup");
+            trace.add("setup.anchor.generate", native.generation);
+            trace.add("setup.anchor.certificate_verify", native.certificate_verify);
+            trace.scoped("setup.pi_i.prepare", || {
+                let ret = unsafe {
+                    daa_issuer_anchor_prepare(
+                        config.security.bits(),
+                        config.tpm_sha_profile.code(),
+                        issuer_anchor_kind(&config),
+                    )
+                };
+                assert_eq!(ret, 0, "issuer anchor circuit preparation failed");
+            });
+            let context = issuer_anchor_context(&config, &mpk, &native.certificate);
+            let pi_i = trace.scoped("setup.pi_i.prove", || {
+                prove_issuer_anchor_real(&config, &native, &context)
+                    .expect("issuer anchor proof failed")
+            });
+            trace.scoped("setup.pi_i.verify", || {
+                assert!(verify_issuer_anchor_real(&config, &native, &context, &pi_i));
+            });
+            IssuerAnchorOutput {
+                certificate: native.certificate,
+                public_a: native.public_a,
+                public_b: native.public_b,
+                anchor_value: native.anchor_value,
+                pi_i,
+            }
+        }
+    };
+    trace.add_size(
+        "size.setup.issuer_anchor_certificate_bytes",
+        issuer_anchor.certificate.len(),
+    );
+    trace.add_size(
+        "size.setup.pi_i.voleith_proof_bytes",
+        issuer_anchor.pi_i.size_bytes(),
+    );
     SetupOutput {
         config,
         issuer_keys: IssuerKeypair { mpk, msk },
+        issuer_anchor,
         issuer_state: IssuerState {
             group_list: Vec::new(),
         },
@@ -2212,40 +2425,188 @@ struct HostVerifyResult {
 }
 
 #[derive(Debug, Clone)]
-struct IssuerKeygenResult {
-    pk: Bytes,
-    sk: Bytes,
-    keygen_millis: u128,
-}
-
-#[derive(Debug, Clone)]
 struct IssuerSignResult {
     signature: Bytes,
     sign_millis: u128,
 }
 
-/// Runs SPHINCS+ issuer key generation in the parameterized host fork.
-fn issuer_keygen_external(config: &ProtocolConfig) -> DaaResult<IssuerKeygenResult> {
+#[derive(Debug, Clone)]
+struct IssuerAnchorNative {
+    certificate: Bytes,
+    witness: Bytes,
+    public_a: Bytes,
+    public_b: Bytes,
+    anchor_value: Bytes,
+    generation: Duration,
+    certificate_verify: Duration,
+}
+
+#[derive(Debug, Clone)]
+struct IssuerSetupAnchorExternal {
+    pk: Bytes,
+    sk: Bytes,
+    keygen: Duration,
+    anchor: IssuerAnchorNative,
+}
+
+fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
+    match config.credential_scheme {
+        CredentialScheme::SphincsPlus => 1,
+        CredentialScheme::FSphincsPlus => 2,
+    }
+}
+
+fn issuer_anchor_context(config: &ProtocolConfig, pk: &[u8], certificate: &[u8]) -> Bytes {
+    let mut hash = Sha256::new();
+    hash.update(b"DAA-ISSUER-ANCHOR-PI-v1");
+    hash.update([issuer_anchor_kind(config) as u8]);
+    hash.update(config.security.bits().to_be_bytes());
+    hash.update(config.sphincs_params.as_bytes());
+    hash.update((pk.len() as u64).to_be_bytes());
+    hash.update(pk);
+    hash.update((certificate.len() as u64).to_be_bytes());
+    hash.update(certificate);
+    hash.finalize().to_vec()
+}
+
+fn prove_issuer_anchor_real(
+    config: &ProtocolConfig,
+    native: &IssuerAnchorNative,
+    context: &[u8],
+) -> DaaResult<ProofArtifact> {
+    let level = config.security.bits();
+    let profile = config.tpm_sha_profile.code();
+    let kind = issuer_anchor_kind(config);
+    let proof_capacity = unsafe { daa_issuer_anchor_proof_bytes(level, profile, kind) };
+    if proof_capacity == 0 {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let mut proof = vec![0u8; proof_capacity];
+    let mut proof_len = proof.len();
+    let mut rng = DeterministicRng::new(
+        config.deterministic_seed ^ stable_u64(&native.certificate) ^ 0x5049_5f49,
+    );
+    let randomness = rng.bytes(32);
+    let ret = unsafe {
+        daa_issuer_anchor_prove(
+            level,
+            profile,
+            kind,
+            native.witness.as_ptr(),
+            native.witness.len(),
+            native.public_a.as_ptr(),
+            native.public_a.len(),
+            native.public_b.as_ptr(),
+            native.public_b.len(),
+            native.anchor_value.as_ptr(),
+            native.anchor_value.len(),
+            context.as_ptr(),
+            context.len(),
+            randomness.as_ptr(),
+            randomness.len(),
+            proof.as_mut_ptr(),
+            &mut proof_len,
+        )
+    };
+    if ret != 0 {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    proof.truncate(proof_len);
+    Ok(ProofArtifact {
+        kind: "pi_i".to_string(),
+        backend: format!(
+            "voleith-sha256-issuer-anchor-{}-{}{}",
+            config.credential_scheme.name(),
+            config.security.bits(),
+            config.tpm_sha_profile.name(),
+        ),
+        statement_hash: hash_many(
+            32,
+            &[
+                &native.public_a,
+                &native.public_b,
+                &native.anchor_value,
+                context,
+            ],
+        ),
+        proof_bytes: proof,
+        seal_bytes: None,
+    })
+}
+
+fn verify_issuer_anchor_real(
+    config: &ProtocolConfig,
+    native: &IssuerAnchorNative,
+    context: &[u8],
+    proof: &ProofArtifact,
+) -> bool {
+    let expected_statement = hash_many(
+        32,
+        &[
+            &native.public_a,
+            &native.public_b,
+            &native.anchor_value,
+            context,
+        ],
+    );
+    proof.statement_hash == expected_statement
+        && unsafe {
+            daa_issuer_anchor_verify(
+                config.security.bits(),
+                config.tpm_sha_profile.code(),
+                issuer_anchor_kind(config),
+                native.public_a.as_ptr(),
+                native.public_a.len(),
+                native.public_b.as_ptr(),
+                native.public_b.len(),
+                native.anchor_value.as_ptr(),
+                native.anchor_value.len(),
+                context.as_ptr(),
+                context.len(),
+                proof.proof_bytes.as_ptr(),
+                proof.proof_bytes.len(),
+            ) == 0
+        }
+}
+
+fn issuer_setup_anchor_external(config: &ProtocolConfig) -> DaaResult<IssuerSetupAnchorExternal> {
     let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let output_path = std::env::temp_dir().join(format!("sedaa-issuer-keygen-{stamp}.bin"));
+    let output_path = std::env::temp_dir().join(format!("sedaa-issuer-setup-anchor-{stamp}.out"));
     let mut cmd = host_cargo_command(config)?;
-    cmd.arg("issuer-keygen").arg(&output_path);
+    cmd.arg("issuer-setup-anchor").arg(&output_path);
     let output = cmd.output().map_err(|_| DaaError::ExternalHostProof)?;
     if !output.status.success() {
+        eprintln!(
+            "external issuer setup anchor failed:\n{}",
+            command_text(&output)
+        );
         let _ = std::fs::remove_file(&output_path);
         return Err(DaaError::ExternalHostProof);
     }
     let parts =
         read_length_prefixed_parts(&output_path).map_err(|_| DaaError::ExternalHostProof)?;
     let _ = std::fs::remove_file(&output_path);
-    if parts.len() != 2 {
+    if parts.len() != 7 {
         return Err(DaaError::ExternalHostProof);
     }
     let text = command_text(&output);
-    Ok(IssuerKeygenResult {
+    Ok(IssuerSetupAnchorExternal {
         pk: parts[0].clone(),
         sk: parts[1].clone(),
-        keygen_millis: parse_metric_u128(&text, "keygen_ms").unwrap_or(0),
+        keygen: Duration::from_micros(parse_metric_u128(&text, "keygen_us").unwrap_or(0) as u64),
+        anchor: IssuerAnchorNative {
+            certificate: parts[2].clone(),
+            witness: parts[3].clone(),
+            public_a: parts[4].clone(),
+            public_b: parts[5].clone(),
+            anchor_value: parts[6].clone(),
+            generation: Duration::from_micros(
+                parse_metric_u128(&text, "anchor_generation_us").unwrap_or(0) as u64,
+            ),
+            certificate_verify: Duration::from_micros(
+                parse_metric_u128(&text, "certificate_verify_us").unwrap_or(0) as u64,
+            ),
+        },
     })
 }
 
@@ -2647,6 +3008,48 @@ extern "C" {
         slt_len: usize,
         hk: *const u8,
         hk_len: usize,
+        context: *const u8,
+        context_len: usize,
+        proof: *const u8,
+        proof_len: usize,
+    ) -> i32;
+    fn daa_issuer_anchor_prepare(level: u32, profile: u32, kind: u32) -> i32;
+    fn daa_issuer_anchor_stats(
+        level: u32,
+        profile: u32,
+        kind: u32,
+        stats: *mut DaaTpmShaStats,
+    ) -> i32;
+    fn daa_issuer_anchor_proof_bytes(level: u32, profile: u32, kind: u32) -> usize;
+    fn daa_issuer_anchor_prove(
+        level: u32,
+        profile: u32,
+        kind: u32,
+        seed: *const u8,
+        seed_len: usize,
+        public_a: *const u8,
+        public_a_len: usize,
+        public_b: *const u8,
+        public_b_len: usize,
+        anchor_value: *const u8,
+        anchor_value_len: usize,
+        context: *const u8,
+        context_len: usize,
+        randomness: *const u8,
+        randomness_len: usize,
+        proof_out: *mut u8,
+        proof_len: *mut usize,
+    ) -> i32;
+    fn daa_issuer_anchor_verify(
+        level: u32,
+        profile: u32,
+        kind: u32,
+        public_a: *const u8,
+        public_a_len: usize,
+        public_b: *const u8,
+        public_b_len: usize,
+        anchor_value: *const u8,
+        anchor_value_len: usize,
         context: *const u8,
         context_len: usize,
         proof: *const u8,

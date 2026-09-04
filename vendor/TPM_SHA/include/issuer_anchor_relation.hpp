@@ -1,0 +1,46 @@
+/* SPDX-License-Identifier: MIT */
+#ifndef DAA_ISSUER_ANCHOR_RELATION_HPP
+#define DAA_ISSUER_ANCHOR_RELATION_HPP
+
+#include "backend/binary_circuit.hpp"
+#include "backend/security_parameters.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <vector>
+
+namespace daa::issuer_anchor {
+
+enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 2 };
+
+class Relation {
+public:
+  Relation(vole_backend::SecurityLevel level, Kind kind);
+
+  vole_backend::SecurityLevel level() const { return level_; }
+  Kind kind() const { return kind_; }
+  std::size_t seed_bytes() const;
+  std::size_t public_a_bytes() const;
+  std::size_t public_b_bytes() const;
+  std::size_t anchor_bytes() const;
+  std::size_t compression_blocks() const;
+  const vole_backend::BinaryCircuit& binary_circuit() const { return circuit_; }
+
+  std::vector<std::uint8_t> private_bits(
+      std::span<const std::uint8_t> seed) const;
+  std::vector<std::uint8_t> public_bits(
+      std::span<const std::uint8_t> public_a,
+      std::span<const std::uint8_t> public_b) const;
+  std::vector<std::uint8_t> output_bits(
+      std::span<const std::uint8_t> anchor_value) const;
+
+private:
+  vole_backend::SecurityLevel level_;
+  Kind kind_;
+  vole_backend::BinaryCircuit circuit_;
+};
+
+} // namespace daa::issuer_anchor
+
+#endif

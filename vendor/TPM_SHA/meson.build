@@ -56,6 +56,8 @@ frontend_sources = files(
   'circuits/sha2/sha512_family.cpp',
   'src/tpm_sha_relation.cpp',
   'src/tpm_sha.cpp',
+  'src/issuer_anchor_relation.cpp',
+  'src/issuer_anchor_nizk.cpp',
 )
 
 faest_internal = static_library(

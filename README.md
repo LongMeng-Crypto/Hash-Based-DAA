@@ -35,7 +35,9 @@ committed.
 
 ## Implemented Flow
 
-- `setup`: generates issuer SPHINCS+ keys and initializes empty revocation state.
+- `setup`: generates issuer credential keys, the deterministic issuer anchor
+  certificate and its VOLEith proof `pi_I`, then initializes empty revocation
+  state.
 - `join`: computes `gid`, TPM `et`, the selected Join proof, and the issuer credential.
 - `sign`: computes TPM `rho`, `msg'`, `et`, `slt`, `hk`, `pi_TPM`, and host `pi_host`.
 - `verify`: checks empty revocation lists, verifies `pi_TPM`, and verifies `pi_host`.
@@ -209,6 +211,70 @@ cargo run --release -p daa_cli -- run-full \
 Change `--proof-mode` to `real-128s` to generate and verify the real RISC0
 host receipt. The same command accepts `sha2-192s` and `sha2-256s`; their
 F-SPHINCS+ builds select `k=33` and `k=43` automatically.
+
+### Issuer Seed-Extraction Anchor Benchmark
+
+The Setup experiment implements a dual-anchor solution under the
+global-seed-consistency assumption. For SPHINCS+, it binds two distinct chains
+of a fixed top-layer WOTS+ leaf to `PK.root`; the public certificate is one
+deterministic WOTS+ signature plus its top XMSS authentication path. For
+F-SPHINCS+, it binds the same master seed at two distinct M-FORS nodes
+`(layer=1,node=0)` and `(layer=0,node=0)`; both M-FORS signatures are compressed
+to the selected secret/path and the remaining public roots. The corresponding
+VOLEith relations contain two and eight secret-dependent SHA-256 compression
+blocks, respectively.
+
+Run all credential/security/profile combinations with the persistent shared
+Cargo cache:
+
+```sh
+ITERATIONS=1 scripts/benchmark_issuer_anchors.sh
+```
+
+The script covers SPHINCS+ and F-SPHINCS+ at `128s/f`, `192s/f`, and
+`256s/f`. It reports credential key generation, anchor generation, public
+certificate verification, `pi_I` preparation/proving/verification, VOLEith
+proof size, public certificate size, and circuit counts. Its consolidated log
+is written to:
+
+```text
+benchmarks/issuer_anchor/issuer_anchor_latest.log
+```
+
+To benchmark one row directly:
+
+```sh
+RISC0_SKIP_BUILD=1 \
+CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target" \
+cargo run --release -p daa_cli -- \
+  bench-issuer-anchor \
+  --params sha2-128s \
+  --credential-scheme sphincs \
+  --iterations 1
+```
+
+Replace `sphincs` with `fsphincs` for F-SPHINCS+. Its 128/192/256-bit rows
+select `k=22/33/43`; the `s/f` suffix selects only the corresponding VOLEith
+proof profile. The benchmark rejects mutated certificates, proofs, and public
+anchor values before reporting a result.
+
+Single-run results (`ITERATIONS=1`) are shown below. Times are seconds; proof
+and certificate sizes are serialized bytes.
+
+| Credential | Parameter | SHA-256 compressions | Keygen | Anchor generation | Certificate verify | `pi_I` prepare | `pi_I` prove | `pi_I` verify | `pi_I` proof | Public certificate |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| SPHINCS+ | 128s | 2 | 0.046 | 0.042 | 0.000069 | 0.030 | 0.029 | 0.024 | 63,177 | 720 |
+| SPHINCS+ | 128f | 2 | 0.001 | 0.001 | 0.000071 | 0.031 | 0.010 | 0.007 | 91,260 | 624 |
+| SPHINCS+ | 192s | 2 | 0.057 | 0.058 | 0.000100 | 0.031 | 0.045 | 0.039 | 95,284 | 1,456 |
+| SPHINCS+ | 192f | 2 | 0.001 | 0.001 | 0.000103 | 0.031 | 0.014 | 0.010 | 140,980 | 1,312 |
+| SPHINCS+ | 256s | 2 | 0.039 | 0.039 | 0.000140 | 0.033 | 0.078 | 0.071 | 136,116 | 2,416 |
+| SPHINCS+ | 256f | 2 | 0.002 | 0.002 | 0.000138 | 0.031 | 0.020 | 0.016 | 194,428 | 2,288 |
+| F-SPHINCS+ | 128s | 8 | 1.26 | 2.52 | 0.000041 | 0.110 | 0.072 | 0.064 | 222,908 | 2,448 |
+| F-SPHINCS+ | 128f | 8 | 1.30 | 2.62 | 0.000042 | 0.111 | 0.030 | 0.021 | 323,596 | 2,448 |
+| F-SPHINCS+ | 192s | 8 | 1.97 | 3.93 | 0.000071 | 0.111 | 0.130 | 0.125 | 326,500 | 3,152 |
+| F-SPHINCS+ | 192f | 8 | 1.90 | 3.80 | 0.000099 | 0.106 | 0.041 | 0.034 | 487,804 | 3,152 |
+| F-SPHINCS+ | 256s | 8 | 2.51 | 5.09 | 0.000083 | 0.110 | 0.207 | 0.192 | 452,476 | 3,792 |
+| F-SPHINCS+ | 256f | 8 | 2.53 | 5.08 | 0.000069 | 0.112 | 0.061 | 0.052 | 654,588 | 3,792 |
 
 ### Full DAA Benchmark With RISC0-SHA256 Host Proof
 

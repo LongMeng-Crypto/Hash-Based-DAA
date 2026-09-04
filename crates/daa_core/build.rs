@@ -88,6 +88,8 @@ fn build_tpm_sha(tpm: &PathBuf) {
         "circuits/sha2/sha512_family.cpp",
         "src/tpm_sha_relation.cpp",
         "src/tpm_sha.cpp",
+        "src/issuer_anchor_relation.cpp",
+        "src/issuer_anchor_nizk.cpp",
     ] {
         cpp.file(tpm.join(file));
     }

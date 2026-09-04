@@ -99,6 +99,7 @@ fn main() {
         "utils.c",
         "utilsx1.c",
         "prf_wrapper.c",
+        "issuer_anchor.c",
     ];
 
     let backend_files: &[&str] = match hash_backend {
@@ -154,6 +155,7 @@ fn main() {
         .opt_level(3)
         .warnings(true)
         .file(format!("{}/fsphincs.c", fs_dir))
+        .file(format!("{}/issuer_anchor.c", fs_dir))
         .file("c_src/fsphincs_consts.c")
         .compile("fsphincs_ref");
     println!("cargo:rerun-if-changed={}", fs_dir);

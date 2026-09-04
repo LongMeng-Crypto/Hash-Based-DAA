@@ -32,6 +32,28 @@ extern "C" {
         mlen: usize,
         pk: *const u8,
     ) -> i32;
+    fn sphincs_issuer_anchor_certificate_bytes() -> usize;
+    fn sphincs_issuer_anchor_generate(
+        certificate: *mut u8,
+        certificate_len: usize,
+        pk: *const u8,
+        sk: *const u8,
+    ) -> i32;
+    fn sphincs_issuer_anchor_verify(
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+    ) -> i32;
+    fn sphincs_issuer_anchor_relation(
+        seed: *mut u8,
+        seeded_state: *mut u8,
+        compressed_address: *mut u8,
+        anchor_value: *mut u8,
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+        sk: *const u8,
+    ) -> i32;
     fn sphincs_sig_bytes() -> usize;
     fn sphincs_pk_bytes() -> usize;
     fn sphincs_sk_bytes() -> usize;
@@ -52,6 +74,28 @@ extern "C" {
         msg: *const u8,
         msglen: usize,
         pk: *const u8,
+    ) -> i32;
+    fn fsphincs_issuer_anchor_certificate_bytes() -> usize;
+    fn fsphincs_issuer_anchor_generate(
+        certificate: *mut u8,
+        certificate_len: usize,
+        pk: *const u8,
+        sk: *const u8,
+    ) -> i32;
+    fn fsphincs_issuer_anchor_verify(
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+    ) -> i32;
+    fn fsphincs_issuer_anchor_relation(
+        master_seed: *mut u8,
+        node_address: *mut u8,
+        leaf_address: *mut u8,
+        anchor_value: *mut u8,
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+        sk: *const u8,
     ) -> i32;
 }
 
@@ -298,6 +342,9 @@ fn main() {
         || args.get(1).map(String::as_str) == Some("issuer-keygen")
         || args.get(1).map(String::as_str) == Some("issuer-sign")
         || args.get(1).map(String::as_str) == Some("issuer-verify")
+        || args.get(1).map(String::as_str) == Some("issuer-anchor")
+        || args.get(1).map(String::as_str) == Some("issuer-anchor-verify")
+        || args.get(1).map(String::as_str) == Some("issuer-setup-anchor")
     {
         protocol_cli(&args).unwrap();
         return;
@@ -525,6 +572,15 @@ fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             protocol_issuer_sign(Path::new(&args[2]), Path::new(&args[3]))
         }
         "issuer-verify" if args.len() == 3 => protocol_issuer_verify(Path::new(&args[2])),
+        "issuer-anchor" if args.len() == 4 => {
+            protocol_issuer_anchor(Path::new(&args[2]), Path::new(&args[3]))
+        }
+        "issuer-anchor-verify" if args.len() == 3 => {
+            protocol_issuer_anchor_verify(Path::new(&args[2]))
+        }
+        "issuer-setup-anchor" if args.len() == 3 => {
+            protocol_issuer_setup_anchor(Path::new(&args[2]))
+        }
         _ => unreachable!(),
     }
 }
@@ -632,6 +688,218 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
     };
     println!("accepted={}", if ret == 0 { 1 } else { 0 });
     println!("verifier_ms={}", t0.elapsed().as_millis());
+    Ok(())
+}
+
+fn protocol_issuer_anchor(
+    input_path: &Path,
+    output_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let parts = read_parts(input_path)?;
+    if parts.len() != 2 {
+        return Err("issuer-anchor input must contain pk and sk".into());
+    }
+    let pk = &parts[0];
+    let sk = &parts[1];
+    if pk.len() != credential_pk_bytes() || sk.len() != credential_sk_bytes() {
+        return Err("issuer-anchor key length mismatch".into());
+    }
+
+    let material = generate_anchor_material(pk, sk)?;
+    write_parts(
+        output_path,
+        &[
+            &material.certificate,
+            &material.witness,
+            &material.public_a,
+            &material.public_b,
+            &material.anchor_value,
+        ],
+    )?;
+    print_anchor_metrics(&material);
+    Ok(())
+}
+
+struct NativeAnchorMaterial {
+    certificate: Vec<u8>,
+    witness: Vec<u8>,
+    public_a: Vec<u8>,
+    public_b: Vec<u8>,
+    anchor_value: Vec<u8>,
+    generation_us: u128,
+    verify_us: u128,
+}
+
+fn generate_anchor_material(
+    pk: &[u8],
+    sk: &[u8],
+) -> Result<NativeAnchorMaterial, Box<dyn std::error::Error>> {
+    let certificate_bytes = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_certificate_bytes()
+        } else {
+            sphincs_issuer_anchor_certificate_bytes()
+        }
+    };
+    let mut certificate = vec![0u8; certificate_bytes];
+    let generation_started = Instant::now();
+    let generated = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_generate(
+                certificate.as_mut_ptr(),
+                certificate.len(),
+                pk.as_ptr(),
+                sk.as_ptr(),
+            )
+        } else {
+            sphincs_issuer_anchor_generate(
+                certificate.as_mut_ptr(),
+                certificate.len(),
+                pk.as_ptr(),
+                sk.as_ptr(),
+            )
+        }
+    };
+    let generation_us = generation_started.elapsed().as_micros();
+    if generated != 0 {
+        return Err("issuer anchor generation failed".into());
+    }
+
+    let verify_started = Instant::now();
+    let verified = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_verify(certificate.as_ptr(), certificate.len(), pk.as_ptr())
+        } else {
+            sphincs_issuer_anchor_verify(certificate.as_ptr(), certificate.len(), pk.as_ptr())
+        }
+    };
+    let verify_us = verify_started.elapsed().as_micros();
+    if verified != 0 {
+        return Err("fresh issuer anchor certificate did not verify".into());
+    }
+    let mut mutated = certificate.clone();
+    let mutation_offset = mutated.len() / 2;
+    mutated[mutation_offset] ^= 1;
+    let mutation_accepted = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_verify(mutated.as_ptr(), mutated.len(), pk.as_ptr()) == 0
+        } else {
+            sphincs_issuer_anchor_verify(mutated.as_ptr(), mutated.len(), pk.as_ptr()) == 0
+        }
+    };
+    if mutation_accepted {
+        return Err("mutated issuer anchor certificate was accepted".into());
+    }
+
+    let mut witness = vec![
+        0u8;
+        if credential_is_fsphincs() {
+            FSPHINCS_N
+        } else {
+            env!("SPHINCS_N").parse::<usize>()?
+        }
+    ];
+    let mut public_a = vec![0u8; if credential_is_fsphincs() { 64 } else { 32 }];
+    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 44 }];
+    let mut anchor_value = vec![0u8; 2 * witness.len()];
+    let related = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_relation(
+                witness.as_mut_ptr(),
+                public_a.as_mut_ptr(),
+                public_b.as_mut_ptr(),
+                anchor_value.as_mut_ptr(),
+                certificate.as_ptr(),
+                certificate.len(),
+                pk.as_ptr(),
+                sk.as_ptr(),
+            )
+        } else {
+            sphincs_issuer_anchor_relation(
+                witness.as_mut_ptr(),
+                public_a.as_mut_ptr(),
+                public_b.as_mut_ptr(),
+                anchor_value.as_mut_ptr(),
+                certificate.as_ptr(),
+                certificate.len(),
+                pk.as_ptr(),
+                sk.as_ptr(),
+            )
+        }
+    };
+    if related != 0 {
+        return Err("issuer anchor relation extraction failed".into());
+    }
+
+    Ok(NativeAnchorMaterial {
+        certificate,
+        witness,
+        public_a,
+        public_b,
+        anchor_value,
+        generation_us,
+        verify_us,
+    })
+}
+
+fn print_anchor_metrics(material: &NativeAnchorMaterial) {
+    println!("accepted=1");
+    println!("anchor_generation_us={}", material.generation_us);
+    println!("certificate_verify_us={}", material.verify_us);
+    println!("certificate_bytes={}", material.certificate.len());
+    println!("certificate_mutation_test=ok");
+}
+
+fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mut pk = vec![0u8; credential_pk_bytes()];
+    let mut sk = vec![0u8; credential_sk_bytes()];
+    let keygen_started = Instant::now();
+    let ret = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
+        } else {
+            crypto_sign_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
+        }
+    };
+    let keygen_us = keygen_started.elapsed().as_micros();
+    if ret != 0 {
+        return Err("issuer keygen failed".into());
+    }
+    let material = generate_anchor_material(&pk, &sk)?;
+    write_parts(
+        output_path,
+        &[
+            &pk,
+            &sk,
+            &material.certificate,
+            &material.witness,
+            &material.public_a,
+            &material.public_b,
+            &material.anchor_value,
+        ],
+    )?;
+    println!("keygen_us={keygen_us}");
+    println!("pk_bytes={}", pk.len());
+    println!("sk_bytes={}", sk.len());
+    print_anchor_metrics(&material);
+    Ok(())
+}
+
+fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let parts = read_parts(input_path)?;
+    if parts.len() != 2 {
+        return Err("issuer-anchor-verify input must contain pk and certificate".into());
+    }
+    let started = Instant::now();
+    let ret = unsafe {
+        if credential_is_fsphincs() {
+            fsphincs_issuer_anchor_verify(parts[1].as_ptr(), parts[1].len(), parts[0].as_ptr())
+        } else {
+            sphincs_issuer_anchor_verify(parts[1].as_ptr(), parts[1].len(), parts[0].as_ptr())
+        }
+    };
+    println!("accepted={}", if ret == 0 { 1 } else { 0 });
+    println!("certificate_verify_us={}", started.elapsed().as_micros());
     Ok(())
 }
 

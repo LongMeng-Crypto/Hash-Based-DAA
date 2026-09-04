@@ -5,8 +5,8 @@ use std::process;
 use std::time::Instant;
 
 use daa_core::{
-    benchmark_tpm_sha, run_full, BenchmarkTrace, CredentialScheme, ProofMode, ProtocolConfig,
-    SecurityLevel, TpmBackend, TpmShaProfile, TpmShaScheme,
+    benchmark_issuer_anchor, benchmark_tpm_sha, run_full, BenchmarkTrace, CredentialScheme,
+    ProofMode, ProtocolConfig, SecurityLevel, TpmBackend, TpmShaProfile, TpmShaScheme,
 };
 
 /// Starts the CLI and prints fatal errors.
@@ -27,12 +27,80 @@ fn real_main() -> Result<(), String> {
         "run-full" => run_full_cmd(opts),
         "bench" => bench_cmd(opts),
         "bench-tpm-sha" => bench_tpm_sha_cmd(opts),
+        "bench-issuer-anchor" => bench_issuer_anchor_cmd(opts),
         "help" | "--help" | "-h" => {
             print_help();
             Ok(())
         }
         other => Err(format!("unknown command '{other}'. Try 'help'.")),
     }
+}
+
+/// Benchmarks deterministic anchor generation, public verification and pi_I.
+fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
+    let iterations = opts.iterations.max(1);
+    let config = opts.config().with_proof_mode(ProofMode::RealTpm);
+    let mut samples = Vec::with_capacity(iterations);
+    for _ in 0..iterations {
+        samples.push(benchmark_issuer_anchor(config.clone()).map_err(|err| err.to_string())?);
+    }
+    let first = &samples[0];
+    let average_ms = |pick: fn(&daa_core::IssuerAnchorBenchmark) -> std::time::Duration| {
+        samples
+            .iter()
+            .map(|sample| pick(sample).as_secs_f64() * 1000.0)
+            .sum::<f64>()
+            / samples.len() as f64
+    };
+    println!("Issuer Setup anchor benchmark (dual anchor; global-seed consistency assumption)");
+    println!(
+        "credential={} params={} vole_profile={} security={} compression_blocks={}",
+        match first.credential_scheme {
+            CredentialScheme::SphincsPlus => "SPHINCS+",
+            CredentialScheme::FSphincsPlus => "F-SPHINCS+",
+        },
+        opts.params,
+        first.profile.name(),
+        match first.security {
+            SecurityLevel::L128 => 128,
+            SecurityLevel::L192 => 192,
+            SecurityLevel::L256 => 256,
+        },
+        first.compression_blocks,
+    );
+    println!("keygen_ms={:.3}", average_ms(|sample| sample.keygen));
+    println!(
+        "anchor_generation_ms={:.3}",
+        average_ms(|sample| sample.anchor_generation)
+    );
+    println!(
+        "certificate_verify_ms={:.3}",
+        average_ms(|sample| sample.certificate_verify)
+    );
+    println!(
+        "pi_i_prepare_ms={:.3}",
+        average_ms(|sample| sample.proof_prepare)
+    );
+    println!(
+        "pi_i_prover_ms={:.3}",
+        average_ms(|sample| sample.proof_prove)
+    );
+    println!(
+        "pi_i_verifier_ms={:.3}",
+        average_ms(|sample| sample.proof_verify)
+    );
+    println!("pi_i_proof_bytes={}", first.proof_bytes);
+    println!("public_certificate_bytes={}", first.certificate_bytes);
+    println!(
+        "pi_i_circuit private_bits={} public_bits={} output_bits={} and={} xor={} nodes={}",
+        first.proof_stats.private_input_bits,
+        first.proof_stats.public_input_bits,
+        first.proof_stats.output_bits,
+        first.proof_stats.and_gates,
+        first.proof_stats.xor_gates,
+        first.proof_stats.total_nodes,
+    );
+    Ok(())
 }
 
 /// Benchmarks only the prepared TPM-SHA Join and joint signing proofs.
@@ -406,6 +474,7 @@ fn print_help() {
     println!("  run-full      Run setup, join, sign, verify, link, revoke once");
     println!("  bench         Run repeated full protocol benchmarks");
     println!("  bench-tpm-sha Benchmark SHA-256/384/512 Join and joint TPM proofs only");
+    println!("  bench-issuer-anchor  Benchmark Setup anchor certificate and pi_I");
     println!();
     println!("Options:");
     println!("  --params NAME       security/profile label (e.g. sha2-128s or sha2-128f)");

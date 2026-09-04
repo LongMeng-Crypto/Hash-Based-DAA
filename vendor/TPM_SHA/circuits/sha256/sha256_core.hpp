@@ -31,6 +31,16 @@ Sha256DigestWires build_sha256(
     std::span<const vole_backend::Wire> message_fips_bits,
     Sha256CoreStatistics* statistics = nullptr);
 
+/* One SHA-256 compression with a caller-supplied public/constant chaining
+ * value and one already-padded 64-byte block.  This is used by protocols that
+ * precompute a public prefix (for example SPHINCS+ PK.seed) and prove only the
+ * secret-dependent compression. */
+Sha256DigestWires build_sha256_compression(
+    vole_backend::BinaryCircuit& circuit,
+    std::span<const vole_backend::Wire> initial_state_fips_bits,
+    std::span<const vole_backend::Wire> block_fips_bits,
+    Sha256CoreStatistics* statistics = nullptr);
+
 void add_sha256_digest_outputs(vole_backend::BinaryCircuit& circuit,
                                const Sha256DigestWires& digest);
 
