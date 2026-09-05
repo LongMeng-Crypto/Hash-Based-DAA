@@ -1,0 +1,19 @@
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target; build/startup/test time excluded from pi_I timings
+===== credential=sphincs params=sha2-256f mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=653028
+guest_total_cycles=1048576
+segments=1
+receipt_kind=succinct backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-256f profile=f credential_security=256 wots_chain_sha256_blocks=1005
+keygen_ms=2.488
+anchor_generation_ms=2.698
+certificate_verify_ms=0.001
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=6883.939
+pi_i_verifier_ms=1.453
+pi_i_proof_bytes=275412
+public_certificate_bytes=176
+
+benchmark_complete=1

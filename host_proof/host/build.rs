@@ -1,6 +1,7 @@
 use std::env;
 use std::path::Path;
 
+/// Builds the parameter-selected native credential and Setup-anchor helpers.
 fn main() {
     let dir = "../methods/guest/c_src/sphincs_ref";
     if !Path::new(dir).exists() {
@@ -100,6 +101,8 @@ fn main() {
         "utilsx1.c",
         "prf_wrapper.c",
         "issuer_anchor.c",
+        "issuer_wots.c",
+        "issuer_wots_verify.c",
     ];
 
     let backend_files: &[&str] = match hash_backend {
@@ -115,6 +118,9 @@ fn main() {
     build.include(dir);
     build.include(format!("{}/params", dir));
     build.define("PARAMS", params.as_str());
+    if hash_backend == "sha2" && thash == "simple" {
+        build.define("DAA_WOTS_SUPPORTED", None);
+    }
     build.opt_level(3);
     build.warnings(false);
 

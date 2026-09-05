@@ -1,19 +1,54 @@
+use std::fs::{self, File, FileTimes};
 use std::path::PathBuf;
 
+/// Embeds changed guests while keeping identical generated methods cache-stable.
 fn main() {
-    // 触发重建：guest / C 代码改了就重新生成 methods.rs
-    println!("cargo:rerun-if-changed=guest/Cargo.toml");
-    println!("cargo:rerun-if-changed=guest/src");
-    println!("cargo:rerun-if-changed=guest/src/bin");
-    println!("cargo:rerun-if-changed=guest/c_src");
-    println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
-    println!("cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME");
+    for path in [
+        "guest/Cargo.toml",
+        "guest/Cargo.lock",
+        "guest/build.rs",
+        "guest/src",
+        "guest/c_src",
+        "../../Cargo.toml",
+        "../../Cargo.lock",
+    ] {
+        println!("cargo:rerun-if-changed={path}");
+    }
+    for name in [
+        "SPHINCS_PARAMS",
+        "SPHINCS_THASH",
+        "SPHINCS_PROFILE",
+        "SPHINCS_OPT_LEVEL",
+        "SPHINCS_OPT_128S",
+        "SPHINCS_SKIP_AES_CHECK",
+        "DAA_TPM_BACKEND",
+        "DAA_TPM_SHA_SCHEME",
+        "FSPHINCS_SECURITY",
+        "FSPHINCS_K",
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+    }
+    let methods_rs = PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("methods.rs");
+    let previous = fs::read(&methods_rs).ok().zip(
+        fs::metadata(&methods_rs)
+            .and_then(|metadata| metadata.modified())
+            .ok(),
+    );
 
-    // 让 risc0-build 生成 (OUT_DIR)/methods.rs，并编译/嵌入 guest ELF
     risc0_build::embed_methods();
 
-    // Cargo 的 OUT_DIR 只对 build.rs 可见；我们把 methods.rs 的路径注入给 rustc 编译期
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let methods_rs = out_dir.join("methods.rs");
+    // risc0-build watches its own output to force a rebuild on every invocation.
+    // Restore only the timestamp of byte-identical output; source/lock/parameter
+    // dependencies above still force rebuilding whenever the guest could change.
+    if let Some((bytes, modified)) = previous {
+        if fs::read(&methods_rs).unwrap() == bytes {
+            File::options()
+                .write(true)
+                .open(&methods_rs)
+                .unwrap()
+                .set_times(FileTimes::new().set_modified(modified))
+                .unwrap();
+        }
+    }
     println!("cargo:rustc-env=METHODS_RS={}", methods_rs.display());
 }

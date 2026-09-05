@@ -74,9 +74,16 @@ credential on that `et`.
 
 ### Issuer extraction proof
 
-The optional `pi_I` construction is a separate Setup-time building block
-under the **global issuer-seed consistency assumption**. It is not repeated
-during Join or signing.
+The optional `pi_I` is a separate Setup-time building block, not repeated
+during Join or signing. `--issuer-anchor-mode` selects its implementation
+without changing the credential, TPM, or host-signature relation:
+
+| Setup mode | Credentials | Private witness | Proof system | Global seed consistency |
+|---|---|---|---|---|
+| `seed-dual` (default) | SPHINCS+ / F-SPHINCS+ | One master seed, two derivation anchors | VOLEith SHA-256, s/f | Required |
+| `fixed-top-wots` | Standard SHA2-simple SPHINCS+ only | Complete secret key of one top WOTS+ leaf | RISC0 Composite / Succinct | Not required |
+
+The existing `seed-dual` construction is unchanged:
 
 - For SPHINCS+, a deterministic certificate fixes one top-layer WOTS+ leaf
   and exposes two independently addressed chain starts. Public WOTS/XMSS
@@ -90,6 +97,37 @@ during Join or signing.
 The two anchors strengthen the binding of the extracted witness. The global
 seed-consistency assumption separately states that the registered root and
 all issuer credentials use the prescribed derivation from that same seed.
+
+In `fixed-top-wots`, Setup uses the public top-tree index zero. The private
+witness contains **all** 35/51/67 WOTS chain starts; the guest runs all
+15 steps of every chain using opt4's existing
+`sha256_zk_wots_fixed_chain(..., start=0)`. These 525/765/1005 chain steps
+all use SHA-256. WOTS public-key compression and XMSS path hashing use
+SHA-256 at n=16 and SHA-512 at n=24/32, exactly as the reference implementation.
+These auxiliary hashes are additional to the reported chain-block count.
+
+The public certificate contains a versioned parameter header, top index,
+compressed WOTS public leaf and top XMSS authentication path:
+`16 + (1 + top_height) * n` bytes. No chain starts, intermediate chain values,
+or signature are published. The guest proves the complete WOTS-key relation
+and binds the full issuer public key and certificate in its journal.
+The mandatory outer verifier checks the public XMSS path to `PK.root`,
+matches the full journal to that same public statement, and verifies the
+correct guest image. Thus `pi_I.Verify = PathCheck AND WOTS-key-PoK`;
+checking only `Receipt::verify` is not sufficient. Public path hashing is
+not duplicated inside the guest. Fake/development receipts are rejected.
+
+This extracts a **signing capability**, not the master seed: in the security
+simulation, randomness can be ground to the certified top index and the
+extracted WOTS key signs the root reconstructed from the hidden lower
+layers. A native regression test constructs two verifying credentials without
+using `SK.seed`. It does not publish them. This capability is for the
+simulator's hidden credential witnesses, not a new public signing API or a
+claim that publishing repeated WOTS signatures is safe.
+
+The s/f labels in this mode select SPHINCS+ parameters, not VOLE profiles.
+The proof inherits the pinned RISC0 backend's security assumptions and limits;
+choosing a 192/256-bit credential does not raise RISC0's knowledge soundness.
 
 ### Host proof modes
 
@@ -237,21 +275,60 @@ per-proof averages.
 
 ### Issuer Setup anchor benchmark
 
-Run both credential schemes, all security levels, and both VOLEith profiles:
+Run the unchanged dual seed anchors for both credential schemes and all VOLEith profiles:
 
 ```sh
 ITERATIONS=1 scripts/benchmark_issuer_anchors.sh
 ```
 
-The script overwrites the consolidated current log:
+Run the alternative full-WOTS proof for all six standard SPHINCS+ parameter sets:
 
-```text
-benchmarks/issuer_anchor/issuer_anchor_latest.log
+```sh
+ANCHOR_MODE=fixed-top-wots ITERATIONS=3 scripts/benchmark_issuer_anchors.sh
 ```
 
-It checks the public certificate, real `pi_I`, and mutation rejection before
-reporting anchor generation, proof preparation/proving/verification, proof
-size, certificate size, and circuit statistics.
+The default is SHA-256 Composite with segment exponent 20. To use Succinct,
+add `RISC0_RECEIPT_KIND=succinct`; no Identity wrapper is applied to this
+fixed-workload Setup relation. To compare both Setup choices, use
+`ANCHOR_MODE=all`. F-SPHINCS+ is automatically tested only with `seed-dual`.
+Optional filters are `PARAMS_LIST="sha2-128s sha2-256s"` and
+`CREDENTIALS=sphincs`; `SEGMENT_PO2` changes the segment exponent.
+
+Every invocation writes a timestamped log under `benchmarks/issuer_anchor/`;
+`LOG_FILE` can select an explicit file (which is overwritten).
+The persistent `~/.cache/sedaa-risc0-shared-target` is reused, never cleaned.
+Fixed-WOTS mode builds the real guest even if `RISC0_SKIP_BUILD` was set.
+Only changed guests/native code need rebuilding; CUDA/backend artifacts remain cached.
+Compilation, process startup, serialization and negative tests are excluded
+from the dedicated `pi_i_prover_ms`/`pi_i_verifier_ms` measurements.
+Proof size is the serialized RISC0 receipt, including its public journal;
+certificate size is reported separately and excludes the already registered
+issuer public key.
+
+Select the same mode in a complete SHA protocol run:
+
+```sh
+export CARGO_TARGET_DIR="${HOME}/.cache/sedaa-risc0-shared-target"
+SPHINCS_OPT_LEVEL=4 RISC0_RECEIPT_KIND=composite cargo run --release -p daa_cli -- \
+  run-full --params sha2-128s --tpm-backend sha2 --proof-mode real \
+  --issuer-anchor-mode fixed-top-wots --segment-po2 20
+```
+
+For a Setup/Join/TPM smoke test without a real host-signature proof, change
+`--proof-mode real` to `--proof-mode real-tpm`; the selected Setup `pi_I`
+still uses a real RISC0 proof. Benchmark randomness is deterministic and is
+not a production key-generation configuration.
+
+Run native reference, mutation and seed-free capability tests for all six sets:
+
+```sh
+scripts/test_issuer_wots.sh
+# Optional memory/undefined-behaviour checks:
+SANITIZE=1 scripts/test_issuer_wots.sh
+```
+
+The test script automatically removes its temporary binaries without touching
+any shared compilation cache.
 
 ### Complete host-proof benchmark
 
@@ -352,6 +429,37 @@ generation is excluded from `Anchor gen.`.
 | Variant-2 | SPHINCS+ | 192f | 192f | 2 | 0.001 | 0.00010 | 0.031 | 0.014 | 0.010 | 137.68 | 1.28 |
 | Variant-2 | SPHINCS+ | 256s | 256s | 2 | 0.039 | 0.00014 | 0.033 | 0.078 | 0.071 | 132.93 | 2.36 |
 | Variant-2 | SPHINCS+ | 256f | 256f | 2 | 0.002 | 0.00014 | 0.031 | 0.020 | 0.016 | 189.87 | 2.23 |
+
+#### Alternative fixed-top WOTS+ `pi_I` (Variant-2)
+
+Single-sample GPU measurements on 2026-09-05, NVIDIA RTX 2000 Ada Generation,
+SHA-256 Composite, segment limit `2^20`, pinned backend revision
+`0079fe1882b123ff7239e0356ce5d8fb47f63795`. All six cases use one segment.
+The complete private WOTS-key relation is proved; the public authentication
+path is checked by the bound outer verifier. This alternative does not
+require global-seed consistency. It does not replace the VOLEith results above.
+
+| SPHINCS+ | Anchor gen. (s) | `pi_I` prove (s) | `pi_I` verify (s) | Proof (KB) | Public cert. (KB) | User cycles | Total cycles |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 128s | 0.040 | 1.329 | 0.001622 | 251.73 | 0.172 | 136,567 | 262,144 |
+| 128f | 0.001 | 1.285 | 0.001640 | 250.98 | 0.078 | 136,365 | 262,144 |
+| 192s | 0.060 | 2.200 | 0.001834 | 264.42 | 0.250 | 399,124 | 524,288 |
+| 192f | 0.001 | 2.124 | 0.001818 | 263.30 | 0.109 | 398,439 | 524,288 |
+| 256s | 0.039 | 3.796 | 0.001881 | 277.86 | 0.297 | 653,364 | 1,048,576 |
+| 256f | 0.004 | 3.669 | 0.001901 | 276.86 | 0.172 | 653,028 | 1,048,576 |
+
+Source: `benchmarks/issuer_anchor/fixed_top_wots_composite_all6.log`.
+Times exclude compilation and the native/mutation self-tests. For repeated
+measurements use `ITERATIONS=3` or higher; the table above is not an averaged
+performance claim. The proof-system security is that of RISC0, not a separate
+128/192/256-bit VOLEith setting.
+
+The additional SHA-256 Succinct smoke benchmark (256f, no Identity) measured
+6.884 s prove, 0.001453 s verify and 268.96 KB per receipt, with the same
+653,028 user cycles. See
+`benchmarks/issuer_anchor/fixed_top_wots_succinct_256f.log`.
+For this single-segment Setup relation the size reduction is small;
+Composite remains the script default.
 
 ### Join protocol
 

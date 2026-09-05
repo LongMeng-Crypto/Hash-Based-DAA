@@ -3,6 +3,8 @@ use std::path::Path;
 use std::time::Instant;
 use std::{env, fs};
 
+mod issuer_wots;
+
 use methods::{FSPHINCS_GUEST_ELF, FSPHINCS_GUEST_ID, GUEST_ELF, GUEST_ID};
 use risc0_zkvm::recursion::identity as recursion_identity;
 use risc0_zkvm::{
@@ -335,6 +337,7 @@ const CET_BYTES: usize = 0;
 #[cfg(daa_tpm_sha_chen23)]
 const CET_BYTES: usize = ET_BYTES;
 
+/// Dispatches protocol/Setup commands or runs the standalone host benchmark.
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.get(1).map(String::as_str) == Some("prove-protocol")
@@ -345,6 +348,8 @@ fn main() {
         || args.get(1).map(String::as_str) == Some("issuer-anchor")
         || args.get(1).map(String::as_str) == Some("issuer-anchor-verify")
         || args.get(1).map(String::as_str) == Some("issuer-setup-anchor")
+        || args.get(1).map(String::as_str) == Some("issuer-wots-prove")
+        || args.get(1).map(String::as_str) == Some("issuer-wots-verify")
     {
         protocol_cli(&args).unwrap();
         return;
@@ -559,6 +564,7 @@ fn main() {
     println!("verifier_us={}", verify_elapsed.as_micros());
 }
 
+/// Dispatches the existing credential/protocol commands and alternative Setup proof.
 fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     match args[1].as_str() {
         "prove-protocol" if args.len() == 4 => {
@@ -580,6 +586,12 @@ fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         "issuer-setup-anchor" if args.len() == 3 => {
             protocol_issuer_setup_anchor(Path::new(&args[2]))
+        }
+        "issuer-wots-prove" if args.len() == 4 => {
+            issuer_wots::prove(Path::new(&args[2]), Path::new(&args[3]))
+        }
+        "issuer-wots-verify" if args.len() == 4 => {
+            issuer_wots::verify(Path::new(&args[2]), Path::new(&args[3]))
         }
         _ => unreachable!(),
     }
@@ -737,6 +749,9 @@ fn generate_anchor_material(
     pk: &[u8],
     sk: &[u8],
 ) -> Result<NativeAnchorMaterial, Box<dyn std::error::Error>> {
+    if issuer_wots::enabled() {
+        return issuer_wots::generate(pk, sk);
+    }
     let certificate_bytes = unsafe {
         if credential_is_fsphincs() {
             fsphincs_issuer_anchor_certificate_bytes()
@@ -897,6 +912,11 @@ fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::e
         return Err("issuer-anchor-verify input must contain pk and certificate".into());
     }
     let started = Instant::now();
+    if issuer_wots::enabled() {
+        issuer_wots::check_certificate(&parts[0], &parts[1])?;
+        println!("accepted=1\ncertificate_verify_us={}", started.elapsed().as_micros());
+        return Ok(());
+    }
     let ret = unsafe {
         if credential_is_fsphincs() {
             fsphincs_issuer_anchor_verify(parts[1].as_ptr(), parts[1].len(), parts[0].as_ptr())

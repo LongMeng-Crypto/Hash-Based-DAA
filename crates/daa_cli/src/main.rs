@@ -6,7 +6,8 @@ use std::time::Instant;
 
 use daa_core::{
     benchmark_issuer_anchor, benchmark_tpm_sha, run_full, BenchmarkTrace, CredentialScheme,
-    ProofMode, ProtocolConfig, SecurityLevel, TpmBackend, TpmShaProfile, TpmShaScheme,
+    IssuerAnchorMode, ProofMode, ProtocolConfig, SecurityLevel, TpmBackend, TpmShaProfile,
+    TpmShaScheme,
 };
 
 /// Starts the CLI and prints fatal errors.
@@ -52,9 +53,24 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
             .sum::<f64>()
             / samples.len() as f64
     };
-    println!("Issuer Setup anchor benchmark (dual anchor; global-seed consistency assumption)");
+    println!("Issuer Setup anchor benchmark: mode={}", first.mode.name());
+    if first.mode == IssuerAnchorMode::FixedTopWots {
+        println!("pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption");
+        println!(
+            "guest_user_cycles={}\nguest_total_cycles={}\nsegments={}",
+            first.guest_user_cycles, first.guest_total_cycles, first.segments
+        );
+        println!(
+            "receipt_kind={} backend={} segment_po2={}",
+            env::var("RISC0_RECEIPT_KIND").unwrap_or_else(|_| "composite".into()),
+            opts.backend,
+            opts.segment_po2.unwrap_or(20)
+        );
+    } else {
+        println!("pi_i_backend=VOLEith; dual seed anchor; global-seed consistency assumption");
+    }
     println!(
-        "credential={} params={} vole_profile={} security={} compression_blocks={}",
+        "credential={} params={} profile={} credential_security={} {}={}",
         match first.credential_scheme {
             CredentialScheme::SphincsPlus => "SPHINCS+",
             CredentialScheme::FSphincsPlus => "F-SPHINCS+",
@@ -65,6 +81,11 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
             SecurityLevel::L128 => 128,
             SecurityLevel::L192 => 192,
             SecurityLevel::L256 => 256,
+        },
+        if first.mode == IssuerAnchorMode::FixedTopWots {
+            "wots_chain_sha256_blocks"
+        } else {
+            "compression_blocks"
         },
         first.compression_blocks,
     );
@@ -91,15 +112,17 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
     );
     println!("pi_i_proof_bytes={}", first.proof_bytes);
     println!("public_certificate_bytes={}", first.certificate_bytes);
-    println!(
-        "pi_i_circuit private_bits={} public_bits={} output_bits={} and={} xor={} nodes={}",
-        first.proof_stats.private_input_bits,
-        first.proof_stats.public_input_bits,
-        first.proof_stats.output_bits,
-        first.proof_stats.and_gates,
-        first.proof_stats.xor_gates,
-        first.proof_stats.total_nodes,
-    );
+    if first.mode == IssuerAnchorMode::SeedDual {
+        println!(
+            "pi_i_circuit private_bits={} public_bits={} output_bits={} and={} xor={} nodes={}",
+            first.proof_stats.private_input_bits,
+            first.proof_stats.public_input_bits,
+            first.proof_stats.output_bits,
+            first.proof_stats.and_gates,
+            first.proof_stats.xor_gates,
+            first.proof_stats.total_nodes,
+        );
+    }
     Ok(())
 }
 
@@ -363,6 +386,7 @@ struct CliOptions {
     tpm_backend: TpmBackend,
     tpm_sha_scheme: TpmShaScheme,
     credential_scheme: CredentialScheme,
+    issuer_anchor_mode: IssuerAnchorMode,
     segment_po2: Option<u32>,
     iterations: usize,
     json: Option<PathBuf>,
@@ -378,6 +402,7 @@ impl CliOptions {
             tpm_backend: TpmBackend::Aes,
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             credential_scheme: CredentialScheme::SphincsPlus,
+            issuer_anchor_mode: IssuerAnchorMode::SeedDual,
             segment_po2: None,
             iterations: 1,
             json: None,
@@ -424,6 +449,12 @@ impl CliOptions {
                             .map_err(|_| "--segment-po2 must be a positive integer".to_string())?,
                     );
                 }
+                "--issuer-anchor-mode" => {
+                    i += 1;
+                    opts.issuer_anchor_mode =
+                        IssuerAnchorMode::from_name(&value(args, i, "--issuer-anchor-mode")?)
+                            .map_err(|err| err.to_string())?;
+                }
                 "--iterations" => {
                     i += 1;
                     opts.iterations = value(args, i, "--iterations")?
@@ -455,6 +486,7 @@ impl CliOptions {
             .with_tpm_backend(self.tpm_backend)
             .with_tpm_sha_scheme(self.tpm_sha_scheme)
             .with_credential_scheme(self.credential_scheme)
+            .with_issuer_anchor_mode(self.issuer_anchor_mode)
             .with_risc0_segment_limit_po2(self.segment_po2)
     }
 }
@@ -469,6 +501,9 @@ fn value(args: &[String], index: usize, flag: &str) -> Result<String, String> {
 /// Prints the CLI help text.
 fn print_help() {
     println!("DAA full protocol CLI");
+    println!(
+        "  --issuer-anchor-mode seed-dual|fixed-top-wots  Select Setup pi_I (default seed-dual)"
+    );
     println!();
     println!("Commands:");
     println!("  run-full      Run setup, join, sign, verify, link, revoke once");

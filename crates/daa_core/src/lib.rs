@@ -9,6 +9,9 @@ use std::time::{Duration, Instant};
 
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
+mod issuer_wots;
+use issuer_wots::{fixed_wots_prove_external, fixed_wots_verify_external};
+
 pub type Bytes = Vec<u8>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -169,6 +172,31 @@ impl TpmBackend {
     }
 }
 
+/// Independent Setup-proof choices; fixed WOTS is available only for standard SPHINCS+.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IssuerAnchorMode {
+    SeedDual,
+    FixedTopWots,
+}
+
+impl IssuerAnchorMode {
+    /// Parses the stable script and CLI labels for pi_I implementations.
+    pub fn from_name(name: &str) -> DaaResult<Self> {
+        match name {
+            "seed-dual" => Ok(Self::SeedDual),
+            "fixed-top-wots" => Ok(Self::FixedTopWots),
+            _ => Err(DaaError::UnsupportedProtocolCombination),
+        }
+    }
+    /// Returns the external runner selector for this Setup proof.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::SeedDual => "seed-dual",
+            Self::FixedTopWots => "fixed-top-wots",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProtocolConfig {
     pub sphincs_params: String,
@@ -180,6 +208,7 @@ pub struct ProtocolConfig {
     pub tpm_sha_scheme: TpmShaScheme,
     pub tpm_sha_profile: TpmShaProfile,
     pub credential_scheme: CredentialScheme,
+    pub issuer_anchor_mode: IssuerAnchorMode,
     pub risc0_segment_limit_po2: Option<u32>,
 }
 
@@ -197,12 +226,18 @@ impl Default for ProtocolConfig {
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             tpm_sha_profile: TpmShaProfile::Small,
             credential_scheme: CredentialScheme::SphincsPlus,
+            issuer_anchor_mode: IssuerAnchorMode::SeedDual,
             risc0_segment_limit_po2: None,
         }
     }
 }
 
 impl ProtocolConfig {
+    /// Selects Setup pi_I without changing Join, signing or credential formats.
+    pub fn with_issuer_anchor_mode(mut self, mode: IssuerAnchorMode) -> Self {
+        self.issuer_anchor_mode = mode;
+        self
+    }
     /// Selects the SPHINCS+/FAEST parameter label.
     pub fn with_params(mut self, params: impl Into<String>) -> Self {
         self.sphincs_params = normalize_param_name(&params.into());
@@ -271,6 +306,12 @@ impl ProtocolConfig {
 
     /// Rejects unsupported parameter/proof combinations before running algorithms.
     fn ensure_real_supported(&self) -> DaaResult<()> {
+        if self.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots
+            && (self.credential_scheme != CredentialScheme::SphincsPlus
+                || !self.proof_mode.uses_real_proofs())
+        {
+            return Err(DaaError::UnsupportedProtocolCombination);
+        }
         if self.proof_mode.uses_real_proofs() && param_spec(&self.sphincs_params).is_none() {
             return Err(DaaError::UnsupportedParameterSet);
         }
@@ -624,6 +665,10 @@ pub struct TpmShaBenchmark {
 /// One Setup issuer-anchor benchmark sample.
 #[derive(Debug, Clone)]
 pub struct IssuerAnchorBenchmark {
+    pub mode: IssuerAnchorMode,
+    pub guest_user_cycles: u64,
+    pub guest_total_cycles: u64,
+    pub segments: usize,
     pub security: SecurityLevel,
     pub profile: TpmShaProfile,
     pub credential_scheme: CredentialScheme,
@@ -756,6 +801,38 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     let keygen = setup.keygen;
     let pk = setup.pk;
     let native = setup.anchor;
+    if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+        let measured = fixed_wots_prove_external(&config, &native)?;
+        if !fixed_wots_verify_external(&config, &native, &measured.proof) {
+            return Err(DaaError::InvalidIssuerAnchor);
+        }
+        return Ok(IssuerAnchorBenchmark {
+            mode: config.issuer_anchor_mode,
+            guest_user_cycles: measured.user_cycles,
+            guest_total_cycles: measured.total_cycles,
+            segments: measured.segments,
+            security: config.security,
+            profile: config.tpm_sha_profile,
+            credential_scheme: config.credential_scheme,
+            compression_blocks: 15 * (2 * config.security.key_bytes() + 3),
+            keygen,
+            anchor_generation: native.generation,
+            certificate_verify: native.certificate_verify,
+            proof_prepare: Duration::ZERO,
+            proof_prove: measured.prove,
+            proof_verify: measured.verify,
+            proof_bytes: measured.proof.size_bytes(),
+            certificate_bytes: native.certificate.len(),
+            proof_stats: TpmShaCircuitStats {
+                private_input_bits: native.witness.len() * 8,
+                public_input_bits: (pk.len() + native.certificate.len()) * 8,
+                output_bits: 0,
+                and_gates: 0,
+                xor_gates: 0,
+                total_nodes: 0,
+            },
+        });
+    }
     let prepared = Instant::now();
     if unsafe {
         daa_issuer_anchor_prepare(
@@ -790,6 +867,10 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     }
     let proof_stats = issuer_anchor_stats(&config)?;
     Ok(IssuerAnchorBenchmark {
+        mode: config.issuer_anchor_mode,
+        guest_user_cycles: 0,
+        guest_total_cycles: 0,
+        segments: 0,
         security: config.security,
         profile: config.tpm_sha_profile,
         credential_scheme: config.credential_scheme,
@@ -953,6 +1034,9 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             trace.add("setup.anchor.generate", native.generation);
             trace.add("setup.anchor.certificate_verify", native.certificate_verify);
             trace.scoped("setup.pi_i.prepare", || {
+                if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+                    return;
+                }
                 let ret = unsafe {
                     daa_issuer_anchor_prepare(
                         config.security.bits(),
@@ -963,13 +1047,24 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
                 assert_eq!(ret, 0, "issuer anchor circuit preparation failed");
             });
             let context = issuer_anchor_context(&config, &mpk, &native.certificate);
-            let pi_i = trace.scoped("setup.pi_i.prove", || {
-                prove_issuer_anchor_real(&config, &native, &context)
-                    .expect("issuer anchor proof failed")
-            });
-            trace.scoped("setup.pi_i.verify", || {
-                assert!(verify_issuer_anchor_real(&config, &native, &context, &pi_i));
-            });
+            let pi_i = if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+                let measured = fixed_wots_prove_external(&config, &native)
+                    .expect("fixed WOTS issuer proof failed");
+                assert!(fixed_wots_verify_external(&config, &native, &measured.proof));
+                // Use the in-process cryptographic timings, not Cargo/IPC wall time.
+                trace.add("setup.pi_i.prove", measured.prove);
+                trace.add("setup.pi_i.verify", measured.verify);
+                measured.proof
+            } else {
+                let proof = trace.scoped("setup.pi_i.prove", || {
+                    prove_issuer_anchor_real(&config, &native, &context)
+                        .expect("issuer anchor proof failed")
+                });
+                trace.scoped("setup.pi_i.verify", || {
+                    assert!(verify_issuer_anchor_real(&config, &native, &context, &proof));
+                });
+                proof
+            };
             IssuerAnchorOutput {
                 certificate: native.certificate,
                 public_a: native.public_a,
@@ -984,7 +1079,11 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
         issuer_anchor.certificate.len(),
     );
     trace.add_size(
-        "size.setup.pi_i.voleith_proof_bytes",
+        if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+            "size.setup.pi_i.risc0_proof_bytes"
+        } else {
+            "size.setup.pi_i.voleith_proof_bytes"
+        },
         issuer_anchor.pi_i.size_bytes(),
     );
     SetupOutput {
@@ -1401,6 +1500,7 @@ pub fn revoke_empty(trace: &mut BenchmarkTrace) -> RevocationState {
 
 /// Runs setup, join, sign, verify, link, and empty revocation once.
 pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
+    config.ensure_real_supported()?;
     let mut trace = BenchmarkTrace::new();
     let mut setup_out = setup(config, &mut trace);
     let join_out = join(&mut setup_out, 1, &mut trace)?;
@@ -2480,6 +2580,9 @@ fn prove_issuer_anchor_real(
     native: &IssuerAnchorNative,
     context: &[u8],
 ) -> DaaResult<ProofArtifact> {
+    if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+        return Ok(fixed_wots_prove_external(config, native)?.proof);
+    }
     let level = config.security.bits();
     let profile = config.tpm_sha_profile.code();
     let kind = issuer_anchor_kind(config);
@@ -2547,6 +2650,9 @@ fn verify_issuer_anchor_real(
     context: &[u8],
     proof: &ProofArtifact,
 ) -> bool {
+    if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+        return fixed_wots_verify_external(config, native, proof);
+    }
     let expected_statement = hash_many(
         32,
         &[
@@ -2578,8 +2684,8 @@ fn verify_issuer_anchor_real(
 
 /// Runs native issuer key generation and deterministic anchor construction.
 fn issuer_setup_anchor_external(config: &ProtocolConfig) -> DaaResult<IssuerSetupAnchorExternal> {
-    let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let output_path = std::env::temp_dir().join(format!("sedaa-issuer-setup-anchor-{stamp}.out"));
+    let files = issuer_wots::PrivateFiles::new()?;
+    let output_path = files.dir.join("input");
     let mut cmd = host_cargo_command(config)?;
     cmd.arg("issuer-setup-anchor").arg(&output_path);
     let output = cmd.output().map_err(|_| DaaError::ExternalHostProof)?;
@@ -2704,6 +2810,18 @@ fn run_host_proof_command(
 fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
     let manifest = daa_full_root().join("host_proof/host/Cargo.toml");
     let mut cmd = Command::new("cargo");
+    // Do not leak the parent cargo-run package metadata into nested build-script fingerprints.
+    for (name, _) in std::env::vars_os() {
+        let key = name.to_string_lossy();
+        if key.starts_with("CARGO_PKG_")
+            || matches!(
+                key.as_ref(),
+                "CARGO_MANIFEST_DIR" | "CARGO_MANIFEST_PATH" | "CARGO_BIN_NAME" | "OUT_DIR"
+            )
+        {
+            cmd.env_remove(name);
+        }
+    }
     cmd.arg("run")
         .arg("--quiet")
         .arg("--manifest-path")
@@ -2725,6 +2843,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .env("DAA_TPM_BACKEND", config.tpm_backend.name())
         .env("DAA_TPM_SHA_SCHEME", config.tpm_sha_scheme.name())
         .env("DAA_CREDENTIAL_SCHEME", config.credential_scheme.name())
+        .env("DAA_ISSUER_ANCHOR_MODE", config.issuer_anchor_mode.name())
         .env("FSPHINCS_SECURITY", config.security.bits().to_string())
         .env(
             "FSPHINCS_K",
@@ -2737,6 +2856,10 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .env("RISC0_BACKEND_HASH", &config.backend_hash);
     if let Some(segment_limit_po2) = config.risc0_segment_limit_po2 {
         cmd.env("RISC0_SEGMENT_LIMIT_PO2", segment_limit_po2.to_string());
+    }
+    if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+        // A Setup proof must embed the actual guest even when the caller skips ordinary host proofs.
+        cmd.env_remove("RISC0_SKIP_BUILD");
     }
     if std::env::var_os("CARGO_TARGET_DIR").is_none() {
         let target_dir = std::env::var_os("HOME")
@@ -3255,6 +3378,25 @@ impl DeterministicRng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Checks Setup-mode selection without altering existing proof/credential defaults.
+    #[test]
+    fn issuer_anchor_modes_are_scheme_specific() {
+        let config = ProtocolConfig::default();
+        assert_eq!(config.issuer_anchor_mode, IssuerAnchorMode::SeedDual);
+        let fixed = config.with_issuer_anchor_mode(IssuerAnchorMode::FixedTopWots);
+        assert!(fixed.ensure_real_supported().is_ok());
+        assert!(fixed
+            .clone()
+            .with_credential_scheme(CredentialScheme::FSphincsPlus)
+            .ensure_real_supported()
+            .is_err());
+        assert!(fixed
+            .with_proof_mode(ProofMode::Simulated)
+            .ensure_real_supported()
+            .is_err());
+        assert!(IssuerAnchorMode::from_name("unknown").is_err());
+    }
 
     #[test]
     fn legacy_aes_lengths_and_identifiers_are_unchanged() {

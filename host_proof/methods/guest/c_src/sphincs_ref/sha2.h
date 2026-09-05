@@ -39,7 +39,7 @@ void mgf1_512(unsigned char *out, unsigned long outlen,
 #define seed_state SPX_NAMESPACE(seed_state)
 void seed_state(spx_ctx *ctx);
 
-#ifdef SPHINCS_OPT_128S
+#if defined(SPHINCS_OPT_128S) || defined(DAA_WOTS_SUPPORTED)
 void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *seeded_state,
                                      const uint32_t addr[8],

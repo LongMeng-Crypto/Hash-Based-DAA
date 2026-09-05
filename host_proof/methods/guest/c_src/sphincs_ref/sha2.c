@@ -365,7 +365,8 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
 #endif
 }
 
-#ifdef SPHINCS_OPT_128S
+/* Compile shared fast paths for opt2/opt4 and the independent Setup relation. */
+#if defined(SPHINCS_OPT_128S) || defined(DAA_WOTS_SUPPORTED)
 void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *seeded_state,
                                      const uint32_t addr[8],
@@ -445,6 +446,7 @@ void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
     memcpy(out, state, 16);
 }
 
+/* Completes a fixed 15-step WOTS chain with reusable padding and direct SHA syscalls. */
 void sha256_zk_wots_fixed_chain(uint8_t *out,
                                 const uint8_t seeded_state[32],
                                 const uint8_t addr[32],

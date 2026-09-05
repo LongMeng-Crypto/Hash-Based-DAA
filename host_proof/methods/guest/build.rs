@@ -1,6 +1,7 @@
 use std::env;
 use std::path::Path;
 
+/// Builds parameter-matched verification and Setup relations for the RISC0 guests.
 fn main() {
     let dir = "c_src/sphincs_ref";
     if !Path::new(dir).exists() {
@@ -136,6 +137,7 @@ fn main() {
     let core_files: &[&str] = if opt_level >= 2 {
         &[
             "sign_verify_128s_opt.c",
+            "address.c",
             "utils.c",
             "prf_wrapper.c",
             "sphincs_profile.c",
@@ -173,6 +175,9 @@ fn main() {
     build.include(dir);
     build.include(format!("{}/params", dir));
     build.define("PARAMS", params.as_str());
+    if hash_backend == "sha2" && thash == "simple" {
+        build.define("DAA_WOTS_SUPPORTED", None);
+    }
     build.opt_level(3);
     build.warnings(false);
 
@@ -214,6 +219,7 @@ fn main() {
         thash
     );
     build.file(&thash_path);
+    build.file(format!("{}/issuer_wots_verify.c", dir));
 
     // F-SPHINCS+ guest archive: verification only. Host-only key generation,
     // signing, 2 MiB tree buffers, and randombytes references are excluded.
