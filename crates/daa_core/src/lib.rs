@@ -860,20 +860,47 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     if verify_issuer_anchor_real(&config, &native, &context, &malformed_proof) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    let mut wrong_statement = native.clone();
-    wrong_statement.anchor_value[0] ^= 1;
-    if verify_issuer_anchor_real(&config, &wrong_statement, &context, &pi_i) {
-        return Err(DaaError::InvalidIssuerAnchor);
+    // Check both outputs and both addresses, including through the native
+    // verifier so rejection cannot be caused only by the Rust statement hash.
+    for node in 0..2 {
+        for mutate_address in [false, true] {
+            let mut wrong = native.clone();
+            if mutate_address {
+                let offset = node * (wrong.public_b.len() / 2);
+                wrong.public_b[offset] ^= 1;
+            } else {
+                let offset = node * (wrong.anchor_value.len() / 2);
+                wrong.anchor_value[offset] ^= 1;
+            }
+            let mut rebound_proof = pi_i.clone();
+            rebound_proof.statement_hash = hash_many(
+                32,
+                &[
+                    &wrong.public_a,
+                    &wrong.public_b,
+                    &wrong.anchor_value,
+                    &context,
+                ],
+            );
+            if verify_issuer_anchor_real(&config, &wrong, &context, &rebound_proof) {
+                return Err(DaaError::InvalidIssuerAnchor);
+            }
+        }
     }
     let mut wrong_context = context.clone();
     wrong_context[0] ^= 1;
     if verify_issuer_anchor_real(&config, &native, &wrong_context, &pi_i) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    let mut wrong_address = native.clone();
-    wrong_address.public_b[0] ^= 1;
-    if verify_issuer_anchor_real(&config, &wrong_address, &context, &pi_i) {
-        return Err(DaaError::InvalidIssuerAnchor);
+    // A proof with just its second output changed must not be constructible
+    // with the original seed. This checks the two-output circuit itself.
+    let mut wrong_output = native.clone();
+    let second_output = wrong_output.anchor_value.len() / 2;
+    wrong_output.anchor_value[second_output] ^= 1;
+    if let Ok(invalid) = prove_issuer_anchor_real(&config, &wrong_output, &context) {
+        if verify_issuer_anchor_real(&config, &wrong_output, &context, &invalid) {
+            return Err(DaaError::InvalidIssuerAnchor);
+        }
     }
     let proof_stats = issuer_anchor_stats(&config)?;
     Ok(IssuerAnchorBenchmark {
@@ -885,7 +912,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
         profile: config.tpm_sha_profile,
         credential_scheme: config.credential_scheme,
         compression_blocks: if config.credential_scheme == CredentialScheme::SphincsPlus {
-            1
+            2
         } else {
             8
         },
@@ -999,7 +1026,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             );
             let public_b = hash_many(
                 if config.credential_scheme == CredentialScheme::SphincsPlus {
-                    22
+                    44
                 } else {
                     64
                 },
@@ -1007,7 +1034,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             );
             let anchor_value = hash_many(
                 if config.credential_scheme == CredentialScheme::SphincsPlus {
-                    config.security.key_bytes()
+                    2 * config.security.key_bytes()
                 } else {
                     64
                 },

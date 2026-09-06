@@ -820,15 +820,8 @@ fn generate_anchor_material(
         }
     ];
     let mut public_a = vec![0u8; if credential_is_fsphincs() { 64 } else { 32 }];
-    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 22 }];
-    let mut anchor_value = vec![
-        0u8;
-        if credential_is_fsphincs() {
-            2 * witness.len()
-        } else {
-            witness.len()
-        }
-    ];
+    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 44 }];
+    let mut anchor_value = vec![0u8; 2 * witness.len()];
     let related = unsafe {
         if credential_is_fsphincs() {
             fsphincs_issuer_anchor_relation(

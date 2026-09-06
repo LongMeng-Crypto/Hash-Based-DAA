@@ -1,0 +1,6 @@
+n=16 d=7 certificate=5562: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK
+n=16 d=22 certificate=14122: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK
+n=24 d=7 certificate=11186: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK
+n=24 d=22 certificate=29714: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK
+n=32 d=8 certificate=20826: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK
+n=32 d=17 certificate=40346: one signature, fixed double-FORS selection, public signature projection, shared-seed double relation, distinct addresses, public statement, all-byte mutations OK

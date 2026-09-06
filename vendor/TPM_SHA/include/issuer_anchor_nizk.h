@@ -31,7 +31,7 @@ size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
                                      daa_issuer_anchor_kind kind);
 
 /* public_a/public_b are:
- *   SPHINCS+: 32-byte seeded SHA state and one 22-byte WOTS+/FORS PRF address;
+ *   SPHINCS+: 32-byte seeded SHA state and two distinct 22-byte FORS PRF addresses;
  *   F-SPHINCS+: two 32-byte node addresses and two 32-byte leaf addresses.
  */
 /* Generates a context-bound proof for the supplied public anchor statement. */

@@ -69,6 +69,9 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
         );
     } else {
         println!("pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption");
+        if first.credential_scheme == CredentialScheme::SphincsPlus {
+            println!("anchor_construction=double-fors");
+        }
     }
     println!(
         "credential={} params={} profile={} credential_security={} {}={}",

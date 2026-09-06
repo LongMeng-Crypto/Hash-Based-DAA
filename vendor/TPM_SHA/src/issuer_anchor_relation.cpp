@@ -85,10 +85,11 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
   const auto public_b = allocate_bytes(circuit_, public_b_bytes(), false);
 
   if (kind_ == Kind::Sphincs) {
-    {
+    for (std::size_t node = 0; node != 2; ++node) {
       FipsBits block;
       block.reserve(512);
-      append(block, public_b);
+      append(block, std::span<const Wire>(public_b).subspan(node * 22 * 8,
+                                                           22 * 8));
       append(block, seed);
       append_constant(block, 0x80);
       while (block.size() < 56 * 8) append_constant(block, 0);
@@ -139,17 +140,17 @@ std::size_t Relation::public_a_bytes() const {
 
 // Returns the second public-input field length.
 std::size_t Relation::public_b_bytes() const {
-  return kind_ == Kind::Sphincs ? 22 : 64;
+  return kind_ == Kind::Sphincs ? 44 : 64;
 }
 
 // Returns the public anchor output length.
 std::size_t Relation::anchor_bytes() const {
-  return kind_ == Kind::Sphincs ? seed_bytes() : 64;
+  return kind_ == Kind::Sphincs ? 2 * seed_bytes() : 64;
 }
 
 // Reports the number of secret-dependent SHA-256 compression blocks.
 std::size_t Relation::compression_blocks() const {
-  return kind_ == Kind::Sphincs ? 1 : 8;
+  return kind_ == Kind::Sphincs ? 2 : 8;
 }
 
 // Serializes the private seed into backend input bits.

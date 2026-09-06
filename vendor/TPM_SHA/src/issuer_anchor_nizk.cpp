@@ -104,6 +104,10 @@ vole_backend::PublicStatement statement(
     std::span<const std::uint8_t> public_a,
     std::span<const std::uint8_t> public_b,
     std::span<const std::uint8_t> anchor_value) {
+  if (relation.kind() == daa::issuer_anchor::Kind::Sphincs &&
+      public_b.size() == 44 &&
+      std::equal(public_b.begin(), public_b.begin() + 22, public_b.begin() + 22))
+    throw std::invalid_argument("SPHINCS+ anchors require distinct PRF addresses");
   return {relation.public_bits(public_a, public_b),
           relation.output_bits(anchor_value)};
 }
