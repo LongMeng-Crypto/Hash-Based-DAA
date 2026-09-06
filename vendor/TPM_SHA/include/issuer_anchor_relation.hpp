@@ -16,7 +16,7 @@ enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 2 };
 
 class Relation {
 public:
-  // Builds one SPHINCS+ or F-SPHINCS+ dual-anchor circuit.
+  // Builds one SPHINCS+ or F-SPHINCS+ seed-anchor circuit.
   Relation(vole_backend::SecurityLevel level, Kind kind);
 
   // Returns the VOLEith security level used by this relation.

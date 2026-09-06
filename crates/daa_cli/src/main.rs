@@ -46,6 +46,7 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
         samples.push(benchmark_issuer_anchor(config.clone()).map_err(|err| err.to_string())?);
     }
     let first = &samples[0];
+    println!("iterations={iterations}");
     let average_ms = |pick: fn(&daa_core::IssuerAnchorBenchmark) -> std::time::Duration| {
         samples
             .iter()
@@ -67,7 +68,7 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
             opts.segment_po2.unwrap_or(20)
         );
     } else {
-        println!("pi_i_backend=VOLEith; dual seed anchor; global-seed consistency assumption");
+        println!("pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption");
     }
     println!(
         "credential={} params={} profile={} credential_security={} {}={}",
@@ -112,7 +113,7 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
     );
     println!("pi_i_proof_bytes={}", first.proof_bytes);
     println!("public_certificate_bytes={}", first.certificate_bytes);
-    if first.mode == IssuerAnchorMode::SeedDual {
+    if first.mode == IssuerAnchorMode::SeedAnchor {
         println!(
             "pi_i_circuit private_bits={} public_bits={} output_bits={} and={} xor={} nodes={}",
             first.proof_stats.private_input_bits,
@@ -402,7 +403,7 @@ impl CliOptions {
             tpm_backend: TpmBackend::Aes,
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             credential_scheme: CredentialScheme::SphincsPlus,
-            issuer_anchor_mode: IssuerAnchorMode::SeedDual,
+            issuer_anchor_mode: IssuerAnchorMode::SeedAnchor,
             segment_po2: None,
             iterations: 1,
             json: None,
@@ -502,7 +503,7 @@ fn value(args: &[String], index: usize, flag: &str) -> Result<String, String> {
 fn print_help() {
     println!("DAA full protocol CLI");
     println!(
-        "  --issuer-anchor-mode seed-dual|fixed-top-wots  Select Setup pi_I (default seed-dual)"
+        "  --issuer-anchor-mode seed-anchor|fixed-top-wots  Select Setup pi_I (default seed-anchor)"
     );
     println!();
     println!("Commands:");

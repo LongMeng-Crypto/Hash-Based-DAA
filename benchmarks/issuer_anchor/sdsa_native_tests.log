@@ -1,0 +1,12 @@
+n=16 d=7 branch=top-wots certificate=728: public signature projection, seed relation, public statement, all-byte mutations OK
+n=16 d=7 branch=fors certificate=5368: public signature projection, seed relation, public statement, all-byte mutations OK
+n=16 d=22 branch=top-wots certificate=632: public signature projection, seed relation, public statement, all-byte mutations OK
+n=16 d=22 branch=fors certificate=14024: public signature projection, seed relation, public statement, all-byte mutations OK
+n=24 d=7 branch=top-wots certificate=1464: public signature projection, seed relation, public statement, all-byte mutations OK
+n=24 d=7 branch=fors certificate=10848: public signature projection, seed relation, public statement, all-byte mutations OK
+n=24 d=22 branch=top-wots certificate=1320: public signature projection, seed relation, public statement, all-byte mutations OK
+n=24 d=22 branch=fors certificate=29520: public signature projection, seed relation, public statement, all-byte mutations OK
+n=32 d=8 branch=top-wots certificate=2424: public signature projection, seed relation, public statement, all-byte mutations OK
+n=32 d=8 branch=fors certificate=20376: public signature projection, seed relation, public statement, all-byte mutations OK
+n=32 d=17 branch=top-wots certificate=2296: public signature projection, seed relation, public statement, all-byte mutations OK
+n=32 d=17 branch=fors certificate=40056: public signature projection, seed relation, public statement, all-byte mutations OK

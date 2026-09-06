@@ -37,7 +37,7 @@ extern "C" {
     fn sphincs_issuer_anchor_certificate_bytes() -> usize;
     fn sphincs_issuer_anchor_generate(
         certificate: *mut u8,
-        certificate_len: usize,
+        certificate_len: *mut usize,
         pk: *const u8,
         sk: *const u8,
     ) -> i32;
@@ -760,6 +760,7 @@ fn generate_anchor_material(
         }
     };
     let mut certificate = vec![0u8; certificate_bytes];
+    let mut actual_certificate_len = certificate.len();
     let generation_started = Instant::now();
     let generated = unsafe {
         if credential_is_fsphincs() {
@@ -772,7 +773,7 @@ fn generate_anchor_material(
         } else {
             sphincs_issuer_anchor_generate(
                 certificate.as_mut_ptr(),
-                certificate.len(),
+                &mut actual_certificate_len,
                 pk.as_ptr(),
                 sk.as_ptr(),
             )
@@ -782,6 +783,7 @@ fn generate_anchor_material(
     if generated != 0 {
         return Err("issuer anchor generation failed".into());
     }
+    certificate.truncate(actual_certificate_len);
 
     let verify_started = Instant::now();
     let verified = unsafe {
@@ -818,8 +820,15 @@ fn generate_anchor_material(
         }
     ];
     let mut public_a = vec![0u8; if credential_is_fsphincs() { 64 } else { 32 }];
-    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 44 }];
-    let mut anchor_value = vec![0u8; 2 * witness.len()];
+    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 22 }];
+    let mut anchor_value = vec![
+        0u8;
+        if credential_is_fsphincs() {
+            2 * witness.len()
+        } else {
+            witness.len()
+        }
+    ];
     let related = unsafe {
         if credential_is_fsphincs() {
             fsphincs_issuer_anchor_relation(
@@ -914,7 +923,10 @@ fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::e
     let started = Instant::now();
     if issuer_wots::enabled() {
         issuer_wots::check_certificate(&parts[0], &parts[1])?;
-        println!("accepted=1\ncertificate_verify_us={}", started.elapsed().as_micros());
+        println!(
+            "accepted=1\ncertificate_verify_us={}",
+            started.elapsed().as_micros()
+        );
         return Ok(());
     }
     let ret = unsafe {

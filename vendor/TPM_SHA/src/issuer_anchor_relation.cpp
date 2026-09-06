@@ -77,7 +77,7 @@ void require_size(std::span<const std::uint8_t> value, std::size_t expected,
 
 } // namespace
 
-// Builds the scheme-specific dual-anchor SHA-256 relation once.
+// Builds the scheme-specific seed-anchor SHA-256 relation once.
 Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
     : level_(level), kind_(kind) {
   const auto seed = allocate_bytes(circuit_, seed_bytes(), true);
@@ -85,11 +85,10 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
   const auto public_b = allocate_bytes(circuit_, public_b_bytes(), false);
 
   if (kind_ == Kind::Sphincs) {
-    for (std::size_t chain = 0; chain != 2; ++chain) {
+    {
       FipsBits block;
       block.reserve(512);
-      append(block, std::span<const Wire>(public_b).subspan(chain * 22 * 8,
-                                                            22 * 8));
+      append(block, public_b);
       append(block, seed);
       append_constant(block, 0x80);
       while (block.size() < 56 * 8) append_constant(block, 0);
@@ -140,17 +139,17 @@ std::size_t Relation::public_a_bytes() const {
 
 // Returns the second public-input field length.
 std::size_t Relation::public_b_bytes() const {
-  return kind_ == Kind::Sphincs ? 44 : 64;
+  return kind_ == Kind::Sphincs ? 22 : 64;
 }
 
-// Returns the combined length of the two public anchor values.
+// Returns the public anchor output length.
 std::size_t Relation::anchor_bytes() const {
-  return kind_ == Kind::Sphincs ? 2 * seed_bytes() : 64;
+  return kind_ == Kind::Sphincs ? seed_bytes() : 64;
 }
 
 // Reports the number of secret-dependent SHA-256 compression blocks.
 std::size_t Relation::compression_blocks() const {
-  return kind_ == Kind::Sphincs ? 2 : 8;
+  return kind_ == Kind::Sphincs ? 1 : 8;
 }
 
 // Serializes the private seed into backend input bits.

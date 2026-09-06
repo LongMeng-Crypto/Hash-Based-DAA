@@ -1,0 +1,92 @@
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target; build/startup/test time excluded from pi_I timings
+===== credential=sphincs params=sha2-128s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-128s profile=s credential_security=128 compression_blocks=1
+keygen_ms=41.288
+anchor_generation_ms=312.200
+certificate_verify_ms=0.005
+pi_i_prepare_ms=5.127
+pi_i_prover_ms=18.126
+pi_i_verifier_ms=16.077
+pi_i_proof_bytes=33059
+public_certificate_bytes=728
+pi_i_circuit private_bits=128 public_bits=432 output_bits=128 and=21905 xor=93574 nodes=116041
+
+===== credential=sphincs params=sha2-128f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-128f profile=f credential_security=128 compression_blocks=1
+keygen_ms=0.677
+anchor_generation_ms=18.862
+certificate_verify_ms=0.004
+pi_i_prepare_ms=5.276
+pi_i_prover_ms=5.711
+pi_i_verifier_ms=3.704
+pi_i_proof_bytes=47452
+public_certificate_bytes=632
+pi_i_circuit private_bits=128 public_bits=432 output_bits=128 and=21905 xor=93574 nodes=116041
+
+===== credential=sphincs params=sha2-192s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-192s profile=s credential_security=192 compression_blocks=1
+keygen_ms=64.711
+anchor_generation_ms=589.301
+certificate_verify_ms=0.006
+pi_i_prepare_ms=6.880
+pi_i_prover_ms=42.088
+pi_i_verifier_ms=27.764
+pi_i_proof_bytes=50980
+public_certificate_bytes=1464
+pi_i_circuit private_bits=192 public_bits=432 output_bits=192 and=22156 xor=94694 nodes=117476
+
+===== credential=sphincs params=sha2-192f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-192f profile=f credential_security=192 compression_blocks=1
+keygen_ms=0.960
+anchor_generation_ms=27.378
+certificate_verify_ms=0.005
+pi_i_prepare_ms=5.254
+pi_i_prover_ms=6.763
+pi_i_verifier_ms=5.342
+pi_i_proof_bytes=74524
+public_certificate_bytes=1320
+pi_i_circuit private_bits=192 public_bits=432 output_bits=192 and=22156 xor=94694 nodes=117476
+
+===== credential=sphincs params=sha2-256s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-256s profile=s credential_security=256 compression_blocks=1
+keygen_ms=39.928
+anchor_generation_ms=520.603
+certificate_verify_ms=0.007
+pi_i_prepare_ms=5.247
+pi_i_prover_ms=57.411
+pi_i_verifier_ms=55.040
+pi_i_proof_bytes=74494
+public_certificate_bytes=2424
+pi_i_circuit private_bits=256 public_bits=432 output_bits=256 and=22407 xor=95817 nodes=118914
+
+===== credential=sphincs params=sha2-256f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption
+credential=SPHINCS+ params=sha2-256f profile=f credential_security=256 compression_blocks=1
+keygen_ms=2.503
+anchor_generation_ms=53.697
+certificate_verify_ms=0.006
+pi_i_prepare_ms=5.202
+pi_i_prover_ms=10.644
+pi_i_verifier_ms=8.846
+pi_i_proof_bytes=104796
+public_certificate_bytes=2296
+pi_i_circuit private_bits=256 public_bits=432 output_bits=256 and=22407 xor=95817 nodes=118914
+
+benchmark_complete=1

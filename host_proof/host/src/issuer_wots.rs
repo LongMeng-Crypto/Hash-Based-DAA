@@ -33,7 +33,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// Parses the Setup-only selector without changing the credential or host-signature protocol.
 pub(super) fn enabled() -> bool {
     match env::var("DAA_ISSUER_ANCHOR_MODE").as_deref() {
-        Err(_) | Ok("seed-dual") => false,
+        Err(_) | Ok("seed-anchor") => false,
         Ok("fixed-top-wots") => true,
         Ok(other) => panic!("unsupported DAA_ISSUER_ANCHOR_MODE={other}"),
     }

@@ -1,50 +1,35 @@
 #ifndef SPX_ISSUER_ANCHOR_H
 #define SPX_ISSUER_ANCHOR_H
-
+#include "params.h"
 #include <stddef.h>
 #include <stdint.h>
-
-#include "params.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/*
- * Deterministic Setup certificate for two independent chains of a fixed
- * top-layer WOTS+ leaf.  It contains the WOTS+ signature on the all-zero
- * n-byte message and the XMSS authentication path to PK.root.
- */
+/* Maximum capacity; generate replaces *len with the actual encoded size. */
 size_t sphincs_issuer_anchor_certificate_bytes(void);
-
-/* Generates the deterministic certificate for an existing issuer keypair. */
-int sphincs_issuer_anchor_generate(uint8_t *certificate,
-                                   size_t certificate_len,
-                                   const uint8_t *pk,
-                                   const uint8_t *sk);
-
-/* Verifies the public certificate against the registered SPHINCS+ root. */
-int sphincs_issuer_anchor_verify(const uint8_t *certificate,
-                                 size_t certificate_len,
-                                 const uint8_t *pk);
-
-/*
- * Export the exact two-compression relation proved by pi_I.  Both public
- * WOTS+ secret elements are derived from the same private SK.seed under two
- * distinct chain addresses.  The first two digits of the fixed all-zero
- * WOTS+ message are zero, so both elements appear directly in the signature.
+/* Public post-processing of one ordinary signature on the one-byte Setup
+ * message. */
+int sphincs_issuer_anchor_generate(uint8_t *certificate, size_t *len,
+                                   const uint8_t *pk, const uint8_t *sk);
+/* Builds the certificate using only PK and a normal signature on message 0x49.
  */
-int sphincs_issuer_anchor_relation(uint8_t seed[SPX_N],
-                                   uint8_t seeded_state[32],
-                                   uint8_t compressed_addresses[44],
-                                   uint8_t anchor_values[2 * SPX_N],
-                                   const uint8_t *certificate,
-                                   size_t certificate_len,
-                                   const uint8_t *pk,
-                                   const uint8_t *sk);
-
+int sphincs_issuer_anchor_from_signature(uint8_t *certificate, size_t *len,
+                                         const uint8_t *pk,
+                                         const uint8_t *signature,
+                                         size_t signature_len);
+int sphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
+                                 const uint8_t *pk);
+/* Derives the unique public one-compression statement without a secret key. */
+int sphincs_issuer_anchor_statement(uint8_t state[32], uint8_t address[22],
+                                    uint8_t value[SPX_N],
+                                    const uint8_t *certificate, size_t len,
+                                    const uint8_t *pk);
+int sphincs_issuer_anchor_relation(uint8_t seed[SPX_N], uint8_t state[32],
+                                   uint8_t address[22], uint8_t value[SPX_N],
+                                   const uint8_t *certificate, size_t len,
+                                   const uint8_t *pk, const uint8_t *sk);
 #ifdef __cplusplus
 }
 #endif
-
 #endif

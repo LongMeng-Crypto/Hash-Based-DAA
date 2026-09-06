@@ -189,7 +189,7 @@ size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
              : 0;
 }
 
-// Produces a context-bound VOLEith proof of the dual-anchor relation.
+// Produces a context-bound VOLEith proof of the seed-anchor relation.
 int daa_issuer_anchor_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind, const uint8_t* seed, size_t seed_len,

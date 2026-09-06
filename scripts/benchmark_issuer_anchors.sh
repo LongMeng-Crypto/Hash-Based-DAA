@@ -4,11 +4,11 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "${script_dir}/.." && pwd)"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
-anchor_mode="${ANCHOR_MODE:-seed-dual}"
+anchor_mode="${ANCHOR_MODE:-seed-anchor}"
 case "$anchor_mode" in
-  seed-dual) export RISC0_SKIP_BUILD="${RISC0_SKIP_BUILD:-1}" ;;
+  seed-anchor) export RISC0_SKIP_BUILD="${RISC0_SKIP_BUILD:-1}" ;;
   fixed-top-wots|all) unset RISC0_SKIP_BUILD ;;
-  *) echo "ANCHOR_MODE must be seed-dual, fixed-top-wots, or all" >&2; exit 2 ;;
+  *) echo "ANCHOR_MODE must be seed-anchor, fixed-top-wots, or all" >&2; exit 2 ;;
 esac
 export RISC0_PROVER=local
 export RISC0_DEV_MODE=0
@@ -23,11 +23,7 @@ if [[ -z "${RECURSION_SRC_PATH:-}" && -f "$recursion_zip" ]]; then
 fi
 iterations="${ITERATIONS:-1}"
 params_list="${PARAMS_LIST:-sha2-128s sha2-128f sha2-192s sha2-192f sha2-256s sha2-256f}"
-if [[ "$anchor_mode" == fixed-top-wots ]]; then
-  credentials="${CREDENTIALS:-sphincs}"
-else
-  credentials="${CREDENTIALS:-sphincs fsphincs}"
-fi
+credentials="${CREDENTIALS:-sphincs}"
 log_dir="${project_dir}/benchmarks/issuer_anchor"
 mkdir -p "$log_dir"
 log_file="${LOG_FILE:-${log_dir}/issuer_anchor_${anchor_mode}_${RISC0_RECEIPT_KIND}_$(date +%Y%m%d_%H%M%S).log}"
@@ -48,8 +44,8 @@ run_one() {
 cd "$project_dir"
 for credential in $credentials; do
   for params in $params_list; do
-    if [[ "$anchor_mode" == seed-dual || "$anchor_mode" == all ]]; then
-      run_one "$credential" "$params" seed-dual
+    if [[ "$anchor_mode" == seed-anchor || "$anchor_mode" == all ]]; then
+      run_one "$credential" "$params" seed-anchor
     fi
     if [[ "$anchor_mode" == fixed-top-wots || ( "$anchor_mode" == all && "$credential" == sphincs ) ]]; then
       run_one "$credential" "$params" fixed-top-wots

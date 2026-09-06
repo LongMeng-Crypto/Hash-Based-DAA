@@ -80,24 +80,40 @@ without changing the credential, TPM, or host-signature relation:
 
 | Setup mode | Credentials | Private witness | Proof system | Global seed consistency |
 |---|---|---|---|---|
-| `seed-dual` (default) | SPHINCS+ / F-SPHINCS+ | One master seed, two derivation anchors | VOLEith SHA-256, s/f | Required |
-| `fixed-top-wots` | Standard SHA2-simple SPHINCS+ only | Complete secret key of one top WOTS+ leaf | RISC0 Composite / Succinct | Not required |
+| `seed-anchor` (default) | Standard SPHINCS+ | Global seed; one signature-derived secret | VOLEith SHA-256, s/f | Required |
+| `fixed-top-wots` | Standard SHA2-simple SPHINCS+ | Complete secret key of one top WOTS+ leaf | RISC0 Composite / Succinct | Not required |
 
-The existing `seed-dual` construction is unchanged:
+**Signature-Derived Seed Anchor (SDSA)** signs the reserved one-byte Setup
+message `49` (hex) once using the ordinary SPHINCS+ signer. This message is
+outside the fixed-length `et || issuer_nonce` credential domain. Public
+signature reconstruction selects the first zero digit of the actual top
+WOTS message, including its checksum. The certificate contains that chain
+start, the other chain endpoints, and the top XMSS authentication path.
+If the top message has no zero digit, it uses the first FORS tree's revealed
+secret and authentication path, the other FORS roots, and the hypertree suffix
+from the same signature. No search or key regeneration is needed.
 
-- For SPHINCS+, a deterministic certificate fixes one top-layer WOTS+ leaf
-  and exposes two independently addressed chain starts. Public WOTS/XMSS
-  verification connects them to `PK.root`; `pi_I` proves two secret-dependent
-  SHA-256 compression blocks from the same `SK.seed`.
-- For F-SPHINCS+, the certificate uses the distinct M-FORS nodes
-  `(layer=1,node=0)` and `(layer=0,node=0)`. It retains only the selected
-  secrets and authentication paths plus the remaining public roots; `pi_I`
-  proves eight SHA-256 compression blocks from the same master seed.
+Both branches are public post-processing of one ordinary signature. The
+credential EUF-CMA reduction counts that Setup query and simulates the seed
+proof using the assumed ZK interface. Setup does not add a credential message
+to the membership ledger. Under global seed consistency, the extracted seed
+supports standard credential generation.
 
-The two anchors strengthen the binding of the extracted witness. The global
-seed-consistency assumption separately states that the registered root and
-all issuer credentials use the prescribed derivation from that same seed.
+The private relation is one SHA-256 compression after the public `PK.seed`
+prefix state. The address is 22 bytes; the output is truncated to 16/24/32
+bytes. A versioned 24-byte header encodes the certificate type, parameters,
+selected chain or FORS index, keypair index, and tree address. The public
+verifier checks exact lengths and ranges, reconstructs the PRF statement,
+and authenticates the anchor to `PK.root`. The proof context binds the full
+certificate and issuer public key. Top certificates are
+`24 + n * (wots_len + top_height)` bytes; FORS certificates are
+`24 + n * (fors_height + fors_trees + d * wots_len + full_height)` bytes.
 
+The F-SPHINCS+ evaluation backend uses a two M-FORS-node
+seed relation (eight SHA-256 compressions); select `CREDENTIALS=fsphincs`
+explicitly to benchmark it. It is not the SDSA SPHINCS+ construction.
+
+**Authenticated Top-WOTS Capability (ATWC)** is selected by `fixed-top-wots`.
 In `fixed-top-wots`, Setup uses the public top-tree index zero. The private
 witness contains **all** 35/51/67 WOTS chain starts; the guest runs all
 15 steps of every chain using opt4's existing
@@ -275,10 +291,19 @@ per-proof averages.
 
 ### Issuer Setup anchor benchmark
 
-Run the unchanged dual seed anchors for both credential schemes and all VOLEith profiles:
+Native regression tests cover all six parameters, both certificate branches,
+wrong seeds, public statement reconstruction, exact lengths, wrong public
+keys, and every certificate-byte mutation:
 
 ```sh
-ITERATIONS=1 scripts/benchmark_issuer_anchors.sh
+bash scripts/test_issuer_seed_anchor.sh
+```
+
+
+Run SDSA for all six standard SPHINCS+ parameter sets (three samples each):
+
+```sh
+ANCHOR_MODE=seed-anchor CREDENTIALS=sphincs ITERATIONS=3 bash scripts/benchmark_issuer_anchors.sh
 ```
 
 Run the alternative full-WOTS proof for all six standard SPHINCS+ parameter sets:
@@ -290,7 +315,7 @@ ANCHOR_MODE=fixed-top-wots ITERATIONS=3 scripts/benchmark_issuer_anchors.sh
 The default is SHA-256 Composite with segment exponent 20. To use Succinct,
 add `RISC0_RECEIPT_KIND=succinct`; no Identity wrapper is applied to this
 fixed-workload Setup relation. To compare both Setup choices, use
-`ANCHOR_MODE=all`. F-SPHINCS+ is automatically tested only with `seed-dual`.
+`ANCHOR_MODE=all`. F-SPHINCS+ supports only `seed-anchor` and is selected explicitly.
 Optional filters are `PARAMS_LIST="sha2-128s sha2-256s"` and
 `CREDENTIALS=sphincs`; `SEGMENT_PO2` changes the segment exponent.
 
@@ -299,9 +324,14 @@ Every invocation writes a timestamped log under `benchmarks/issuer_anchor/`;
 The persistent `~/.cache/sedaa-risc0-shared-target` is reused, never cleaned.
 Fixed-WOTS mode builds the real guest even if `RISC0_SKIP_BUILD` was set.
 Only changed guests/native code need rebuilding; CUDA/backend artifacts remain cached.
-Compilation, process startup, serialization and negative tests are excluded
-from the dedicated `pi_i_prover_ms`/`pi_i_verifier_ms` measurements.
-Proof size is the serialized RISC0 receipt, including its public journal;
+Compilation, process startup and negative tests are excluded from the
+dedicated `pi_i_prover_ms`/`pi_i_verifier_ms` measurements. SDSA uses the
+Rust proof wrapper timings; ATWC uses the in-process RISC0 timings. Reported
+times are arithmetic means over `ITERATIONS`; proof/certificate sizes refer
+to the first sample. The prepared circuit cache is reused across samples,
+so `pi_i_prepare_ms` amortizes its first construction across those samples.
+Proof size is the serialized VOLEith proof for SDSA, or the RISC0 receipt
+including its public journal for ATWC;
 certificate size is reported separately and excludes the already registered
 issuer public key.
 
@@ -413,7 +443,14 @@ Host measurements use SHA-256 RISC0 receipts with segment size `2^20`.
 ### Setup-time issuer extraction proof
 
 This is a separately replaceable Setup building block; credential key
-generation is excluded from `Anchor gen.`.
+generation is excluded from `Anchor gen.`. The SPHINCS+ rows use SDSA,
+with one ordinary Setup signature included in certificate generation. They
+are arithmetic means of three runs on an Intel Core i9-14900 (32 logical
+CPUs), GCC 13.3.0 and Rust 1.96.0, using the release build.
+
+SDSA sources: [raw log](benchmarks/issuer_anchor/sdsa_all6.log),
+[TSV](benchmarks/issuer_anchor/sdsa_all6.tsv), and
+[native regression results](benchmarks/issuer_anchor/sdsa_native_tests.log).
 
 | Variant | Credential | Credential parameter | VOLEith | SHA-256 comp. | Anchor gen. (s) | Cert. verify (s) | `pi_I` prepare (s) | `pi_I` prove (s) | `pi_I` verify (s) | `pi_I` proof (KB) | Public cert. (KB) |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -423,12 +460,12 @@ generation is excluded from `Anchor gen.`.
 | Variant-1 | F-SPHINCS+ | 192 | 192f | 8 | 3.80 | 0.00010 | 0.106 | 0.041 | 0.034 | 476.37 | 3.08 |
 | Variant-1 | F-SPHINCS+ | 256 | 256s | 8 | 5.09 | 0.00008 | 0.110 | 0.207 | 0.192 | 441.87 | 3.70 |
 | Variant-1 | F-SPHINCS+ | 256 | 256f | 8 | 5.08 | 0.00007 | 0.112 | 0.061 | 0.052 | 639.25 | 3.70 |
-| Variant-2 | SPHINCS+ | 128s | 128s | 2 | 0.042 | 0.00007 | 0.030 | 0.029 | 0.024 | 61.70 | 0.70 |
-| Variant-2 | SPHINCS+ | 128f | 128f | 2 | 0.001 | 0.00007 | 0.031 | 0.010 | 0.007 | 89.12 | 0.61 |
-| Variant-2 | SPHINCS+ | 192s | 192s | 2 | 0.058 | 0.00010 | 0.031 | 0.045 | 0.039 | 93.05 | 1.42 |
-| Variant-2 | SPHINCS+ | 192f | 192f | 2 | 0.001 | 0.00010 | 0.031 | 0.014 | 0.010 | 137.68 | 1.28 |
-| Variant-2 | SPHINCS+ | 256s | 256s | 2 | 0.039 | 0.00014 | 0.033 | 0.078 | 0.071 | 132.93 | 2.36 |
-| Variant-2 | SPHINCS+ | 256f | 256f | 2 | 0.002 | 0.00014 | 0.031 | 0.020 | 0.016 | 189.87 | 2.23 |
+| Variant-2 | SPHINCS+ | 128s | 128s | 1 | 0.312200 | 0.000005 | 0.005127 | 0.018126 | 0.016077 | 32.28 | 0.71 |
+| Variant-2 | SPHINCS+ | 128f | 128f | 1 | 0.018862 | 0.000004 | 0.005276 | 0.005711 | 0.003704 | 46.34 | 0.62 |
+| Variant-2 | SPHINCS+ | 192s | 192s | 1 | 0.589301 | 0.000006 | 0.006880 | 0.042088 | 0.027764 | 49.79 | 1.43 |
+| Variant-2 | SPHINCS+ | 192f | 192f | 1 | 0.027378 | 0.000005 | 0.005254 | 0.006763 | 0.005342 | 72.78 | 1.29 |
+| Variant-2 | SPHINCS+ | 256s | 256s | 1 | 0.520603 | 0.000007 | 0.005247 | 0.057411 | 0.055040 | 72.75 | 2.37 |
+| Variant-2 | SPHINCS+ | 256f | 256f | 1 | 0.053697 | 0.000006 | 0.005202 | 0.010644 | 0.008846 | 102.34 | 2.24 |
 
 #### Alternative fixed-top WOTS+ `pi_I` (Variant-2)
 
