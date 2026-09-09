@@ -90,8 +90,7 @@ extern "C" {
         pk: *const u8,
     ) -> i32;
     fn fsphincs_issuer_anchor_relation(
-        master_seed: *mut u8,
-        node_address: *mut u8,
+        root_seed: *mut u8,
         leaf_address: *mut u8,
         anchor_value: *mut u8,
         certificate: *const u8,
@@ -102,17 +101,12 @@ extern "C" {
 }
 
 const FSPHINCS_N: usize = 32;
-const FSPHINCS_D: usize = 16;
-#[cfg(fsphincs_k_22)]
-const FSPHINCS_K: usize = 22;
-#[cfg(fsphincs_k_33)]
-const FSPHINCS_K: usize = 33;
-#[cfg(fsphincs_k_35)]
-const FSPHINCS_K: usize = 35;
-#[cfg(fsphincs_k_43)]
-const FSPHINCS_K: usize = 43;
-#[cfg(fsphincs_k_70)]
-const FSPHINCS_K: usize = 70;
+#[allow(dead_code)]
+mod fs_params {
+    include!(concat!(env!("OUT_DIR"), "/fsphincs_params.rs"));
+}
+const FSPHINCS_D: usize = fs_params::D;
+const FSPHINCS_K: usize = fs_params::K;
 const FSPHINCS_LAYER_SIG_BYTES: usize = FSPHINCS_K * (FSPHINCS_D + 1) * FSPHINCS_N;
 
 fn credential_is_fsphincs() -> bool {
@@ -819,14 +813,27 @@ fn generate_anchor_material(
             env!("SPHINCS_N").parse::<usize>()?
         }
     ];
-    let mut public_a = vec![0u8; if credential_is_fsphincs() { 64 } else { 32 }];
-    let mut public_b = vec![0u8; if credential_is_fsphincs() { 64 } else { 44 }];
-    let mut anchor_value = vec![0u8; 2 * witness.len()];
+    let mut public_a = vec![0u8; if credential_is_fsphincs() { 0 } else { 32 }];
+    let mut public_b = vec![
+        0u8;
+        if credential_is_fsphincs() {
+            fs_params::ANCHORS * 32
+        } else {
+            44
+        }
+    ];
+    let mut anchor_value = vec![
+        0u8;
+        if credential_is_fsphincs() {
+            fs_params::ANCHORS * 32
+        } else {
+            2 * witness.len()
+        }
+    ];
     let related = unsafe {
         if credential_is_fsphincs() {
             fsphincs_issuer_anchor_relation(
                 witness.as_mut_ptr(),
-                public_a.as_mut_ptr(),
                 public_b.as_mut_ptr(),
                 anchor_value.as_mut_ptr(),
                 certificate.as_ptr(),
@@ -910,8 +917,8 @@ fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::e
 /// Verifies a serialized public anchor certificate without secret material.
 fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parts = read_parts(input_path)?;
-    if parts.len() != 2 {
-        return Err("issuer-anchor-verify input must contain pk and certificate".into());
+    if parts.len() != 2 || parts[0].len() != credential_pk_bytes() {
+        return Err("issuer-anchor-verify requires a parameter-matched pk and certificate".into());
     }
     let started = Instant::now();
     if issuer_wots::enabled() {

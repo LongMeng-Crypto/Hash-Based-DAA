@@ -21,6 +21,8 @@ typedef struct {
     uint64_t h3;
     uint64_t key_seed;
     uint64_t mfors_layer[FS_H + 1u];
+    uint64_t sha512_calls;
+    uint64_t sha512_compression_blocks;
 } fsphincs_profile;
 
 size_t fsphincs_publickeybytes(void);
@@ -45,7 +47,8 @@ int fsphincs_verify(const uint8_t *sig, size_t siglen,
 void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
                            uint64_t *leaf_index,
                            const uint8_t randomizer[FS_N],
-                           const uint8_t *msg, size_t msglen);
+                           const uint8_t *msg, size_t msglen,
+                           const uint8_t pk[FS_PK_BYTES]);
 int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
                           const uint8_t layer_sig[FS_MFORS_SIG_BYTES],
                           const uint8_t pub_seed[FS_N],
@@ -77,6 +80,26 @@ int fs_mfors_verify(const uint8_t *sig,
                     const uint8_t md[FS_MFORS_MSG_BYTES],
                     const uint8_t pub_seed[FS_N],
                     uint32_t layer, uint64_t node);
+
+/* Parses consecutive MSB-first d-bit indices, including half-byte boundaries. */
+uint32_t fsphincs_md_index(const uint8_t md[FS_MFORS_MSG_BYTES], uint32_t tree);
+/* Derives the root-node capability without exposing the master seed. */
+void fsphincs_derive_root_seed(uint8_t out[FS_N], const uint8_t master[FS_N]);
+/* Constructs fixed tree-0(/tree-1), leaf-0 anchors and a shared aggregation path. */
+int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
+    uint8_t root_pk[FS_MFORS_MSG_BYTES], const uint8_t root_seed[FS_N],
+    const uint8_t pub_seed[FS_N]);
+/* Recovers the root public value using only the compact public certificate. */
+void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
+    const uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t pub_seed[FS_N]);
+/* Encodes one fixed root PRF address, independent of messages or signatures. */
+void fsphincs_root_anchor_address(uint8_t out[32], uint32_t anchor);
+/* Signs with only a root capability plus independently chosen lower-node seeds.
+ * This simulation/test helper does not reconstruct an issuer master secret. */
+int fsphincs_sign_with_root_seed(uint8_t *sig, size_t *siglen,
+    const uint8_t *msg, size_t msglen, const uint8_t pk[FS_PK_BYTES],
+    const uint8_t root_seed[FS_N], const uint8_t lower_seed[FS_N],
+    const uint8_t randomizer[FS_N]);
 
 #ifdef __cplusplus
 }

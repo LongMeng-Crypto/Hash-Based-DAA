@@ -1,79 +1,114 @@
-# F-SPHINCS+-SHA256 experimental reference implementation
+# F-SPHINCS+ SHA-2 reference, format v3
 
-This directory implements Section 3.1 (`F-SPHINCS+ and M-FORS`) of
-*Hash-Based Direct Anonymous Attestation* (PQCrypto 2023).
+This is an experimental instantiation of the M-FORS hierarchy in *Hash-Based
+Direct Anonymous Attestation* (PQCrypto 2023), not a standardized SPHINCS+ set.
+The six names are target-security benchmark labels, not a claim that testing
+establishes a complete concrete unforgeability bound.
 
-The protocol parameters follow the paper's two concrete configurations:
+## Canonical parameter sets
 
-| symbol | value |
-|---|---:|
-| `n` | 256 bits |
-| `d` | 16 |
-| `k` | 35 (`FSPHINCS_SECURITY=128`) or 70 (`=256`) |
-| `q` | 1024 |
-| `h` | 6 |
-| leaf space | `q^h = 2^60` |
+| Set | d | k | H3 | Root anchors | Secret SHA-256 compressions |
+|---|---:|---:|---|---:|---:|
+| 128s | 16 | 22 | SHA-256 | 1 | 2 |
+| 128f | 12 | 61 | SHA-256 | 1 | 2 |
+| 192s | 16 | 33 | SHA-256 | 2 | 4 |
+| 192f | 12 | 92 | SHA-256 | 2 | 4 |
+| 256s | 16 | 43 | SHA-512 | 2 | 4 |
+| 256f | 12 | 120 | SHA-512 | 2 | 4 |
 
-The 128/256 build labels track the paper's two concrete MPCitH-soundness
-configurations. They do not replace a separate concrete EU-CMA analysis of
-this SHA-256 credential instantiation.
+All sets use n=32 bytes, q=1024, h=6. `parameter_sets.h` is the source
+for both C and the Host/Guest Rust build helper. Select `FSPHINCS_PARAMS`;
+the old independent security/k selectors, including k=35/70, are rejected.
+DAA pairs each credential with the same VOLEith security/profile label.
 
-The paper describes tweakable `H1`, expanding `H2`, message hash `H3`, and a
-PRF abstractly, and its prototype instantiates symmetric primitives with
-LowMC. This implementation substitutes SHA-256:
+## Encoding and H3
 
-- all calls are domain separated and include a canonical 32-byte address;
-- `H2` and `H3` use counter-mode SHA-256 expansion;
-- `H2` emits exactly `k*d = 560/1120` bits, as required for a child M-FORS public
-  key to be signed by its parent;
-- `H3(msg || gr)` emits `k*d + h*log2(q) = 620/1180` bits, matching the
-  paper's `mHash` definition;
-- the M-FORS roots are accumulated in a 64/128-leaf binary tree; unused
-  leaves are deterministic domain-separated padding leaves.
+Let b=k*d and m=ceil(b/8). Integers in addresses and counters are big endian.
+Every 32-byte address includes domain, format version, security/profile, d, k,
+layer, node, inner-tree index, height and position. The format is incompatible
+with previous credentials/certificates; keys and signatures must be regenerated.
 
-Those byte-level choices are implementation conventions because the paper
-abstracts them away. They are not claimed as a standardized parameter set.
+- Public key: PUB_SEED[32] || root_MFORS_public_value[m].
+- Secret key: MASTER_SEED[32] || public_key.
+- Signature: R[32] || seven M-FORS signatures, each k*(d+1)*32 bytes.
+- M-FORS indices: consecutive MSB-first groups of exactly d bits.
+- The unused low bits of the final public-value byte are zero and checked.
+- The 60-bit H3 node index starts at bit b, **not** at byte m. Thus 128f
+  uses the low nibble of the last digest byte as the start of its node index.
 
-## Encodings
+For SHA-X chosen above, define the nine-byte context as
+`07 || 03 || BE16(security) || fast || d || k || h || log2(q)`.
+Compute:
 
-- Integers in hash addresses are big endian.
-- M-FORS message indices are consecutive 16-bit big-endian values.
-- The H3 leaf index is the first 60 bits following the 560-bit message digest.
-- `pk = PUB_SEED[32] || root_MFORS_public_value[70/140]`.
-- `sk = MASTER_SEED[32] || PUB_SEED[32] || root_public_value[70/140]`.
-- `signature = randomizer[32] || sigma_0 || ... || sigma_h`.
-- Each M-FORS signature is 35/70 repetitions of
-  `revealed_secret[32] || authentication_path[16][32]`.
-
-The implementation generates nodes on demand from `MASTER_SEED`; it never
-materializes the `2^60`-leaf hypertree.
-
-## Native benchmark
-
-From this directory run:
-
-```sh
-make benchmark FSPHINCS_SECURITY=128
-make benchmark FSPHINCS_SECURITY=256
+```text
+digest = SHA-X(context || R || full_public_key || message)
+prefix = 08 || context[1:] || R || full_public_key || digest
+stream = SHA-X(prefix || BE32(0)) || SHA-X(prefix || BE32(1)) || ...
 ```
 
-The benchmark measures key generation, signing, and verification separately,
-then flips one signature bit and requires verification to reject it. The
-generated benchmark executable is removed automatically when the command
-finishes, including when the test exits with an error.
+Use the first b bits as the M-FORS message, then the next 60 as the node index.
+The 256 sets preserve **all 64 digest bytes** in prefix. SHA-512 is not truncated
+to 32 bytes before expansion. The expansion reuses a public-prefix hash state
+without changing the result. H1, H2, and seed derivation still use SHA-256.
 
-Enable and run all native regression checks with:
+## Setup root-seed capability
+
+The witness is the 32-byte seed S_root of layer 0, node 0. Its derivation from
+MASTER_SEED happens outside the proof. The proof enforces
+`x_i = SHA-256(S_root || ADRS_i)` using one shared S_root and distinct fixed
+addresses: tree 0, leaf 0; additionally tree 1, leaf 0 for double anchors.
+A 64-byte preimage requires **two SHA-256 compressions**, including padding.
+
+The public certificate contains a 16-byte versioned, parameter-bound header,
+each selected x_i and its d sibling nodes, then a shared aggregation path.
+For two anchors the roots of trees 0/1 are combined first, saving one sibling
+per individual path. Other tree roots are not published individually.
+Public verification hashes x_i to its leaf, follows both paths, applies H2,
+and checks the registered root public value.
+
+Certificate sizes are respectively 720, 624, 1264, 1040, 1264, 1040 bytes.
+VOLEith's relation kind is 3; old F-SPHINCS+ kind 2 proofs are rejected.
+The proof context binds the complete certificate and issuer public key.
+The adapter also reconstructs the fixed PRF addresses and disclosed endpoints
+from that authenticated certificate before checking the VOLEith proof, so an
+unrelated seed proof cannot be attached to a valid certificate.
+
+This small proof does not enforce that *every* secret in the top M-FORS node
+was derived from the proved seed. The root-node seed-consistency assumption
+and the relevant jointly addressed PRF-binding assumption remain part of the
+security argument. No consistency with seeds of lower nodes is required:
+`fsphincs_sign_with_root_seed` constructs lower layers from an independent
+seed and completes the last layer with S_root. The test clears the original
+master and verifies two fresh credentials. This tests the capability, not
+an implementation of a cryptographic extractor.
+
+## Tests and benchmarks
+
+From this directory:
 
 ```sh
-make test FSPHINCS_SECURITY=128
-make test FSPHINCS_SECURITY=256
+make benchmark FSPHINCS_PARAMS=128f
+make kat FSPHINCS_PARAMS=256f
 ```
 
-`make kat` uses a fixed 64-byte seed, fixed 32-byte signature randomizer, and
-fixed message. It pins SHA-256 digests of the complete public key, secret key,
-133,312/266,592-byte signature, the selected 60-bit leaf index, and all seven
-recovered M-FORS public values. Its generated executable is also removed
-automatically.
+The benchmark includes positive/negative verification and root-capability tests
+outside measured intervals. Each Make target removes its generated executable.
+`kat.c` emits deterministic full fixtures; `test_reference.py` independently
+checks H3 with hashlib, exact bit parsing, all seven signature layers and the
+compact certificate, then compares committed manifests in `kat/`.
+KAT fingerprints lock keys, signature, certificate, root seed, anchor outputs,
+node index and all recovered layer values. `KAT_ARGS=--emit` prints reviewed
+candidate fingerprints but never overwrites committed vectors.
 
-See `RISC0_READINESS.md` for the guest-integration audit and exact verifier
-hash workload.
+From DAA_FULL:
+
+```sh
+ITERATIONS=1 bash scripts/benchmark_fsphincs_native_setup.sh
+SEGMENT_PO2_LIST="22 21 20" bash scripts/benchmark_fsphincs_host.sh
+```
+
+Native/Setup has six paired rows, not 36 combinations. Host has six rows for
+each receipt kind and segment size, with Ours-3F and one SHA-2 hook throughout.
+Both scripts retain timestamped logs in `benchmarks/fsphincs_v3`; Host reuses
+`~/.cache/sedaa-risc0-shared-target`. Benchmark randomness is deterministic
+for reproducibility and must not be used for production key generation.

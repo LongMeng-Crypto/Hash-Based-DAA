@@ -8,6 +8,7 @@ cd "${workspace_dir}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 export RISC0_PROVER="${RISC0_PROVER:-local}"
 export RISC0_BACKEND_HASH="${RISC0_BACKEND_HASH:-sha-256}"
+unset FSPHINCS_SECURITY FSPHINCS_K RISC0_SKIP_BUILD
 export DAA_DETERMINISTIC="${DAA_DETERMINISTIC:-1}"
 
 local_recursion_zkr="${HOME}/RISC0-SHA256/vendor/risc0_sha256_backend/crates/risc0-circuit-recursion/src/recursion_zkr.zip"
@@ -26,18 +27,6 @@ summary_file="${HOST_BENCH_SUMMARY:-${log_dir}/host_sha2_all_${timestamp}.tsv}"
 mkdir -p "${CARGO_TARGET_DIR}" "${log_dir}" "${case_dir}"
 printf '%s\n' $'family\trelation\tcredential\tparameter\treceipt\tidentity\tsegment_po2\trun\tprover_us\tverifier_us\tproof_bytes\tseal_bytes' >"${summary_file}"
 
-security_k() {
-  case "$1" in
-    128) printf '%s' 22 ;;
-    192) printf '%s' 33 ;;
-    256) printf '%s' 43 ;;
-    *)
-      printf 'unsupported security level: %s\n' "$1" >&2
-      return 1
-      ;;
-  esac
-}
-
 metric() {
   local key="$1"
   local file="$2"
@@ -54,8 +43,6 @@ run_host_case() {
   local identity="$7"
   local binary="$8"
   local security="${parameter%[sf]}"
-  local fs_k
-  fs_k="$(security_k "${security}")"
 
   local run
   for ((run = 1; run <= iterations; run++)); do
@@ -77,8 +64,7 @@ run_host_case() {
       SPHINCS_PARAMS="sphincs-sha2-${parameter}" \
       SPHINCS_THASH=simple \
       SPHINCS_OPT_LEVEL="${opt_level}" \
-      FSPHINCS_SECURITY="${security}" \
-      FSPHINCS_K="${fs_k}" \
+      FSPHINCS_PARAMS="${parameter}" \
       RISC0_RECEIPT_KIND="${receipt}" \
       RISC0_IDENTITY_WRAP="${identity}" \
       RISC0_SEGMENT_LIMIT_PO2="${segment_po2}" \
@@ -140,16 +126,10 @@ run_host_case() {
       daa_sha256_backend_host
   done
 
-  # Existing constant-structure F-SPHINCS+ relation with k=22/33/43.
-  # Ours-3F and CDENW'23--Ours-5F differ only in the SHA-2 hook relation.
-  for relation in ours chen23; do
-    for security in 128 192 256; do
-      run_host_case \
-        fsphincs "${relation}" fsphincs "${security}s" 2 composite 0 \
-        bench_fsphincs_risc0
-      run_host_case \
-        fsphincs "${relation}" fsphincs "${security}s" 2 succinct 0 \
-        bench_fsphincs_risc0
+  # Six F-SPHINCS+ alternatives use the same Ours-3F one-SHA hook.
+  for parameter in 128s 128f 192s 192f 256s 256f; do
+    for receipt in composite succinct; do
+      run_host_case fsphincs ours fsphincs "${parameter}" 2 "${receipt}" 0 bench_fsphincs_risc0
     done
   done
 

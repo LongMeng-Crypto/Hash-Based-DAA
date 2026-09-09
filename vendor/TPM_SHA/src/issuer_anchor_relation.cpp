@@ -105,19 +105,12 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
       add_truncated_outputs(circuit_, digest.fips_bits, seed_bytes());
     }
   } else {
-    for (std::size_t node = 0; node != 2; ++node) {
-      FipsBits first;
-      first.reserve(512);
-      append(first, seed);
-      append(first, std::span<const Wire>(public_a).subspan(node * 32 * 8,
-                                                            32 * 8));
-      const auto node_seed = vole_circuits::sha2::build_sha256(circuit_, first);
-      FipsBits second;
-      second.reserve(512);
-      append(second, node_seed.fips_bits);
-      append(second, std::span<const Wire>(public_b).subspan(node * 32 * 8,
-                                                             32 * 8));
-      const auto anchor = vole_circuits::sha2::build_sha256(circuit_, second);
+    for (std::size_t node = 0; node != anchors(); ++node) {
+      FipsBits preimage;
+      preimage.reserve(512);
+      append(preimage, seed);
+      append(preimage, std::span<const Wire>(public_b).subspan(node * 32 * 8, 32 * 8));
+      const auto anchor = vole_circuits::sha2::build_sha256(circuit_, preimage);
       add_truncated_outputs(circuit_, anchor.fips_bits, 32);
     }
   }
@@ -127,7 +120,13 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
     throw std::logic_error("invalid issuer-anchor circuit: " + error);
 }
 
-// Returns the private global-seed length for the selected credential scheme.
+// Selects the number of root-seed observations proved under one witness.
+std::size_t Relation::anchors() const {
+  return kind_ == Kind::FSphincs &&
+         level_ == vole_backend::SecurityLevel::Bits128 ? 1 : 2;
+}
+
+// Returns the private master-seed or root-node-seed length for this scheme.
 std::size_t Relation::seed_bytes() const {
   if (kind_ == Kind::FSphincs) return 32;
   return vole_backend::security_parameters(level_).lambda_bytes;
@@ -135,22 +134,22 @@ std::size_t Relation::seed_bytes() const {
 
 // Returns the first public-input field length.
 std::size_t Relation::public_a_bytes() const {
-  return kind_ == Kind::Sphincs ? 32 : 64;
+  return kind_ == Kind::Sphincs ? 32 : 0;
 }
 
 // Returns the second public-input field length.
 std::size_t Relation::public_b_bytes() const {
-  return kind_ == Kind::Sphincs ? 44 : 64;
+  return kind_ == Kind::Sphincs ? 44 : anchors() * 32;
 }
 
 // Returns the public anchor output length.
 std::size_t Relation::anchor_bytes() const {
-  return kind_ == Kind::Sphincs ? 2 * seed_bytes() : 64;
+  return anchors() * seed_bytes();
 }
 
 // Reports the number of secret-dependent SHA-256 compression blocks.
 std::size_t Relation::compression_blocks() const {
-  return kind_ == Kind::Sphincs ? 2 : 8;
+  return kind_ == Kind::Sphincs ? 2 : 2 * anchors();
 }
 
 // Serializes the private seed into backend input bits.

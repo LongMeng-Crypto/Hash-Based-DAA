@@ -1,3 +1,5 @@
+#[path = "../../fsphincs_build.rs"]
+mod fsphincs_build;
 use std::env;
 use std::path::Path;
 
@@ -49,19 +51,8 @@ fn main() {
     if tpm_backend != "sha2" && tpm_sha_scheme != "ours" {
         panic!("DAA_TPM_SHA_SCHEME=chen23 requires DAA_TPM_BACKEND=sha2");
     }
-    let fs_security = env::var("FSPHINCS_SECURITY").unwrap_or_else(|_| "128".to_string());
-    if fs_security != "128" && fs_security != "192" && fs_security != "256" {
-        panic!("FSPHINCS_SECURITY must be 128, 192, or 256");
-    }
-    let fs_k = env::var("FSPHINCS_K").unwrap_or_else(|_| match fs_security.as_str() {
-        "128" => "35".to_string(),
-        "192" => "33".to_string(),
-        "256" => "70".to_string(),
-        _ => unreachable!(),
-    });
-    if !["22", "33", "35", "43", "70"].contains(&fs_k.as_str()) {
-        panic!("FSPHINCS_K must be 22, 33, 35, 43, or 70");
-    }
+    let (fs_params, fs_security) =
+        fsphincs_build::configure("c_src/fsphincs_ref/parameter_sets.h", &params);
     let skip_aes = env::var("SPHINCS_SKIP_AES_CHECK").unwrap_or_default() == "1";
     let opt_level_from_new = env::var("SPHINCS_OPT_LEVEL")
         .ok()
@@ -231,8 +222,7 @@ fn main() {
         .include(fs_dir)
         .include(dir)
         .define("FSPHINCS_VERIFY_ONLY", None)
-        .define("FSPHINCS_SECURITY", fs_security.as_str())
-        .define("FSPHINCS_K", fs_k.as_str())
+        .define("FSPHINCS_PARAMS", fs_params.as_str())
         .opt_level(3)
         .warnings(true)
         .file(format!("{}/fsphincs.c", fs_dir))
@@ -289,9 +279,6 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(sphincs_opt5_padding)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_192)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
-    for k in ["22", "33", "35", "43", "70"] {
-        println!("cargo::rustc-check-cfg=cfg(fsphincs_k_{k})");
-    }
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
     if profile {
         println!("cargo:rustc-cfg=sphincs_profile");
@@ -313,7 +300,6 @@ fn main() {
         "256" => println!("cargo:rustc-cfg=fsphincs_256"),
         _ => {}
     }
-    println!("cargo:rustc-cfg=fsphincs_k_{}", fs_k);
 
     let default_opt5_pad_blocks = if opt_level == 5 {
         match params.as_str() {
@@ -358,7 +344,6 @@ fn main() {
         if skip_aes { "1" } else { "0" }
     );
     println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
-    println!("cargo:rustc-env=FSPHINCS_K={}", fs_k);
     println!("cargo:rustc-env=DAA_TPM_BACKEND={}", tpm_backend);
     println!("cargo:rustc-env=DAA_TPM_SHA_SCHEME={}", tpm_sha_scheme);
 }

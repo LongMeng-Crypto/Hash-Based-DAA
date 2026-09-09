@@ -19,21 +19,16 @@ mod sha_syscalls;
 
 risc0_zkvm::guest::entry!(main);
 
-#[cfg(fsphincs_k_22)]
-const K: usize = 22;
-#[cfg(fsphincs_k_33)]
-const K: usize = 33;
-#[cfg(fsphincs_k_35)]
-const K: usize = 35;
-#[cfg(fsphincs_k_43)]
-const K: usize = 43;
-#[cfg(fsphincs_k_70)]
-const K: usize = 70;
+#[allow(dead_code)]
+mod fs_params {
+    include!(concat!(env!("OUT_DIR"), "/fsphincs_params.rs"));
+}
+const K: usize = fs_params::K;
 const N: usize = 32;
-const D: usize = 16;
+const D: usize = fs_params::D;
 const H: usize = 6;
 const Q: u64 = 1024;
-const MFORS_MSG_BYTES: usize = K * D / 8;
+const MFORS_MSG_BYTES: usize = (K * D + 7) / 8;
 const MFORS_SIG_BYTES: usize = K * (D + 1) * N;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
@@ -76,8 +71,7 @@ const HOOK_PUBLIC_BYTES: usize = HK_BYTES;
 const HOOK_PUBLIC_BYTES: usize = 2 * HK_BYTES;
 const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 
-/* One M-FORS layer is streamed at a time. This is 19,040 B for k=35 and
- * 38,080 B for k=70, replacing the former 133/267 KiB whole-signature .bss. */
+/* Stream one M-FORS layer; never buffer the complete credential in the guest. */
 static mut LAYER_SIGNATURE: [u8; MFORS_SIG_BYTES] = [0; MFORS_SIG_BYTES];
 
 extern "C" {
@@ -87,6 +81,7 @@ extern "C" {
         randomizer: *const u8,
         msg: *const u8,
         msglen: usize,
+        pk: *const u8,
     );
     fn fsphincs_verify_layer(
         value: *mut u8,
@@ -209,6 +204,7 @@ fn main() {
             randomizer.as_ptr(),
             message.as_ptr(),
             MSG_BYTES,
+            pk.as_ptr(),
         );
     }
 

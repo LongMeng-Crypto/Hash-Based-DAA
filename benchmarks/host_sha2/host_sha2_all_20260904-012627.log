@@ -1,0 +1,812 @@
+Complete SHA-2 Host proof benchmark
+date             : 2026-09-04T01:26:27+01:00
+DAA commit       : 880ac2f
+backend commit   : 0079fe1
+cargo target     : /home/lm0052/.cache/sedaa-risc0-shared-target
+segment_po2      : 20
+iterations       : 1
+combined log     : /home/lm0052/SEDAA/DAA_FULL/benchmarks/host_sha2/host_sha2_all_20260904-012627.log
+summary TSV      : /home/lm0052/SEDAA/DAA_FULL/benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv
+per-case logs    : /home/lm0052/SEDAA/DAA_FULL/results/host_sha2/20260904-012627
+
+================================================================
+CASE=direct_ours_128s_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=128s
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling ring v0.17.14
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling rustls v0.23.42
+   Compiling rustls-webpki v0.103.13
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling downloader v0.2.8
+   Compiling risc0-circuit-recursion v4.0.4 (https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe18)
+   Compiling bonsai-sdk v1.4.2
+   Compiling risc0-circuit-keccak v4.0.5
+   Compiling risc0-zkvm v3.0.4 (https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe18)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 32s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128s thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=7856 B
+SPHINCS+ keygen = 50.84 ms, signing = 332.77 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 9711.821 ms, proof size = 273860 bytes
+prover_us=9711821
+proof_bytes=273860
+seal_bytes=272780
+guest cycles: user=553480 total=1048576 paging=27462 reserved=467634 segments=1
+verify ok, verifier time = 0.773 ms
+verifier_us=772
+
+================================================================
+CASE=direct_ours_128f_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=128f
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 11s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128f thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=17088 B
+SPHINCS+ keygen = 0.66 ms, signing = 14.68 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 18619.151 ms, proof size = 273860 bytes
+prover_us=18619150
+proof_bytes=273860
+seal_bytes=272780
+guest cycles: user=1448593 total=1572864 paging=48416 reserved=75855 segments=2
+verify ok, verifier time = 0.774 ms
+verifier_us=773
+
+================================================================
+CASE=direct_ours_192s_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=192s
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192s thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=16224 B
+SPHINCS+ keygen = 67.34 ms, signing = 551.67 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 71021.889 ms, proof size = 274116 bytes
+prover_us=71021888
+proof_bytes=274116
+seal_bytes=272780
+guest cycles: user=6623939 total=7340032 paging=265247 reserved=450846 segments=7
+verify ok, verifier time = 0.816 ms
+verifier_us=815
+
+================================================================
+CASE=direct_ours_192f_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=192f
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192f thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=35664 B
+SPHINCS+ keygen = 1.05 ms, signing = 23.97 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 112685.268 ms, proof size = 274116 bytes
+prover_us=112685267
+proof_bytes=274116
+seal_bytes=272780
+guest cycles: user=10596663 total=11534336 paging=404616 reserved=533057 segments=11
+verify ok, verifier time = 0.781 ms
+verifier_us=781
+
+================================================================
+CASE=direct_ours_256s_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=256s
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256s thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=29792 B
+SPHINCS+ keygen = 40.50 ms, signing = 487.70 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 101234.294 ms, proof size = 274372 bytes
+prover_us=101234294
+proof_bytes=274372
+seal_bytes=272780
+guest cycles: user=9290628 total=9961472 paging=373865 reserved=296979 segments=10
+verify ok, verifier time = 0.779 ms
+verifier_us=779
+
+================================================================
+CASE=direct_ours_256f_succinct_identity1_seg20_run1
+family=direct relation=ours credential=sphincs parameter=256f
+opt=2 receipt=succinct identity=1 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256f thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=49856 B
+SPHINCS+ keygen = 2.41 ms, signing = 49.48 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+identity wrap = enabled
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = aa3655d0679c6d1ab30db6382e60950205d95aa6caa7c8f3bbc084bad311b427
+succinct control_proof_index = 0
+succinct control_proof_len = 8
+done proving, prover time = 141166.941 ms, proof size = 274372 bytes
+prover_us=141166940
+proof_bytes=274372
+seal_bytes=272780
+guest cycles: user=12901052 total=13893632 paging=527428 reserved=465152 segments=14
+verify ok, verifier time = 0.807 ms
+verifier_us=807
+
+================================================================
+CASE=zkwots_ours_128s_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=128s
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128s thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=7856 B
+SPHINCS+ keygen = 42.71 ms, signing = 304.00 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256
+done proving, prover time = 4545.472 ms, proof size = 526076 bytes
+prover_us=4545471
+proof_bytes=526076
+seal_bytes=525072
+guest cycles: user=1080745 total=1179648 paging=41046 reserved=57857 segments=2
+verify ok, verifier time = 2.116 ms
+verifier_us=2116
+
+================================================================
+CASE=zkwots_ours_128s_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=128s
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 07s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128s thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=7856 B
+SPHINCS+ keygen = 41.44 ms, signing = 291.05 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 14625.546 ms, proof size = 273860 bytes
+prover_us=14625546
+proof_bytes=273860
+seal_bytes=272780
+guest cycles: user=1080745 total=1179648 paging=41046 reserved=57857 segments=2
+verify ok, verifier time = 0.792 ms
+verifier_us=792
+
+================================================================
+CASE=zkwots_ours_128f_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=128f
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128f thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=17088 B
+SPHINCS+ keygen = 0.65 ms, signing = 14.65 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256,sha-256,sha-256
+done proving, prover time = 11415.600 ms, proof size = 1088692 bytes
+prover_us=11415599
+proof_bytes=1088692
+seal_bytes=1087328
+guest cycles: user=3064077 total=3276800 paging=67288 reserved=145435 segments=4
+verify ok, verifier time = 4.522 ms
+verifier_us=4521
+
+================================================================
+CASE=zkwots_ours_128f_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=128f
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-128f thash=simple backend=sha2 N=16B
+SPHINCS+ sizes: pk=32 B, sk=64 B, sig=17088 B
+SPHINCS+ keygen = 0.64 ms, signing = 14.87 ms
+DAA message: et_u=32B || gr_u=16B, hook_backend=sha2 relation=ours secret=16B hk=32B
+DAA hook public outputs: hk=32B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 35233.804 ms, proof size = 273860 bytes
+prover_us=35233803
+proof_bytes=273860
+seal_bytes=272780
+guest cycles: user=3064077 total=3276800 paging=67288 reserved=145435 segments=4
+verify ok, verifier time = 0.802 ms
+verifier_us=802
+
+================================================================
+CASE=zkwots_ours_192s_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=192s
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192s thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=16224 B
+SPHINCS+ keygen = 59.34 ms, signing = 531.11 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+done proving, prover time = 28106.415 ms, proof size = 2251364 bytes
+prover_us=28106415
+proof_bytes=2251364
+seal_bytes=2249024
+guest cycles: user=7636393 total=8388608 paging=293978 reserved=458237 segments=8
+verify ok, verifier time = 9.734 ms
+verifier_us=9733
+
+================================================================
+CASE=zkwots_ours_192s_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=192s
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 07s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192s thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=16224 B
+SPHINCS+ keygen = 61.41 ms, signing = 524.77 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 78628.589 ms, proof size = 274116 bytes
+prover_us=78628588
+proof_bytes=274116
+seal_bytes=272780
+guest cycles: user=7636393 total=8388608 paging=293978 reserved=458237 segments=8
+verify ok, verifier time = 0.798 ms
+verifier_us=798
+
+================================================================
+CASE=zkwots_ours_192f_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=192f
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192f thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=35664 B
+SPHINCS+ keygen = 1.03 ms, signing = 24.77 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+done proving, prover time = 49583.839 ms, proof size = 4160296 bytes
+prover_us=49583839
+proof_bytes=4160296
+seal_bytes=4156696
+guest cycles: user=13814236 total=14745600 paging=510091 reserved=421273 segments=15
+verify ok, verifier time = 18.314 ms
+verifier_us=18313
+
+================================================================
+CASE=zkwots_ours_192f_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=192f
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-192f thash=simple backend=sha2 N=24B
+SPHINCS+ sizes: pk=48 B, sk=96 B, sig=35664 B
+SPHINCS+ keygen = 0.90 ms, signing = 24.45 ms
+DAA message: et_u=48B || gr_u=24B, hook_backend=sha2 relation=ours secret=24B hk=48B
+DAA hook public outputs: hk=48B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 147892.117 ms, proof size = 274116 bytes
+prover_us=147892117
+proof_bytes=274116
+seal_bytes=272780
+guest cycles: user=13814236 total=14745600 paging=510091 reserved=421273 segments=15
+verify ok, verifier time = 0.779 ms
+verifier_us=779
+
+================================================================
+CASE=zkwots_ours_256s_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=256s
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256s thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=29792 B
+SPHINCS+ keygen = 38.29 ms, signing = 478.81 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+done proving, prover time = 40508.167 ms, proof size = 3363604 bytes
+prover_us=40508167
+proof_bytes=3363604
+seal_bytes=3360288
+guest cycles: user=11241328 total=12058624 paging=443871 reserved=373425 segments=12
+verify ok, verifier time = 14.819 ms
+verifier_us=14819
+
+================================================================
+CASE=zkwots_ours_256s_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=256s
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 07s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256s thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=29792 B
+SPHINCS+ keygen = 38.79 ms, signing = 465.54 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 118326.323 ms, proof size = 274372 bytes
+prover_us=118326323
+proof_bytes=274372
+seal_bytes=272780
+guest cycles: user=11241328 total=12058624 paging=443871 reserved=373425 segments=12
+verify ok, verifier time = 0.839 ms
+verifier_us=838
+
+================================================================
+CASE=zkwots_ours_256f_composite_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=256f
+opt=4 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256f thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=49856 B
+SPHINCS+ keygen = 2.54 ms, signing = 50.60 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = composite
+segment hashfn = sha-256
+segment hashfns = sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+done proving, prover time = 61118.986 ms, proof size = 5051452 bytes
+prover_us=61118986
+proof_bytes=5051452
+seal_bytes=5047056
+guest cycles: user=17171987 total=18350080 paging=656887 reserved=521206 segments=18
+verify ok, verifier time = 22.475 ms
+verifier_us=22474
+
+================================================================
+CASE=zkwots_ours_256f_succinct_identity0_seg20_run1
+family=zkwots relation=ours credential=sphincs parameter=256f
+opt=4 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 07s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/daa_sha256_backend_host`
+SPHINCS+ params=sphincs-sha2-256f thash=simple backend=sha2 N=32B
+SPHINCS+ sizes: pk=64 B, sk=128 B, sig=49856 B
+SPHINCS+ keygen = 2.48 ms, signing = 49.84 ms
+DAA message: et_u=64B || gr_u=32B, hook_backend=sha2 relation=ours secret=32B hk=64B
+DAA hook public outputs: hk=64B cet=0B
+start proving (seg_po2=20, backend hashfn=sha-256)
+receipt kind = succinct
+segment hashfn = <hidden by succinct receipt>
+segment hashfns = <hidden by succinct receipt>
+succinct hashfn = sha-256
+succinct control_id = edd03c04c0470f1d0fda64c718e7e93c2b5b5950d9e4506b70bb994ef946f650
+succinct control_proof_index = 1
+succinct control_proof_len = 8
+done proving, prover time = 180532.964 ms, proof size = 274372 bytes
+prover_us=180532964
+proof_bytes=274372
+seal_bytes=272780
+guest cycles: user=17171987 total=18350080 paging=656887 reserved=521206 segments=18
+verify ok, verifier time = 0.788 ms
+verifier_us=787
+
+================================================================
+CASE=fsphincs_ours_128s_composite_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=128s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=76 B sk=108 B signature=83808 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=1312.887 sign_ms=9025.302
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256
+prover_ms=10687.964
+prover_us=10687963
+verifier_ms=3.600
+verifier_us=3600
+proof_bytes=844920
+seal_bytes=843384
+guest_cycles: user=2857923 total=3145728 paging=73143 reserved=214662 segments=3
+
+================================================================
+CASE=fsphincs_ours_128s_succinct_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=128s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=76 B sk=108 B signature=83808 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=1393.819 sign_ms=8894.944
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=27559.584
+prover_us=27559583
+verifier_ms=0.790
+verifier_us=790
+proof_bytes=274212
+seal_bytes=272780
+guest_cycles: user=2857923 total=3145728 paging=73143 reserved=214662 segments=3
+
+================================================================
+CASE=fsphincs_ours_192s_composite_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=192s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=98 B sk=130 B signature=125696 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=2016.561 sign_ms=13439.185
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256,sha-256,sha-256
+prover_ms=17929.834
+prover_us=17929834
+verifier_ms=5.992
+verifier_us=5992
+proof_bytes=1407840
+seal_bytes=1405640
+guest_cycles: user=4530253 total=5242880 paging=149465 reserved=563162 segments=5
+
+================================================================
+CASE=fsphincs_ours_192s_succinct_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=192s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=98 B sk=130 B signature=125696 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=1968.372 sign_ms=13248.462
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=47934.522
+prover_us=47934522
+verifier_ms=0.789
+verifier_us=788
+proof_bytes=274516
+seal_bytes=272780
+guest_cycles: user=4530253 total=5242880 paging=149465 reserved=563162 segments=5
+
+================================================================
+CASE=fsphincs_ours_256s_composite_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=256s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=2549.481 sign_ms=17530.367
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+prover_ms=21470.622
+prover_us=21470622
+verifier_ms=7.023
+verifier_us=7022
+proof_bytes=1689436
+seal_bytes=1686768
+guest_cycles: user=5650368 total=6291456 paging=196731 reserved=444357 segments=6
+
+================================================================
+CASE=fsphincs_ours_256s_succinct_identity0_seg20_run1
+family=fsphincs relation=ours credential=fsphincs parameter=256s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=2482.737 sign_ms=17086.312
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=58242.123
+prover_us=58242122
+verifier_ms=0.800
+verifier_us=800
+proof_bytes=274804
+seal_bytes=272780
+guest_cycles: user=5650368 total=6291456 paging=196731 reserved=444357 segments=6
+
+================================================================
+CASE=fsphincs_chen23_128s_composite_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=128s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=76 B sk=108 B signature=83808 B message=48 B
+DAA hook: backend=sha2 relation=chen23 et_u=32 B gr_u=16 B secret=32 B hk=32 B cet=32 B
+native keygen_ms=1298.805 sign_ms=8974.926
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256
+prover_ms=10952.114
+prover_us=10952114
+verifier_ms=3.627
+verifier_us=3626
+proof_bytes=845176
+seal_bytes=843384
+guest_cycles: user=2859209 total=3145728 paging=73234 reserved=213285 segments=3
+
+================================================================
+CASE=fsphincs_chen23_128s_succinct_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=128s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=76 B sk=108 B signature=83808 B message=48 B
+DAA hook: backend=sha2 relation=chen23 et_u=32 B gr_u=16 B secret=32 B hk=32 B cet=32 B
+native keygen_ms=1360.901 sign_ms=8881.773
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=27812.000
+prover_us=27812000
+verifier_ms=0.794
+verifier_us=794
+proof_bytes=274468
+seal_bytes=272780
+guest_cycles: user=2859209 total=3145728 paging=73234 reserved=213285 segments=3
+
+================================================================
+CASE=fsphincs_chen23_192s_composite_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=192s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=98 B sk=130 B signature=125696 B message=72 B
+DAA hook: backend=sha2 relation=chen23 et_u=48 B gr_u=24 B secret=48 B hk=48 B cet=48 B
+native keygen_ms=2093.448 sign_ms=13382.185
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256,sha-256,sha-256
+prover_ms=17914.662
+prover_us=17914662
+verifier_ms=5.962
+verifier_us=5961
+proof_bytes=1408224
+seal_bytes=1405640
+guest_cycles: user=4546180 total=5242880 paging=155176 reserved=541524 segments=5
+
+================================================================
+CASE=fsphincs_chen23_192s_succinct_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=192s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 07s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=98 B sk=130 B signature=125696 B message=72 B
+DAA hook: backend=sha2 relation=chen23 et_u=48 B gr_u=24 B secret=48 B hk=48 B cet=48 B
+native keygen_ms=1955.137 sign_ms=13343.228
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=48319.608
+prover_us=48319607
+verifier_ms=0.800
+verifier_us=799
+proof_bytes=274900
+seal_bytes=272780
+guest_cycles: user=4546180 total=5242880 paging=155176 reserved=541524 segments=5
+
+================================================================
+CASE=fsphincs_chen23_256s_composite_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=256s
+opt=2 receipt=composite identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=chen23 et_u=64 B gr_u=32 B secret=64 B hk=64 B cet=64 B
+native keygen_ms=2532.172 sign_ms=17222.596
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256,sha-256,sha-256,sha-256
+prover_ms=21448.637
+prover_us=21448637
+verifier_ms=7.065
+verifier_us=7065
+proof_bytes=1689948
+seal_bytes=1686768
+guest_cycles: user=5680782 total=6291456 paging=202813 reserved=407861 segments=6
+
+================================================================
+CASE=fsphincs_chen23_256s_succinct_identity0_seg20_run1
+family=fsphincs relation=chen23 credential=fsphincs parameter=256s
+opt=2 receipt=succinct identity=0 segment_po2=20
+================================================================
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 06s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=chen23 et_u=64 B gr_u=32 B secret=64 B hk=64 B cet=64 B
+native keygen_ms=2461.346 sign_ms=16878.706
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=58625.936
+prover_us=58625936
+verifier_ms=0.794
+verifier_us=794
+proof_bytes=275316
+seal_bytes=272780
+guest_cycles: user=5680782 total=6291456 paging=202813 reserved=407861 segments=6
+
+All 30 existing Host benchmark cases completed.
+Combined log: /home/lm0052/SEDAA/DAA_FULL/benchmarks/host_sha2/host_sha2_all_20260904-012627.log
+Summary TSV : /home/lm0052/SEDAA/DAA_FULL/benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv
+Per-case log: /home/lm0052/SEDAA/DAA_FULL/results/host_sha2/20260904-012627

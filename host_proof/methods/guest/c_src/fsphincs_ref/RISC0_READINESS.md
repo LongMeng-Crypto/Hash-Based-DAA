@@ -1,85 +1,41 @@
-# RISC0 guest readiness audit
+# RISC0 guest, format v3
 
-## Verdict
+The six sets in DESIGN.md share one streaming verification implementation.
+All tree verification uses the existing SHA-256 syscall path. Only H3 in the
+256 sets and the 192/256 SHA hooks use software SHA-512-family operations;
+RISC0 v3 has no SHA-512 syscall. No backend fork or shared-cache change is needed.
 
-The verification path is wired into the `fsphincs_guest` RISC0 binary. Key
-generation and signing remain host-only operations.
+The largest per-layer signature buffer is 49,920 bytes (256f), not a complete
+credential. Verification allocates no heap tree, keeps fixed k/d/h loop bounds,
+reuses hash/address buffers and swaps 32-byte states. H3 streams message data
+through a 64/128-byte buffer, retains its full digest, and reuses expansion
+prefix state. Host and Guest use the same generated constants, including
+ceil(k*d/8). Setup, secret derivation and signing are excluded from the Guest.
 
-## Work completed before guest integration
+The journal binds success, hk and the issuer public key; the parameter-specific
+image ID binds the verification program. Ours-3F checks the SHA-2 hook over the
+same et and s as the TPM relation and verifies the credential over et || nonce.
+Historical AES and CDENW'23 two-hook code paths remain available explicitly;
+the new six-set benchmark selects only the one-SHA hook.
 
-- Removed per-hash `malloc/free` from the verifier hot path. Hash preimages now
-  use bounded stack buffers.
-- Replaced the dynamically concatenated `H3(msg || gr)` input with incremental
-  SHA-256.
-- Kept all verification loop bounds compile-time fixed (`h`, `k`, and `d`).
-- Streams and reuses one M-FORS layer buffer; verification never copies or
-  retains the complete signature.
-- Made profiling optional. Guest builds without `FSPHINCS_PROFILE` do not pay
-  for counter updates.
-- Reused the existing `sha2.c` entry points, so the guest can use the existing
-  `RISC0_SHA_SYSCALL` SHA-256 acceleration.
+Native profiling reports SHA-256 and SHA-512 compression counts separately.
+Prefix reuse is counted as actual executed work, not repeated logical input
+length. For one M-FORS layer, A=next_power_of_two(k), m=ceil(k*d/8):
 
-Verifier working memory, excluding the input signature, is only a few KiB.
-For `k=70`, the largest live local arrays are the 4,096-byte M-FORS root
-accumulator and the 2,240-byte set of recovered roots.
+- k leaf hashes (2 SHA-256 compressions each);
+- k*d + A-1 tree hashes (3 each);
+- A-k deterministic padding roots (2 each);
+- 1+ceil(m/32) H2 hashes (2 each).
 
-## Exact native verifier workload
+H3 is counted separately because its work depends on message/key length.
+The old k=35/70 AES-hook measurements do not describe this format.
 
-For `n=256, d=16, k=35, q=1024, h=6`:
+Execution-only smoke test, without GPU proving:
 
-```text
-logical SHA-256 calls       4,841
-SHA-256 compression blocks 14,043
+```sh
+FSPHINCS_EXECUTE_ONLY=1 RECEIPT_LIST=composite \
+  bash scripts/benchmark_fsphincs_host.sh
 ```
 
-Each of the seven M-FORS recoveries performs 691 logical SHA-256 calls:
-
-```text
-35 selected leaf hashes
-560 authentication-path internal hashes
-29 deterministic padding-root hashes
-63 aggregation-tree internal hashes
-4 H2 calls (one seed hash plus three expansion blocks)
-```
-
-The remaining four calls are H3: one message seed hash and three expansion
-calls.
-
-For `k=70`, verification uses 9,673 logical SHA-256 calls and 28,075
-compression blocks. Each layer performs 1,381 logical calls; H3 uses six.
-
-## Guest integration
-
-- `FSPHINCS_VERIFY_ONLY` removes key generation, signing, secret derivation,
-  and full-tree construction from the guest archive.
-- The guest streams one M-FORS layer at a time. Its reusable `.bss` buffer is
-  19,040 bytes for `k=35` or 38,080 bytes for `k=70`, rather than retaining the
-  complete 133,312/266,592-byte signature.
-- The host writes public key, signature, message, and commitment separately,
-  avoiding a second concatenated witness buffer.
-- The public journal binds success, parameter identifier `FSPX1281`, the
-  102-byte issuer public key, and SHA-256 commitment to the private message.
-- Guest profiling counters are disabled; the native profile remains the source
-  of the exact logical SHA workload.
-- Aligned SHA input blocks go directly to `sys_sha_buffer`; only unaligned
-  callers use the fallback aligned copy.
-- Fixed-size leaf/node hashes construct their final preimages directly.
-  Authentication paths swap state buffers, and address templates are reused.
-- `bench_fsphincs_risc0_gpu.sh` reports user, paging, reserved, and total
-  cycles plus segment count for composite or succinct receipts.
-
-## Optimized SHA-256 composite baseline (`segment_po2=22`)
-
-```text
-configuration  user cycles  total cycles  paging  segments  receipt bytes
-k=35             4,749,081     5,242,880   62,216         2        601,644
-k=70             9,397,101    10,485,760  123,741         3        946,232
-```
-
-These figures include the DAA AES hook and verification of the credential
-message `et_u || issuer_nonce`.
-
-The authentication-path left/right branch depends on the H3-derived index but
-does not change loop counts or hash counts. If a future threat model requires
-identical instruction traces in addition to zero-knowledge receipts, it can be
-replaced by constant-time selection without changing the wire format.
+A normal Host run proves and verifies the receipt and checks the entire public
+journal. Exact execution/proof times must be remeasured for the new images.

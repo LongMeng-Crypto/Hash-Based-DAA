@@ -306,6 +306,11 @@ impl ProtocolConfig {
 
     /// Rejects unsupported parameter/proof combinations before running algorithms.
     fn ensure_real_supported(&self) -> DaaResult<()> {
+        if self.credential_scheme == CredentialScheme::FSphincsPlus
+            && self.tpm_sha_profile != TpmShaProfile::from_name(&self.sphincs_params)
+        {
+            return Err(DaaError::UnsupportedProtocolCombination);
+        }
         if self.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots
             && (self.credential_scheme != CredentialScheme::SphincsPlus
                 || !self.proof_mode.uses_real_proofs())
@@ -860,16 +865,23 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     if verify_issuer_anchor_real(&config, &native, &context, &malformed_proof) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    // Check both outputs and both addresses, including through the native
+    // Check every selected output and address, including through the native
     // verifier so rejection cannot be caused only by the Rust statement hash.
-    for node in 0..2 {
+    let anchors = if config.credential_scheme == CredentialScheme::FSphincsPlus
+        && config.security == SecurityLevel::L128
+    {
+        1
+    } else {
+        2
+    };
+    for node in 0..anchors {
         for mutate_address in [false, true] {
             let mut wrong = native.clone();
             if mutate_address {
-                let offset = node * (wrong.public_b.len() / 2);
+                let offset = node * (wrong.public_b.len() / anchors);
                 wrong.public_b[offset] ^= 1;
             } else {
-                let offset = node * (wrong.anchor_value.len() / 2);
+                let offset = node * (wrong.anchor_value.len() / anchors);
                 wrong.anchor_value[offset] ^= 1;
             }
             let mut rebound_proof = pi_i.clone();
@@ -882,7 +894,26 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
                     &context,
                 ],
             );
-            if verify_issuer_anchor_real(&config, &wrong, &context, &rebound_proof) {
+            let native_accepted = unsafe {
+                daa_issuer_anchor_verify(
+                    config.security.bits(),
+                    config.tpm_sha_profile.code(),
+                    issuer_anchor_kind(&config),
+                    wrong.public_a.as_ptr(),
+                    wrong.public_a.len(),
+                    wrong.public_b.as_ptr(),
+                    wrong.public_b.len(),
+                    wrong.anchor_value.as_ptr(),
+                    wrong.anchor_value.len(),
+                    context.as_ptr(),
+                    context.len(),
+                    rebound_proof.proof_bytes.as_ptr(),
+                    rebound_proof.proof_bytes.len(),
+                ) == 0
+            };
+            if native_accepted
+                || verify_issuer_anchor_real(&config, &wrong, &context, &rebound_proof)
+            {
                 return Err(DaaError::InvalidIssuerAnchor);
             }
         }
@@ -892,8 +923,15 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     if verify_issuer_anchor_real(&config, &native, &wrong_context, &pi_i) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    // A proof with just its second output changed must not be constructible
-    // with the original seed. This checks the two-output circuit itself.
+    let mut wrong_profile = config.clone();
+    wrong_profile.tpm_sha_profile = match config.tpm_sha_profile {
+        TpmShaProfile::Small => TpmShaProfile::Fast,
+        TpmShaProfile::Fast => TpmShaProfile::Small,
+    };
+    if verify_issuer_anchor_real(&wrong_profile, &native, &context, &pi_i) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    // A proof with a changed endpoint must not be constructible with the original seed.
     let mut wrong_output = native.clone();
     let second_output = wrong_output.anchor_value.len() / 2;
     wrong_output.anchor_value[second_output] ^= 1;
@@ -914,7 +952,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
         compression_blocks: if config.credential_scheme == CredentialScheme::SphincsPlus {
             2
         } else {
-            8
+            2 * anchors
         },
         keygen,
         anchor_generation: native.generation,
@@ -2599,7 +2637,7 @@ struct IssuerSetupAnchorExternal {
 fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     match config.credential_scheme {
         CredentialScheme::SphincsPlus => 1,
-        CredentialScheme::FSphincsPlus => 2,
+        CredentialScheme::FSphincsPlus => 3,
     }
 }
 
@@ -2686,7 +2724,63 @@ fn prove_issuer_anchor_real(
     })
 }
 
-/// Verifies pi_I and its Rust-side statement binding.
+/// Binds root-proof public fields to the certificate already authenticated natively.
+fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNative) -> bool {
+    if config.credential_scheme != CredentialScheme::FSphincsPlus {
+        return true;
+    }
+    const REGISTRY: &str =
+        include_str!("../../../host_proof/methods/guest/c_src/fsphincs_ref/parameter_sets.h");
+    let name = config.sphincs_params.rsplit('-').next().unwrap_or("");
+    let prefix = format!("#define FS_PARAMS_{name} ");
+    let Some(row) = REGISTRY.lines().find_map(|line| line.strip_prefix(&prefix)) else {
+        return false;
+    };
+    let values: Vec<usize> = row
+        .split(',')
+        .filter_map(|v| v.trim().parse().ok())
+        .collect();
+    let Ok([security, fast, d, k]) = <[usize; 4]>::try_from(values) else {
+        return false;
+    };
+    let count = if security == 128 { 1 } else { 2 };
+    let agg_height = k.next_power_of_two().trailing_zeros() as usize;
+    let mut header = b"DAAFROOT".to_vec();
+    header.extend_from_slice(&[
+        3,
+        3,
+        (security >> 8) as u8,
+        security as u8,
+        fast as u8,
+        d as u8,
+        k as u8,
+        count as u8,
+    ]);
+    if native.certificate.len() != 16 + 32 * (count * (d + 1) + agg_height - (count - 1))
+        || native.certificate[..16] != header
+        || !native.public_a.is_empty()
+        || native.public_b.len() != count * 32
+        || native.anchor_value.len() != count * 32
+    {
+        return false;
+    }
+    for anchor in 0..count {
+        let mut address = [0u8; 32];
+        address[..4].copy_from_slice(&[2, 3, (security >> 8) as u8, security as u8]);
+        address[16..20].copy_from_slice(&(anchor as u32).to_be_bytes());
+        address[28..].copy_from_slice(&[fast as u8, d as u8, k as u8, 10]);
+        let offset = 16 + anchor * (d + 1) * 32;
+        if native.public_b[anchor * 32..(anchor + 1) * 32] != address
+            || native.anchor_value[anchor * 32..(anchor + 1) * 32]
+                != native.certificate[offset..offset + 32]
+        {
+            return false;
+        }
+    }
+    true
+}
+
+/// Verifies pi_I and its Rust-side statement/certificate binding.
 fn verify_issuer_anchor_real(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -2695,6 +2789,9 @@ fn verify_issuer_anchor_real(
 ) -> bool {
     if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
         return fixed_wots_verify_external(config, native, proof);
+    }
+    if !fsphincs_anchor_fields_match(config, native) {
+        return false;
     }
     let expected_statement = hash_many(
         32,
@@ -2887,14 +2984,11 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .env("DAA_TPM_SHA_SCHEME", config.tpm_sha_scheme.name())
         .env("DAA_CREDENTIAL_SCHEME", config.credential_scheme.name())
         .env("DAA_ISSUER_ANCHOR_MODE", config.issuer_anchor_mode.name())
-        .env("FSPHINCS_SECURITY", config.security.bits().to_string())
+        .env_remove("FSPHINCS_SECURITY")
+        .env_remove("FSPHINCS_K")
         .env(
-            "FSPHINCS_K",
-            match config.security {
-                SecurityLevel::L128 => "22",
-                SecurityLevel::L192 => "33",
-                SecurityLevel::L256 => "43",
-            },
+            "FSPHINCS_PARAMS",
+            config.param_spec()?.sphincs_env.rsplit('-').next().unwrap(),
         )
         .env("RISC0_BACKEND_HASH", &config.backend_hash);
     if let Some(segment_limit_po2) = config.risc0_segment_limit_po2 {
@@ -3421,6 +3515,87 @@ impl DeterministicRng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The six credential labels pair with six VOLEith profiles, never a cross product.
+    #[test]
+    fn fsphincs_profiles_are_paired() {
+        for parameter in [
+            "sha2-128s",
+            "sha2-128f",
+            "sha2-192s",
+            "sha2-192f",
+            "sha2-256s",
+            "sha2-256f",
+        ] {
+            let config = ProtocolConfig::default()
+                .with_params(parameter)
+                .with_credential_scheme(CredentialScheme::FSphincsPlus);
+            assert!(config.ensure_real_supported().is_ok());
+            assert_eq!(issuer_anchor_kind(&config), 3);
+            let opposite = if parameter.ends_with('s') { "f" } else { "s" };
+            let wrong = config.with_tpm_sha_profile(TpmShaProfile::from_name(opposite));
+            assert!(wrong.ensure_real_supported().is_err());
+        }
+    }
+
+    /// Rejects proofs rebound to addresses or outputs outside their public certificate.
+    #[test]
+    fn fsphincs_anchor_fields_cannot_be_rebound() {
+        for (name, security, fast, d, k) in [
+            ("128s", 128usize, 0, 16usize, 22usize),
+            ("128f", 128, 1, 12, 61),
+            ("192s", 192, 0, 16, 33),
+            ("192f", 192, 1, 12, 92),
+            ("256s", 256, 0, 16, 43),
+            ("256f", 256, 1, 12, 120),
+        ] {
+            let config = ProtocolConfig::default()
+                .with_params(format!("sha2-{name}"))
+                .with_credential_scheme(CredentialScheme::FSphincsPlus);
+            let count = if security == 128 { 1 } else { 2 };
+            let length = 16
+                + 32 * (count * (d + 1) + k.next_power_of_two().trailing_zeros() as usize
+                    - (count - 1));
+            // This fixture tests field linkage only; the C tests authenticate actual roots.
+            let mut native = IssuerAnchorNative {
+                certificate: vec![0; length],
+                witness: vec![],
+                public_a: vec![],
+                public_b: vec![0; count * 32],
+                anchor_value: vec![0; count * 32],
+                generation: Duration::ZERO,
+                certificate_verify: Duration::ZERO,
+            };
+            native.certificate[..8].copy_from_slice(b"DAAFROOT");
+            native.certificate[8..16].copy_from_slice(&[
+                3,
+                3,
+                (security >> 8) as u8,
+                security as u8,
+                fast,
+                d as u8,
+                k as u8,
+                count as u8,
+            ]);
+            for i in 0..count {
+                let a = &mut native.public_b[i * 32..(i + 1) * 32];
+                a[..4].copy_from_slice(&[2, 3, (security >> 8) as u8, security as u8]);
+                a[16..20].copy_from_slice(&(i as u32).to_be_bytes());
+                a[28..].copy_from_slice(&[fast, d as u8, k as u8, 10]);
+            }
+            assert!(fsphincs_anchor_fields_match(&config, &native));
+            for i in 0..count {
+                let mut wrong = native.clone();
+                wrong.anchor_value[i * 32] ^= 1;
+                assert!(!fsphincs_anchor_fields_match(&config, &wrong));
+                wrong = native.clone();
+                wrong.public_b[i * 32 + 24] ^= 1;
+                assert!(!fsphincs_anchor_fields_match(&config, &wrong));
+            }
+            native.certificate.pop();
+            assert!(!fsphincs_anchor_fields_match(&config, &native));
+        }
+    }
 
     /// Checks Setup-mode selection without altering existing proof/credential defaults.
     #[test]

@@ -1,0 +1,104 @@
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target; build/startup/test time excluded from pi_I timings
+===== credential=sphincs params=sha2-128s mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=136567
+guest_total_cycles=262144
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-128s profile=s credential_security=128 wots_chain_sha256_blocks=525
+keygen_ms=40.959
+anchor_generation_ms=40.424
+certificate_verify_ms=0.001
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=1233.361
+pi_i_verifier_ms=1.632
+pi_i_proof_bytes=257776
+public_certificate_bytes=176
+
+===== credential=sphincs params=sha2-128f mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=136365
+guest_total_cycles=262144
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-128f profile=f credential_security=128 wots_chain_sha256_blocks=525
+keygen_ms=0.645
+anchor_generation_ms=0.752
+certificate_verify_ms=0.000
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=1204.903
+pi_i_verifier_ms=1.614
+pi_i_proof_bytes=257008
+public_certificate_bytes=80
+
+===== credential=sphincs params=sha2-192s mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=399124
+guest_total_cycles=524288
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-192s profile=s credential_security=192 wots_chain_sha256_blocks=765
+keygen_ms=56.567
+anchor_generation_ms=56.996
+certificate_verify_ms=0.002
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=2082.704
+pi_i_verifier_ms=1.761
+pi_i_proof_bytes=270768
+public_certificate_bytes=256
+
+===== credential=sphincs params=sha2-192f mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=398439
+guest_total_cycles=524288
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-192f profile=f credential_security=192 wots_chain_sha256_blocks=765
+keygen_ms=0.938
+anchor_generation_ms=1.122
+certificate_verify_ms=0.001
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=2131.545
+pi_i_verifier_ms=1.722
+pi_i_proof_bytes=269616
+public_certificate_bytes=112
+
+===== credential=sphincs params=sha2-256s mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=653364
+guest_total_cycles=1048576
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-256s profile=s credential_security=256 wots_chain_sha256_blocks=1005
+keygen_ms=37.279
+anchor_generation_ms=37.486
+certificate_verify_ms=0.002
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=3474.809
+pi_i_verifier_ms=1.906
+pi_i_proof_bytes=284528
+public_certificate_bytes=304
+
+===== credential=sphincs params=sha2-256f mode=fixed-top-wots =====
+Issuer Setup anchor benchmark: mode=fixed-top-wots
+pi_i_backend=RISC0; full WOTS key; no global-seed consistency assumption
+guest_user_cycles=653028
+guest_total_cycles=1048576
+segments=1
+receipt_kind=composite backend=sha-256 segment_po2=20
+credential=SPHINCS+ params=sha2-256f profile=f credential_security=256 wots_chain_sha256_blocks=1005
+keygen_ms=2.386
+anchor_generation_ms=2.593
+certificate_verify_ms=0.001
+pi_i_prepare_ms=0.000
+pi_i_prover_ms=3599.271
+pi_i_verifier_ms=1.889
+pi_i_proof_bytes=283504
+public_certificate_bytes=176
+
+benchmark_complete=1

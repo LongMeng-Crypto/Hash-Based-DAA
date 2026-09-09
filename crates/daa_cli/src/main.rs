@@ -68,9 +68,15 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
             opts.segment_po2.unwrap_or(20)
         );
     } else {
-        println!("pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption");
         if first.credential_scheme == CredentialScheme::SphincsPlus {
+            println!("pi_i_backend=VOLEith; seed anchor; global-seed consistency assumption");
             println!("anchor_construction=double-fors");
+        } else {
+            println!("pi_i_backend=VOLEith; root-node seed consistency assumption");
+            println!(
+                "anchor_construction=root-seed format=3 anchors={}",
+                first.compression_blocks / 2
+            );
         }
     }
     println!(

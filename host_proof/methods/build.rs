@@ -7,6 +7,7 @@ fn main() {
         "guest/Cargo.toml",
         "guest/Cargo.lock",
         "guest/build.rs",
+        "../fsphincs_build.rs",
         "guest/src",
         "guest/c_src",
         "../../Cargo.toml",
@@ -23,6 +24,8 @@ fn main() {
         "SPHINCS_SKIP_AES_CHECK",
         "DAA_TPM_BACKEND",
         "DAA_TPM_SHA_SCHEME",
+        "DAA_CREDENTIAL_SCHEME",
+        "FSPHINCS_PARAMS",
         "FSPHINCS_SECURITY",
         "FSPHINCS_K",
     ] {

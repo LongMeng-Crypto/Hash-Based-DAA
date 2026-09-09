@@ -17,20 +17,15 @@ use risc0_zkvm::{
     DEFAULT_MAX_PO2,
 };
 
-#[cfg(fsphincs_k_22)]
-const K: usize = 22;
-#[cfg(fsphincs_k_33)]
-const K: usize = 33;
-#[cfg(fsphincs_k_35)]
-const K: usize = 35;
-#[cfg(fsphincs_k_43)]
-const K: usize = 43;
-#[cfg(fsphincs_k_70)]
-const K: usize = 70;
+#[allow(dead_code)]
+mod fs_params {
+    include!(concat!(env!("OUT_DIR"), "/fsphincs_params.rs"));
+}
+const K: usize = fs_params::K;
 const N: usize = 32;
-const D: usize = 16;
+const D: usize = fs_params::D;
 const H: usize = 6;
-const MFORS_MSG_BYTES: usize = K * D / 8;
+const MFORS_MSG_BYTES: usize = (K * D + 7) / 8;
 const MFORS_SIG_BYTES: usize = K * (D + 1) * N;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 const SK_BYTES: usize = 2 * N + MFORS_MSG_BYTES;
@@ -280,8 +275,8 @@ fn main() {
         .with_hashfn(backend.clone())
         .with_receipt_kind(kind);
     println!(
-        "F-SPHINCS+-{} (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
-        env!("FSPHINCS_SECURITY"),
+        "F-SPHINCS+-{} format=3 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
+        env!("FSPHINCS_PARAMS"),
         env!("FSPHINCS_K"),
         backend,
         kind,
@@ -302,6 +297,25 @@ fn main() {
         cet.as_ref().map_or(0, |value| value.len())
     );
     println!("native keygen_ms={keygen_ms:.3} sign_ms={sign_ms:.3}");
+
+    if std::env::var("FSPHINCS_EXECUTE_ONLY").as_deref() == Ok("1") {
+        let session = risc0_zkvm::default_executor()
+            .execute(env, FSPHINCS_GUEST_ELF)
+            .expect("F-SPHINCS+ guest execution failed");
+        let mut expected = 1u32.to_le_bytes().to_vec();
+        expected.extend_from_slice(&hk);
+        if let Some(cet) = &cet {
+            expected.extend_from_slice(cet);
+        }
+        expected.extend_from_slice(&pk);
+        assert_eq!(session.journal.bytes, expected);
+        println!(
+            "guest_execute=ok parameter={} hook={} format=3",
+            env!("FSPHINCS_PARAMS"),
+            env!("DAA_TPM_SHA_SCHEME")
+        );
+        return;
+    }
 
     let prove_start = Instant::now();
     let prove_info = default_prover()
