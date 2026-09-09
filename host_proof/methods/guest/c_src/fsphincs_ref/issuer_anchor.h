@@ -25,14 +25,14 @@ int fsphincs_issuer_anchor_verify(const uint8_t *certificate,
                                   const uint8_t *pk);
 
 /* Derives the public PRF addresses and outputs from the authenticated certificate. */
-int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * 32u],
+int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES],
                                     uint8_t anchors[FS_ANCHORS * FS_N],
                                     const uint8_t *certificate, size_t len,
                                     const uint8_t *pk);
-/* One/two SHA256(root_seed || address) calls: two/four secret compressions.
+/* One/two SHA256(root_seed[32] || address[16]) calls: one/two compressions.
  * Every address belongs to the SAME root node, at distinct fixed signing trees. */
 int fsphincs_issuer_anchor_relation(uint8_t root_seed[FS_N],
-                                    uint8_t leaf_addresses[FS_ANCHORS * 32u],
+                                    uint8_t leaf_addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES],
                                     uint8_t anchor_values[FS_ANCHORS * FS_N],
                                     const uint8_t *certificate,
                                     size_t certificate_len,

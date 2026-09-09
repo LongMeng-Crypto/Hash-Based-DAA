@@ -34,6 +34,7 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     rng.fill_bytes(std::slice::from_raw_parts_mut(out, outlen));
 }
 
+/// Measures native keygen/sign/verify on a deterministic test credential.
 fn main() {
     let iterations: usize = std::env::var("FSPHINCS_BENCH_ITERS")
         .ok()
@@ -48,7 +49,7 @@ fn main() {
     };
     let msg = b"F-SPHINCS+ DAA issuer credential benchmark";
     println!(
-        "F-SPHINCS+ set={} format=3 n=256 d={} k={} q=1024 h=6",
+        "F-SPHINCS+ set={} format=3 leaf_prf_version=4 n=256 d={} k={} q=1024 h=6",
         env!("FSPHINCS_PARAMS"),
         env!("FSPHINCS_D"),
         env!("FSPHINCS_K")

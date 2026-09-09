@@ -1,9 +1,8 @@
 #include "issuer_anchor.h"
 #include "api.h"
+#include "sha2_compat.h"
 
 #include <string.h>
-
-void sha256(uint8_t *out, const uint8_t *in, size_t inlen);
 
 #define ANCHOR_HEADER_BYTES 16u
 #define ANCHOR_KIND_FSPHINCS_ROOT 3u
@@ -12,7 +11,7 @@ void sha256(uint8_t *out, const uint8_t *in, size_t inlen);
 static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     static const uint8_t magic[8] = {'D', 'A', 'A', 'F', 'R', 'O', 'O', 'T'};
     memcpy(out, magic, sizeof(magic));
-    out[8] = FS_FORMAT_VERSION;
+    out[8] = FS_LEAF_PRF_VERSION;
     out[9] = ANCHOR_KIND_FSPHINCS_ROOT;
     out[10] = (uint8_t)(FS_SECURITY >> 8);
     out[11] = (uint8_t)FS_SECURITY;
@@ -22,7 +21,7 @@ static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     out[15] = FS_ANCHORS;
 }
 
-/* Rejects old two-node certificates, cross-parameter data, and trailing bytes. */
+/* Rejects old address/certificate versions, cross-set data, and trailing bytes. */
 static int valid_header(const uint8_t *certificate, size_t len) {
     uint8_t expected[ANCHOR_HEADER_BYTES];
     write_header(expected);
@@ -61,14 +60,14 @@ int fsphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
 }
 
 /* Derives the public addressed-PRF statement from an authenticated certificate. */
-int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * 32u],
+int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES],
     uint8_t anchors[FS_ANCHORS * FS_N], const uint8_t *certificate,
     size_t len, const uint8_t *pk) {
     if (!addresses || !anchors ||
         fsphincs_issuer_anchor_verify(certificate, len, pk) != 0) return -1;
     const size_t stride = (FS_D + 1u) * FS_N;
     for (uint32_t i = 0; i < FS_ANCHORS; ++i) {
-        fsphincs_root_anchor_address(addresses + i * 32u, i);
+        fsphincs_root_anchor_address(addresses + i * FS_LEAF_ADDR_BYTES, i);
         memcpy(anchors + i * FS_N,
                certificate + ANCHOR_HEADER_BYTES + i * stride, FS_N);
     }
@@ -77,16 +76,16 @@ int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * 32u],
 
 /* Exports the one root seed and checks each endpoint before invoking VOLEith. */
 int fsphincs_issuer_anchor_relation(uint8_t root_seed[FS_N],
-    uint8_t addresses[FS_ANCHORS * 32u], uint8_t anchors[FS_ANCHORS * FS_N],
+    uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES], uint8_t anchors[FS_ANCHORS * FS_N],
     const uint8_t *certificate, size_t len, const uint8_t *pk, const uint8_t *sk) {
     if (!root_seed || !sk || !pk || memcmp(sk + FS_N, pk, FS_PK_BYTES) != 0 ||
         fsphincs_issuer_anchor_statement(addresses, anchors, certificate, len, pk) != 0)
         return -1;
     fsphincs_derive_root_seed(root_seed, sk);
-    uint8_t input[64], expected[FS_N];
+    uint8_t input[FS_N + FS_LEAF_ADDR_BYTES], expected[FS_N];
     memcpy(input, root_seed, FS_N);
     for (uint32_t i = 0; i < FS_ANCHORS; ++i) {
-        memcpy(input + FS_N, addresses + i * 32u, 32);
+        memcpy(input + FS_N, addresses + i * FS_LEAF_ADDR_BYTES, FS_LEAF_ADDR_BYTES);
         sha256(expected, input, sizeof(input));
         if (memcmp(expected, anchors + i * FS_N, FS_N) != 0) return -1;
     }

@@ -74,8 +74,8 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
         } else {
             println!("pi_i_backend=VOLEith; root-node seed consistency assumption");
             println!(
-                "anchor_construction=root-seed format=3 anchors={}",
-                first.compression_blocks / 2
+                "anchor_construction=root-seed certificate_version=4 leaf_prf_version=4 address_bytes=16 anchors={}",
+                first.compression_blocks
             );
         }
     }

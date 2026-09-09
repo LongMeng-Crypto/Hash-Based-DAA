@@ -12,7 +12,7 @@
 
 namespace daa::issuer_anchor {
 
-enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 3 };
+enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 4 };
 
 class Relation {
 public:

@@ -952,7 +952,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
         compression_blocks: if config.credential_scheme == CredentialScheme::SphincsPlus {
             2
         } else {
-            2 * anchors
+            anchors
         },
         keygen,
         anchor_generation: native.generation,
@@ -2637,7 +2637,7 @@ struct IssuerSetupAnchorExternal {
 fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     match config.credential_scheme {
         CredentialScheme::SphincsPlus => 1,
-        CredentialScheme::FSphincsPlus => 3,
+        CredentialScheme::FSphincsPlus => 4,
     }
 }
 
@@ -2747,7 +2747,7 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
     let agg_height = k.next_power_of_two().trailing_zeros() as usize;
     let mut header = b"DAAFROOT".to_vec();
     header.extend_from_slice(&[
-        3,
+        4,
         3,
         (security >> 8) as u8,
         security as u8,
@@ -2759,18 +2759,17 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
     if native.certificate.len() != 16 + 32 * (count * (d + 1) + agg_height - (count - 1))
         || native.certificate[..16] != header
         || !native.public_a.is_empty()
-        || native.public_b.len() != count * 32
+        || native.public_b.len() != count * 16
         || native.anchor_value.len() != count * 32
     {
         return false;
     }
     for anchor in 0..count {
-        let mut address = [0u8; 32];
-        address[..4].copy_from_slice(&[2, 3, (security >> 8) as u8, security as u8]);
-        address[16..20].copy_from_slice(&(anchor as u32).to_be_bytes());
-        address[28..].copy_from_slice(&[fast as u8, d as u8, k as u8, 10]);
+        let mut address = [0u8; 16];
+        address[..4].copy_from_slice(&[2, 4, ((security / 64 - 2) * 2 + fast) as u8, 0]);
+        address[12] = anchor as u8;
         let offset = 16 + anchor * (d + 1) * 32;
-        if native.public_b[anchor * 32..(anchor + 1) * 32] != address
+        if native.public_b[anchor * 16..(anchor + 1) * 16] != address
             || native.anchor_value[anchor * 32..(anchor + 1) * 32]
                 != native.certificate[offset..offset + 32]
         {
@@ -3516,6 +3515,24 @@ impl DeterministicRng {
 mod tests {
     use super::*;
 
+    /// Compact leaf relations keep a 256-bit witness and reject former ABI kinds.
+    #[test]
+    fn fsphincs_compact_anchor_circuit_lengths() {
+        for level in [128, 192, 256] {
+            for old_kind in [2, 3] {
+                assert_ne!(unsafe { daa_issuer_anchor_prepare(level, 1, old_kind) }, 0);
+            }
+            let config = ProtocolConfig::default()
+                .with_params(format!("sha2-{level}s"))
+                .with_credential_scheme(CredentialScheme::FSphincsPlus);
+            let stats = issuer_anchor_stats(&config).unwrap();
+            let count = if level == 128 { 1 } else { 2 };
+            assert_eq!(stats.private_input_bits, 256);
+            assert_eq!(stats.public_input_bits, count * 128);
+            assert_eq!(stats.output_bits, count * 256);
+        }
+    }
+
     /// The six credential labels pair with six VOLEith profiles, never a cross product.
     #[test]
     fn fsphincs_profiles_are_paired() {
@@ -3531,7 +3548,7 @@ mod tests {
                 .with_params(parameter)
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
             assert!(config.ensure_real_supported().is_ok());
-            assert_eq!(issuer_anchor_kind(&config), 3);
+            assert_eq!(issuer_anchor_kind(&config), 4);
             let opposite = if parameter.ends_with('s') { "f" } else { "s" };
             let wrong = config.with_tpm_sha_profile(TpmShaProfile::from_name(opposite));
             assert!(wrong.ensure_real_supported().is_err());
@@ -3561,14 +3578,14 @@ mod tests {
                 certificate: vec![0; length],
                 witness: vec![],
                 public_a: vec![],
-                public_b: vec![0; count * 32],
+                public_b: vec![0; count * 16],
                 anchor_value: vec![0; count * 32],
                 generation: Duration::ZERO,
                 certificate_verify: Duration::ZERO,
             };
             native.certificate[..8].copy_from_slice(b"DAAFROOT");
             native.certificate[8..16].copy_from_slice(&[
-                3,
+                4,
                 3,
                 (security >> 8) as u8,
                 security as u8,
@@ -3578,10 +3595,9 @@ mod tests {
                 count as u8,
             ]);
             for i in 0..count {
-                let a = &mut native.public_b[i * 32..(i + 1) * 32];
-                a[..4].copy_from_slice(&[2, 3, (security >> 8) as u8, security as u8]);
-                a[16..20].copy_from_slice(&(i as u32).to_be_bytes());
-                a[28..].copy_from_slice(&[fast, d as u8, k as u8, 10]);
+                let a = &mut native.public_b[i * 16..(i + 1) * 16];
+                a[..4].copy_from_slice(&[2, 4, ((security / 64 - 2) * 2) as u8 + fast, 0]);
+                a[12] = i as u8;
             }
             assert!(fsphincs_anchor_fields_match(&config, &native));
             for i in 0..count {
@@ -3589,9 +3605,15 @@ mod tests {
                 wrong.anchor_value[i * 32] ^= 1;
                 assert!(!fsphincs_anchor_fields_match(&config, &wrong));
                 wrong = native.clone();
-                wrong.public_b[i * 32 + 24] ^= 1;
+                wrong.public_b[i * 16 + 14] ^= 1;
                 assert!(!fsphincs_anchor_fields_match(&config, &wrong));
             }
+            let mut old = native.clone();
+            old.certificate[8] = 3;
+            assert!(!fsphincs_anchor_fields_match(&config, &old));
+            old = native.clone();
+            old.public_b.resize(count * 32, 0);
+            assert!(!fsphincs_anchor_fields_match(&config, &old));
             native.certificate.pop();
             assert!(!fsphincs_anchor_fields_match(&config, &native));
         }

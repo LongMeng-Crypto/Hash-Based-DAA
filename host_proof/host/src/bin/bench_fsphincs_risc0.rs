@@ -78,6 +78,7 @@ extern "C" {
 }
 
 #[no_mangle]
+/// Supplies deterministic benchmark randomness to C; never use for production keys.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaCha20Rng;
@@ -90,6 +91,7 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     rng.fill_bytes(core::slice::from_raw_parts_mut(out, outlen));
 }
 
+/// Selects the requested supported RISC0 receipt format.
 fn receipt_kind() -> ReceiptKind {
     match std::env::var("RISC0_RECEIPT_KIND")
         .unwrap_or_else(|_| "composite".to_owned())
@@ -102,6 +104,7 @@ fn receipt_kind() -> ReceiptKind {
 }
 
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+/// Retains the historical AES-128 host hook for compatibility benchmarks.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
@@ -112,6 +115,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+/// Retains the historical two-block AES-192 host hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -125,6 +129,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
+/// Retains the historical two-block AES-256 host hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -142,21 +147,25 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     not(daa_tpm_sha_chen23),
     not(any(fsphincs_192, fsphincs_256))
 ))]
+/// Computes the Ours-3F SHA-256 hook on the shared private values.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_192))]
+/// Computes the Ours-3F SHA-384 hook on the shared private values.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_256))]
+/// Computes the Ours-3F SHA-512 hook on the shared private values.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha512_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha_chen23, not(any(fsphincs_192, fsphincs_256))))]
+/// Computes both CDENW'23 comparison hooks with SHA-256.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -165,6 +174,7 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, fsphincs_192))]
+/// Computes both CDENW'23 comparison hooks with SHA-384.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -173,6 +183,7 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, fsphincs_256))]
+/// Computes both CDENW'23 comparison hooks with SHA-512.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -180,6 +191,7 @@ fn cdenw23_hooks(
     daa_sha_hook::sha512_cdenw23_hooks(sst, et_u)
 }
 
+/// Benchmarks a connected credential/hook proof, excluding native signing from proving.
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
@@ -275,7 +287,7 @@ fn main() {
         .with_hashfn(backend.clone())
         .with_receipt_kind(kind);
     println!(
-        "F-SPHINCS+-{} format=3 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
+        "F-SPHINCS+-{} format=3 leaf_prf_version=4 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
         env!("FSPHINCS_PARAMS"),
         env!("FSPHINCS_K"),
         backend,
@@ -310,7 +322,7 @@ fn main() {
         expected.extend_from_slice(&pk);
         assert_eq!(session.journal.bytes, expected);
         println!(
-            "guest_execute=ok parameter={} hook={} format=3",
+            "guest_execute=ok parameter={} hook={} format=3 leaf_prf_version=4",
             env!("FSPHINCS_PARAMS"),
             env!("DAA_TPM_SHA_SCHEME")
         );

@@ -7,12 +7,12 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-t
 unset FSPHINCS_SECURITY FSPHINCS_K
 params_list="${FSPHINCS_PARAMS_LIST:-128s 128f 192s 192f 256s 256f}"
 iterations="${ITERATIONS:-1}"
-log_dir="${project_dir}/benchmarks/fsphincs_v3"
+log_dir="${project_dir}/benchmarks/fsphincs_leaf_prf_v4"
 mkdir -p "$log_dir"
 stamp="$(date +%Y%m%d_%H%M%S)"
 log="${LOG_FILE:-${log_dir}/native_setup_${stamp}.log}"
 {
-  echo "suite=fsphincs-v3-native-setup date=$(date --iso-8601=seconds)"
+  echo "suite=fsphincs-leaf-prf-v4-native-setup verifier_format=3 date=$(date --iso-8601=seconds)"
   echo "shared_cache=$CARGO_TARGET_DIR iterations=$iterations"
   echo "native timings exclude capability tests and compilation; deterministic inputs are test-only"
   for parameter in $params_list; do

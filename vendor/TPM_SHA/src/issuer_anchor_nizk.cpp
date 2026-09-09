@@ -109,8 +109,8 @@ vole_backend::PublicStatement statement(
       std::equal(public_b.begin(), public_b.begin() + 22, public_b.begin() + 22))
     throw std::invalid_argument("SPHINCS+ anchors require distinct PRF addresses");
   if (relation.kind() == daa::issuer_anchor::Kind::FSphincs &&
-      relation.anchors() == 2 && public_b.size() == 64 &&
-      std::equal(public_b.begin(), public_b.begin()+32, public_b.begin()+32))
+      relation.anchors() == 2 && public_b.size() == 32 &&
+      std::equal(public_b.begin(), public_b.begin()+16, public_b.begin()+16))
     throw std::invalid_argument("F-SPHINCS+ double anchors require distinct root PRF addresses");
   return {relation.public_bits(public_a, public_b),
           relation.output_bits(anchor_value)};

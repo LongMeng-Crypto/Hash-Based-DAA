@@ -11,11 +11,11 @@ params_list="${FSPHINCS_PARAMS_LIST:-128s 128f 192s 192f 256s 256f}"
 segments="${SEGMENT_PO2_LIST:-22}"
 receipts="${RECEIPT_LIST:-composite succinct}"
 iterations="${ITERATIONS:-1}"
-log_dir="${project_dir}/benchmarks/fsphincs_v3"
+log_dir="${project_dir}/benchmarks/fsphincs_leaf_prf_v4"
 mkdir -p "$log_dir"
 log="${LOG_FILE:-${log_dir}/host_$(date +%Y%m%d_%H%M%S).log}"
 {
-  echo "suite=fsphincs-v3-host hook=ours-one-SHA backend=sha-256 identity=0"
+  echo "suite=fsphincs-leaf-prf-v4-host verifier_format=3 hook=ours-one-SHA backend=sha-256 identity=0"
   echo "execution_only=${FSPHINCS_EXECUTE_ONLY:-0}"
   echo "shared_cache=$CARGO_TARGET_DIR date=$(date --iso-8601=seconds)"
   for parameter in $params_list; do

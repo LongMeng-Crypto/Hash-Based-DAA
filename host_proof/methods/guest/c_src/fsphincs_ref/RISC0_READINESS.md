@@ -1,5 +1,11 @@
 # RISC0 guest, format v3
 
+Leaf PRF v4 compresses only the signer's secret-expansion addresses to 16 bytes.
+It changes generated credentials and the separate VOLEith Setup proof, not any
+verifier hash address or guest relation. With `FSPHINCS_VERIFY_ONLY`, all six
+native optimized object files were byte-identical before/after this change.
+New execution-only checks must use fresh v4 keypairs and credentials.
+
 The six sets in DESIGN.md share one streaming verification implementation.
 All tree verification uses the existing SHA-256 syscall path. Only H3 in the
 256 sets and the 192/256 SHA hooks use software SHA-512-family operations;
@@ -38,4 +44,5 @@ FSPHINCS_EXECUTE_ONLY=1 RECEIPT_LIST=composite \
 ```
 
 A normal Host run proves and verifies the receipt and checks the entire public
-journal. Exact execution/proof times must be remeasured for the new images.
+journal. Full GPU remeasurement is optional for the leaf-PRF-only change;
+it is required if the verifier image, receipt settings, or hook also change.

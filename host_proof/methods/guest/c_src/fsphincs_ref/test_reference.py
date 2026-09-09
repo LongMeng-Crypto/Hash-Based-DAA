@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent hashlib/bit-string verifier of format-v3 C KAT fixtures."""
+"""Independent v3-verifier/v4-leaf-PRF KAT checks, including unchanged node seeds."""
 import argparse
 import hashlib
 from pathlib import Path
@@ -8,6 +8,16 @@ import sys
 SETS = {"128s": (128, 0, 16, 22), "128f": (128, 1, 12, 61),
         "192s": (192, 0, 16, 33), "192f": (192, 1, 12, 92),
         "256s": (256, 0, 16, 43), "256f": (256, 1, 12, 120)}
+
+# Pin the pre-optimization node-PRF outputs; changing leaf encoding must not change them.
+V3_ROOT_SEEDS = {
+    "128s": "a26b81c7ea9b0e19f278682ec1945b2bd224091542243e1ec91b4097db69864b",
+    "128f": "eb6d5d5b8400e6292eff4eb6e6e2d95e898e950361d6915561b6b889c42c1e12",
+    "192s": "7d5a4fd513b38ca8898d4a0ed17d7c3acd199a06a2d429847a00025b62758b14",
+    "192f": "1c6c9a9ba89d2b102e35d143a061a76b90a2afc37b065a185e260829a6518411",
+    "256s": "9200b551195fec2c01daaeaeab946090fc40ae4afaba2fdb8c29518ff63c582b",
+    "256f": "3eae239c6517f00367b8ef895f013585b0a82e0b733b4b205ac1f7bbe4e1718b",
+}
 
 def main():
     """Verify every layer and certificate before checking committed fingerprints."""
@@ -19,6 +29,8 @@ def main():
     fields = dict(line.rstrip().split("=", 1) for line in sys.stdin if "=" in line)
     sec, fast, d, k = SETS[args.params]
     assert fields["parameter"] == args.params
+    assert fields["kat_leaf_prf_version"] == "4"
+    assert fields["kat_root_seed"] == V3_ROOT_SEEDS[args.params]
     n, h, q = 32, 6, 1024
     bits, m = k*d, (k*d+7)//8
     agg = 1 << (k-1).bit_length()
@@ -43,6 +55,14 @@ def main():
         if bits % 8:
             out[-1] &= 255 << (8 - bits % 8) & 255
         return bytes(out)
+
+    def leaf_addr(layer=0, node=0, tree=0, index=0):
+        """Encode only the leaf PRF in 16 bytes; other hash addresses stay v3."""
+        assert 0 <= layer <= h and 0 <= node < q**layer
+        assert 0 <= tree < k and 0 <= index < 2**d
+        parameter_id = (sec//64-2)*2+fast
+        return bytes([2, 4, parameter_id, layer]) + node.to_bytes(8, "big") + \
+            bytes([tree]) + index.to_bytes(2, "big") + b"\x00"
 
     def h3(message, randomizer=R, public_key=pk):
         """Use the entire SHA-X digest, R and public key at both H3 stages."""
@@ -89,9 +109,11 @@ def main():
     offset = 32
     for step in range(7):
         layer = 6-step
+        node_seed = sha(sk[:32]+addr(1, layer, node))
         roots = []
         for tree, target in enumerate(indices(md)):
             fragment = sig[offset:offset+(d+1)*32]
+            assert fragment[:32] == sha(node_seed+leaf_addr(layer, node, tree, target))
             offset += len(fragment)
             roots.append(recover(fragment[:32], fragment[32:], target, layer, node, tree))
         roots += [sha(pub+addr(5, layer, node, i)) for i in range(k, agg)]
@@ -105,13 +127,15 @@ def main():
         node //= q
     assert md == root and offset == len(sig)
     assert root_seed == sha(sk[:32]+addr(1))
-    header = b"DAAFROOT"+bytes([3, 3, sec >> 8, sec & 255, fast, d, k, anchors])
+    header = b"DAAFROOT"+bytes([4, 3, sec >> 8, sec & 255, fast, d, k, anchors])
     assert cert[:16] == header
+    assert len(addresses) == anchors*16 and len(endpoints) == anchors*32
     roots = []
     offset = 16
     for tree in range(anchors):
-        a = addr(2, tree=tree)
-        assert addresses[tree*32:(tree+1)*32] == a
+        a = leaf_addr(tree=tree)
+        assert addresses[tree*16:(tree+1)*16] == a
+        assert len(root_seed+a) == 48
         secret = cert[offset:offset+32]
         assert secret == sha(root_seed+a) == endpoints[tree*32:(tree+1)*32]
         roots.append(recover(secret, cert[offset+32:offset+(d+1)*32], 0, 0, 0, tree))
@@ -133,7 +157,7 @@ def main():
     assert h3(msg, R, bytes([pk[0]^1])+pk[1:]) != h3(msg)
     assert original_node < 2**60
     for label, data in (("pk", pk), ("sk", sk), ("signature", sig), ("certificate", cert),
-                        ("root_seed", root_seed), ("anchors", endpoints)):
+                        ("root_seed", root_seed), ("anchors", endpoints), ("addresses", addresses)):
         assert fields["kat_"+label] == sha(data).hex()
     manifest = "\n".join(f"{key}={value}" for key, value in fields.items()
                          if key == "parameter" or key.startswith("kat_"))+"\n"

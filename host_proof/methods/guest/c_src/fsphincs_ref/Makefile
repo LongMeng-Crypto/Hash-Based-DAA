@@ -21,7 +21,7 @@ kat: fsphincs_kat
 
 test: benchmark kat
 
-fsphincs_benchmark: fsphincs.c issuer_anchor.c benchmark.c api.h params.h
+fsphincs_benchmark: fsphincs.c issuer_anchor.c benchmark.c api.h issuer_anchor.h params.h parameter_sets.h sha2_compat.h
 	$(CC) $(CFLAGS) -DFSPHINCS_PROFILE \
 	  -I. -I$(SPHINCS_REF) -I$(SPHINCS_REF)/params \
 	  -DPARAMS=$(PARAMS) -DFSPHINCS_PARAMS=$(FSPHINCS_PARAMS) \
@@ -29,7 +29,7 @@ fsphincs_benchmark: fsphincs.c issuer_anchor.c benchmark.c api.h params.h
 	  $(SPHINCS_REF)/sha2.c \
 	  -o $@
 
-fsphincs_kat: fsphincs.c issuer_anchor.c kat.c api.h params.h
+fsphincs_kat: fsphincs.c issuer_anchor.c kat.c api.h issuer_anchor.h params.h parameter_sets.h sha2_compat.h
 	$(CC) $(CFLAGS) \
 	  -I. -I$(SPHINCS_REF) -I$(SPHINCS_REF)/params \
 	  -DPARAMS=$(PARAMS) -DFSPHINCS_PARAMS=$(FSPHINCS_PARAMS) \

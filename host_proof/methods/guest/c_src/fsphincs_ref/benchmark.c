@@ -17,6 +17,7 @@ void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {
     out[3] = (unsigned char)in;
 }
 
+/* Generates reproducible benchmark bytes only; never use this RNG in production. */
 void randombytes(unsigned char *out, size_t outlen) {
     for (size_t i = 0; i < outlen; ++i) {
         rng_state ^= rng_state << 13;
@@ -26,11 +27,13 @@ void randombytes(unsigned char *out, size_t outlen) {
     }
 }
 
+/* Converts a monotonic clock interval to fractional seconds. */
 static double seconds_since(struct timespec start, struct timespec end) {
     return (double)(end.tv_sec - start.tv_sec) +
            (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
 }
 
+/* Measures native operations and checks mutations/root capability outside timings. */
 int main(void) {
     uint8_t msg[3u * (FS_SECURITY / 8u)];
     for (size_t i = 0; i < sizeof(msg); ++i) msg[i] = (uint8_t)i;
@@ -48,6 +51,8 @@ int main(void) {
            FS_H3_DIGEST_BYTES * 8u, FS_ANCHORS, FS_D, FS_K, FS_Q, FS_H);
     printf("sizes: pk=%u B sk=%u B sig=%u B\n",
            FS_PK_BYTES, FS_SK_BYTES, FS_SIG_BYTES);
+    printf("leaf_prf_version=%u address_bytes=%u seed_bytes=%u output_bytes=%u pi_i_compressions=%u\n",
+           FS_LEAF_PRF_VERSION, FS_LEAF_ADDR_BYTES, FS_N, FS_N, FS_ANCHORS);
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
     if (fsphincs_keypair(pk, sk) != 0) return 2;
@@ -154,13 +159,16 @@ int main(void) {
     /* Extract S_root, erase the master key, then sign two new messages. */
     const size_t certlen = fsphincs_issuer_anchor_certificate_bytes();
     uint8_t *cert = malloc(certlen);
-    uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_N], outputs[FS_ANCHORS * FS_N];
+    uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_N];
     uint8_t lower_seed[FS_N], R[FS_N];
     if (!cert || fsphincs_issuer_anchor_generate(cert, certlen, pk, sk) ||
         fsphincs_issuer_anchor_relation(root_seed, addr, outputs, cert, certlen, pk, sk))
         return 12;
     memset(sk, 0, FS_SK_BYTES);
     if (fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 13;
+    cert[8] = FS_FORMAT_VERSION;
+    if (!fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 19;
+    cert[8] = FS_LEAF_PRF_VERSION;
     if (!fsphincs_issuer_anchor_verify(cert, certlen - 1, pk) ||
         !fsphincs_issuer_anchor_verify(cert, certlen + 1, pk)) return 17;
     for (size_t i = 0; i < 16; ++i) {

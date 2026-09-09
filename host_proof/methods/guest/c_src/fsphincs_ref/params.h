@@ -29,6 +29,10 @@
 #define FS_NAME FS_STRING(FSPHINCS_PARAMS)
 
 #define FS_FORMAT_VERSION 3u
+/* Keep node PRF/H1/H2/H3 v3; only leaf expansion and its certificate change. */
+#define FS_LEAF_PRF_VERSION 4u
+#define FS_LEAF_ADDR_BYTES 16u
+#define FS_PARAMETER_ID ((FS_SECURITY / 64u - 2u) * 2u + FS_FAST)
 #if FS_K <= 32
 #define FS_AGG_LOG 5u
 #elif FS_K <= 64

@@ -93,7 +93,10 @@ int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
 void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
     const uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t pub_seed[FS_N]);
 /* Encodes one fixed root PRF address, independent of messages or signatures. */
-void fsphincs_root_anchor_address(uint8_t out[32], uint32_t anchor);
+void fsphincs_root_anchor_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t anchor);
+/* Encodes a leaf-PRF position without truncation; returns -1 on invalid fields. */
+int fsphincs_leaf_prf_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t layer,
+                              uint64_t node, uint32_t tree, uint32_t leaf);
 /* Signs with only a root capability plus independently chosen lower-node seeds.
  * This simulation/test helper does not reconstruct an issuer master secret. */
 int fsphincs_sign_with_root_seed(uint8_t *sig, size_t *siglen,

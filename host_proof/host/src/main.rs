@@ -817,7 +817,7 @@ fn generate_anchor_material(
     let mut public_b = vec![
         0u8;
         if credential_is_fsphincs() {
-            fs_params::ANCHORS * 32
+            fs_params::ANCHORS * 16
         } else {
             44
         }

@@ -324,16 +324,18 @@ Paper timings use the emitted `prover_us` and `verifier_us`, not the outer
 Cargo wall-clock time, because the latter can include compilation and process
 startup.
 
-### F-SPHINCS+ format-v3 checks and benchmarks
+### F-SPHINCS+ compact leaf-PRF checks and benchmarks
 
 The new F-SPHINCS+ credential is an alternative under **Ours-3F plus one SHA-2
 hook**. Select one of `128s,128f,192s,192f,256s,256f`, paired with the same
 VOLEith parameter. Old independent k/security selectors and k=35/70 are removed.
-The result tables below use the complete v3 measurements from 2026-09-09.
+Native and Setup tables use the three-run compact-address measurements from
+2026-09-09. Host tables retain the earlier v3 verifier measurements: the verifier
+does not evaluate the secret-key PRFs, and its hash workload is unchanged.
 
 ```sh
 # Six native credentials, deterministic KATs, and six matching Setup proofs:
-ITERATIONS=1 bash scripts/benchmark_fsphincs_native_setup.sh
+ITERATIONS=3 bash scripts/benchmark_fsphincs_native_setup.sh
 
 # Six credentials x Composite/Succinct x the requested segment sizes:
 SEGMENT_PO2_LIST="22 21 20" bash scripts/benchmark_fsphincs_host.sh
@@ -342,9 +344,12 @@ SEGMENT_PO2_LIST="22 21 20" bash scripts/benchmark_fsphincs_host.sh
 make -C host_proof/methods/guest/c_src/fsphincs_ref test FSPHINCS_PARAMS=128f
 ```
 
-Logs go to `benchmarks/fsphincs_v3/`; both scripts reuse
-`~/.cache/sedaa-risc0-shared-target`. Previous-format keys and credentials
-must be regenerated. The scripts also check the deterministic KATs.
+New logs go to `benchmarks/fsphincs_leaf_prf_v4/`; historical logs remain in
+`benchmarks/fsphincs_v3/`. Both scripts reuse
+`~/.cache/sedaa-risc0-shared-target`. Leaf-PRF v4 compresses only the address
+to 16 bytes; the node PRF and 32-byte seeds/outputs are unchanged. Regenerate
+keypairs, credentials and certificates together for the new signer; do not
+extend old keys with it. The scripts also check the deterministic KATs.
 
 ### Compatibility sweeps
 
@@ -369,12 +374,12 @@ SHA-256 RISC0 backend with segment size `2^20`.
 
 | Variant | Credential scheme | Parameters | Keygen (s) | Public key (B) | Secret key (B) |
 | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 1.34 | 76 | 108 |
-| Variant-1 | F-SPHINCS+ | 128f | 0.248 | 124 | 156 |
-| Variant-1 | F-SPHINCS+ | 192s | 2.08 | 98 | 130 |
-| Variant-1 | F-SPHINCS+ | 192f | 0.391 | 170 | 202 |
-| Variant-1 | F-SPHINCS+ | 256s | 2.77 | 118 | 150 |
-| Variant-1 | F-SPHINCS+ | 256f | 0.477 | 212 | 244 |
+| Variant-1 | F-SPHINCS+ | 128s | 1.16 | 76 | 108 |
+| Variant-1 | F-SPHINCS+ | 128f | 0.208 | 124 | 156 |
+| Variant-1 | F-SPHINCS+ | 192s | 1.75 | 98 | 130 |
+| Variant-1 | F-SPHINCS+ | 192f | 0.322 | 170 | 202 |
+| Variant-1 | F-SPHINCS+ | 256s | 2.24 | 118 | 150 |
+| Variant-1 | F-SPHINCS+ | 256f | 0.426 | 212 | 244 |
 | Variant-2 | SPHINCS+ | 128s | 0.050 | 32 | 64 |
 | Variant-2 | SPHINCS+ | 128f | 0.001 | 32 | 64 |
 | Variant-2 | SPHINCS+ | 192s | 0.062 | 48 | 96 |
@@ -390,12 +395,12 @@ Composite. Compression counts include the work counted in the paper.
 
 | Variant / solution | Credential scheme | Credential parameter | Proof parameter | SHA-2 comp. | Anchor generation (s) | Certificate verification (s) | Preparation (s) | Prove (s) | Verify (s) | Proof (KB) | Public cert. (KB) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 128s | 2 | 1.25 | 0.000009 | 0.026 | 0.027 | 0.021 | 56.70 | 0.703 |
-| Variant-1 | F-SPHINCS+ | 128f | 128f | 2 | 0.220 | 0.000008 | 0.027 | 0.008 | 0.006 | 81.86 | 0.609 |
-| Variant-1 | F-SPHINCS+ | 192s | 192s | 4 | 1.90 | 0.000016 | 0.053 | 0.071 | 0.060 | 162.74 | 1.234 |
-| Variant-1 | F-SPHINCS+ | 192f | 192f | 4 | 0.327 | 0.000013 | 0.052 | 0.022 | 0.017 | 242.21 | 1.016 |
-| Variant-1 | F-SPHINCS+ | 256s | 256s | 4 | 2.49 | 0.000016 | 0.052 | 0.113 | 0.108 | 227.22 | 1.234 |
-| Variant-1 | F-SPHINCS+ | 256f | 256f | 4 | 0.431 | 0.000014 | 0.054 | 0.033 | 0.024 | 327.03 | 1.016 |
+| Variant-1 | F-SPHINCS+ | 128s | 128s | 1 | 1.10 | 0.000009 | 0.005 | 0.019 | 0.015 | 32.57 | 0.703 |
+| Variant-1 | F-SPHINCS+ | 128f | 128f | 1 | 0.192 | 0.000008 | 0.005 | 0.005 | 0.004 | 46.76 | 0.609 |
+| Variant-1 | F-SPHINCS+ | 192s | 192s | 2 | 1.66 | 0.000015 | 0.010 | 0.043 | 0.038 | 92.55 | 1.234 |
+| Variant-1 | F-SPHINCS+ | 192f | 192f | 2 | 0.283 | 0.000013 | 0.010 | 0.012 | 0.009 | 136.93 | 1.016 |
+| Variant-1 | F-SPHINCS+ | 256s | 256s | 2 | 2.16 | 0.000016 | 0.011 | 0.074 | 0.067 | 130.71 | 1.234 |
+| Variant-1 | F-SPHINCS+ | 256f | 256f | 2 | 0.382 | 0.000014 | 0.010 | 0.017 | 0.014 | 186.65 | 1.016 |
 | Variant-2 / Solution 1 | SPHINCS+ | 128s | 128s | 2 | 0.296 | 0.00027 | 0.010 | 0.028 | 0.023 | 61.70 | 5.43 |
 | Variant-2 / Solution 1 | SPHINCS+ | 128f | 128f | 2 | 0.015 | 0.00086 | 0.010 | 0.008 | 0.006 | 89.12 | 13.79 |
 | Variant-2 / Solution 1 | SPHINCS+ | 192s | 192s | 2 | 0.554 | 0.00043 | 0.010 | 0.048 | 0.038 | 93.05 | 10.92 |
@@ -429,12 +434,12 @@ security level and s/f profile from both panels.
 
 | Variant | Credential scheme | Parameters | Sign (s) | Verify (s) | Credential (KB) |
 | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 9.35 | 0.001 | 81.84 |
-| Variant-1 | F-SPHINCS+ | 128f | 1.69 | 0.002 | 173.50 |
-| Variant-1 | F-SPHINCS+ | 192s | 14.48 | 0.002 | 122.75 |
-| Variant-1 | F-SPHINCS+ | 192f | 2.60 | 0.003 | 261.66 |
-| Variant-1 | F-SPHINCS+ | 256s | 18.14 | 0.002 | 159.94 |
-| Variant-1 | F-SPHINCS+ | 256f | 3.13 | 0.004 | 341.28 |
+| Variant-1 | F-SPHINCS+ | 128s | 7.79 | 0.001 | 81.84 |
+| Variant-1 | F-SPHINCS+ | 128f | 1.40 | 0.002 | 173.50 |
+| Variant-1 | F-SPHINCS+ | 192s | 11.79 | 0.002 | 122.75 |
+| Variant-1 | F-SPHINCS+ | 192f | 2.08 | 0.003 | 261.66 |
+| Variant-1 | F-SPHINCS+ | 256s | 15.17 | 0.002 | 159.94 |
+| Variant-1 | F-SPHINCS+ | 256f | 2.68 | 0.004 | 341.28 |
 | Variant-2 | SPHINCS+ | 128s | 0.286 | 0.001 | 7.69 |
 | Variant-2 | SPHINCS+ | 128f | 0.014 | 0.001 | 16.70 |
 | Variant-2 | SPHINCS+ | 192s | 0.516 | 0.001 | 15.88 |
@@ -523,6 +528,6 @@ Succinct do not use an additional Identity wrapper.
 - [SPHINCS+ Setup Solution 1](benchmarks/issuer_anchor/issuer_anchor_seed-anchor_composite_20260906_191550.log)
   and [Solution 2](benchmarks/issuer_anchor/issuer_anchor_fixed-top-wots_composite_20260906_000205.log).
 - [SPHINCS+ host results](benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv).
-- [F-SPHINCS+ native](benchmarks/fsphincs_v3/native_setup_20260909_014043.log),
-  [Setup](benchmarks/fsphincs_v3/setup_detail_20260909_014043.log), and
+- [F-SPHINCS+ native](benchmarks/fsphincs_leaf_prf_v4/native_setup_20260909_110012.log),
+  [Setup](benchmarks/fsphincs_leaf_prf_v4/setup_detail_20260909_110012.log), and
   [host results](benchmarks/fsphincs_v3/host_20260909_015334.log).
