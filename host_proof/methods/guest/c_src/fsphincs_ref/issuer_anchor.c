@@ -11,7 +11,7 @@
 static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     static const uint8_t magic[8] = {'D', 'A', 'A', 'F', 'R', 'O', 'O', 'T'};
     memcpy(out, magic, sizeof(magic));
-    out[8] = FS_LEAF_PRF_VERSION;
+    out[8] = FS_CERTIFICATE_VERSION;
     out[9] = ANCHOR_KIND_FSPHINCS_ROOT;
     out[10] = (uint8_t)(FS_SECURITY >> 8);
     out[11] = (uint8_t)FS_SECURITY;
@@ -65,7 +65,7 @@ int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR
     size_t len, const uint8_t *pk) {
     if (!addresses || !anchors ||
         fsphincs_issuer_anchor_verify(certificate, len, pk) != 0) return -1;
-    const size_t stride = (FS_D + 1u) * FS_N;
+    const size_t stride = FS_TREE_SIG_BYTES;
     for (uint32_t i = 0; i < FS_ANCHORS; ++i) {
         fsphincs_root_anchor_address(addresses + i * FS_LEAF_ADDR_BYTES, i);
         memcpy(anchors + i * FS_N,

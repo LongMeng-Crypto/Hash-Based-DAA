@@ -26,7 +26,7 @@ const N: usize = 32;
 const D: usize = fs_params::D;
 const H: usize = 6;
 const MFORS_MSG_BYTES: usize = (K * D + 7) / 8;
-const MFORS_SIG_BYTES: usize = K * (D + 1) * N;
+const MFORS_SIG_BYTES: usize = fs_params::MFORS_SIG_BYTES;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 const SK_BYTES: usize = 2 * N + MFORS_MSG_BYTES;
 const SIG_BYTES: usize = N + (H + 1) * MFORS_SIG_BYTES;
@@ -67,6 +67,9 @@ const HK_BYTES: usize = ET_BYTES;
 const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 
 extern "C" {
+    fn fsphincs_publickeybytes() -> usize;
+    fn fsphincs_secretkeybytes() -> usize;
+    fn fsphincs_signaturebytes() -> usize;
     fn fsphincs_keypair(pk: *mut u8, sk: *mut u8) -> i32;
     fn fsphincs_sign_signature(
         sig: *mut u8,
@@ -104,11 +107,15 @@ fn receipt_kind() -> ReceiptKind {
 }
 
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
-/// Retains the historical AES-128 host hook for compatibility benchmarks.
+/// Checks the AES-128-DM host hook against the TPM signing relation.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
+    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+    for (byte, input) in block.iter_mut().zip(et_u.iter()) {
+        *byte ^= input;
+    }
     let mut hk = [0u8; HK_BYTES];
     hk.copy_from_slice(&block);
     hk
@@ -204,6 +211,10 @@ fn main() {
     assert!(seg_po2 <= 22, "CUDA-safe maximum segment po2 is 22");
     let backend = std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_owned());
     let kind = receipt_kind();
+    // Fail before any FFI write if native and guest serialization ever diverge.
+    assert_eq!(unsafe { fsphincs_publickeybytes() }, PK_BYTES);
+    assert_eq!(unsafe { fsphincs_secretkeybytes() }, SK_BYTES);
+    assert_eq!(unsafe { fsphincs_signaturebytes() }, SIG_BYTES);
 
     let mut pk = [0u8; PK_BYTES];
     let mut sk = [0u8; SK_BYTES];
@@ -287,8 +298,10 @@ fn main() {
         .with_hashfn(backend.clone())
         .with_receipt_kind(kind);
     println!(
-        "F-SPHINCS+-{} format=3 leaf_prf_version=4 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
+        "F-SPHINCS+-{} H1_version={} node_bytes={} leaf_prf_version=4 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
         env!("FSPHINCS_PARAMS"),
+        fs_params::H1_VERSION,
+        fs_params::NODE_BYTES,
         env!("FSPHINCS_K"),
         backend,
         kind,
@@ -322,9 +335,11 @@ fn main() {
         expected.extend_from_slice(&pk);
         assert_eq!(session.journal.bytes, expected);
         println!(
-            "guest_execute=ok parameter={} hook={} format=3 leaf_prf_version=4",
+            "guest_execute=ok parameter={} hook={} H1_version={} node_bytes={} leaf_prf_version=4",
             env!("FSPHINCS_PARAMS"),
-            env!("DAA_TPM_SHA_SCHEME")
+            env!("DAA_TPM_SHA_SCHEME"),
+            fs_params::H1_VERSION,
+            fs_params::NODE_BYTES
         );
         return;
     }

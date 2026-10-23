@@ -1,0 +1,98 @@
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target; build/startup/test time excluded from pi_I timings
+===== credential=fsphincs params=sha2-128s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=1
+credential=F-SPHINCS+ params=sha2-128s profile=s credential_security=128 compression_blocks=1
+keygen_ms=557.498
+anchor_generation_ms=552.261
+certificate_verify_ms=0.003
+pi_i_prepare_ms=7.758
+pi_i_prover_ms=17.436
+pi_i_verifier_ms=14.907
+pi_i_proof_bytes=33356
+public_certificate_bytes=384
+pi_i_circuit private_bits=256 public_bits=128 output_bits=256 and=21994 xor=93611 nodes=115991
+
+===== credential=fsphincs params=sha2-128f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=1
+credential=F-SPHINCS+ params=sha2-128f profile=f credential_security=128 compression_blocks=1
+keygen_ms=94.923
+anchor_generation_ms=95.866
+certificate_verify_ms=0.003
+pi_i_prepare_ms=4.841
+pi_i_prover_ms=5.110
+pi_i_verifier_ms=3.518
+pi_i_proof_bytes=47884
+public_certificate_bytes=336
+pi_i_circuit private_bits=256 public_bits=128 output_bits=256 and=21994 xor=93611 nodes=115991
+
+===== credential=fsphincs params=sha2-192s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-192s profile=s credential_security=192 compression_blocks=2
+keygen_ms=1100.731
+anchor_generation_ms=1100.252
+certificate_verify_ms=0.011
+pi_i_prepare_ms=9.702
+pi_i_prover_ms=43.988
+pi_i_verifier_ms=38.129
+pi_i_proof_bytes=94772
+public_certificate_bytes=968
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-192f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-192f profile=f credential_security=192 compression_blocks=2
+keygen_ms=187.242
+anchor_generation_ms=185.177
+certificate_verify_ms=0.009
+pi_i_prepare_ms=9.651
+pi_i_prover_ms=11.325
+pi_i_verifier_ms=8.596
+pi_i_proof_bytes=140212
+public_certificate_bytes=800
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-256s mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-256s profile=s credential_security=256 compression_blocks=2
+keygen_ms=1418.887
+anchor_generation_ms=1407.247
+certificate_verify_ms=0.011
+pi_i_prepare_ms=9.607
+pi_i_prover_ms=73.910
+pi_i_verifier_ms=66.423
+pi_i_proof_bytes=133850
+public_certificate_bytes=1264
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-256f mode=seed-anchor =====
+iterations=3
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-256f profile=f credential_security=256 compression_blocks=2
+keygen_ms=244.746
+anchor_generation_ms=247.735
+certificate_verify_ms=0.010
+pi_i_prepare_ms=10.282
+pi_i_prover_ms=17.824
+pi_i_verifier_ms=13.607
+pi_i_proof_bytes=191132
+public_certificate_bytes=1040
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+benchmark_complete=1

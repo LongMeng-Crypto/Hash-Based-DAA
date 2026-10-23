@@ -9,6 +9,7 @@
 #include "instances.h"
 #include "parameters.h"
 #include "daa_params.h"
+#include "daa_rijndael_dm_params.h"
 
 const char* faest_get_param_name(faest_paramid_t paramid) {
   switch (paramid) {
@@ -38,6 +39,26 @@ const char* faest_get_param_name(faest_paramid_t paramid) {
     return "FAEST_EM_256S";
   case FAEST_EM_256F:
     return "FAEST_EM_256F";
+  case DAA_FAEST_128S:
+    return "DAA_FAEST_128S";
+  case DAA_FAEST_128F:
+    return "DAA_FAEST_128F";
+  case DAA_FAEST_192S:
+    return "DAA_FAEST_192S";
+  case DAA_FAEST_192F:
+    return "DAA_FAEST_192F";
+  case DAA_FAEST_256S:
+    return "DAA_FAEST_256S";
+  case DAA_FAEST_256F:
+    return "DAA_FAEST_256F";
+  case DAA_RDM_JOIN_128S:
+    return "DAA_RDM_JOIN_128S";
+  case DAA_RDM_JOIN_128F:
+    return "DAA_RDM_JOIN_128F";
+  case DAA_RDM_SIGN_128S:
+    return "DAA_RDM_SIGN_128S";
+  case DAA_RDM_SIGN_128F:
+    return "DAA_RDM_SIGN_128F";
   default:
     return "PARAMETER_SET_MAX_INDEX";
   }
@@ -91,6 +112,10 @@ const char* faest_get_param_name(faest_paramid_t paramid) {
 #define DAA_FAEST_192F_PARAMS PARAMS(DAA_FAEST_192F)
 #define DAA_FAEST_256S_PARAMS PARAMS(DAA_FAEST_256S)
 #define DAA_FAEST_256F_PARAMS PARAMS(DAA_FAEST_256F)
+#define DAA_RDM_JOIN_128S_PARAMS PARAMS(DAA_RDM_JOIN_128S)
+#define DAA_RDM_JOIN_128F_PARAMS PARAMS(DAA_RDM_JOIN_128F)
+#define DAA_RDM_SIGN_128S_PARAMS PARAMS(DAA_RDM_SIGN_128S)
+#define DAA_RDM_SIGN_128F_PARAMS PARAMS(DAA_RDM_SIGN_128F)
 
 #define CASE_PARAM(P)                                                                              \
   case P: {                                                                                        \
@@ -118,6 +143,10 @@ const faest_paramset_t* faest_get_paramset(faest_paramid_t paramid) {
     CASE_PARAM(DAA_FAEST_192F)
     CASE_PARAM(DAA_FAEST_256S)
     CASE_PARAM(DAA_FAEST_256F)
+    CASE_PARAM(DAA_RDM_JOIN_128S)
+    CASE_PARAM(DAA_RDM_JOIN_128F)
+    CASE_PARAM(DAA_RDM_SIGN_128S)
+    CASE_PARAM(DAA_RDM_SIGN_128F)
   default:
     return NULL;
   }

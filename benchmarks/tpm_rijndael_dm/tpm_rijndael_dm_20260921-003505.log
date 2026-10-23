@@ -1,0 +1,15 @@
+Rijndael-256 Davies--Meyer VOLE DAA benchmark
+construction=F(K,D)=Rijndael256_K(D) xor D (256-bit output, no truncation)
+vole_security=128
+date=2026-09-21T00:35:16+01:00
+commit=aafab0c
+iterations=100
+phases=join,sign
+parameters=128s,128f
+build_dir=/home/lm0052/.cache/sedaa-tpm-rdm-vole
+
+phase	parameter	prover_ms	verifier_ms	proof_bytes
+join	128s	11.349371	9.686407	7674
+join	128f	2.856331	2.352505	10532
+sign	128s	16.246984	13.772609	16298
+sign	128f	6.043771	4.774221	23076

@@ -105,9 +105,7 @@ const FSPHINCS_N: usize = 32;
 mod fs_params {
     include!(concat!(env!("OUT_DIR"), "/fsphincs_params.rs"));
 }
-const FSPHINCS_D: usize = fs_params::D;
-const FSPHINCS_K: usize = fs_params::K;
-const FSPHINCS_LAYER_SIG_BYTES: usize = FSPHINCS_K * (FSPHINCS_D + 1) * FSPHINCS_N;
+const FSPHINCS_LAYER_SIG_BYTES: usize = fs_params::MFORS_SIG_BYTES;
 
 fn credential_is_fsphincs() -> bool {
     env!("DAA_CREDENTIAL_SCHEME") == "fsphincs"
@@ -217,12 +215,16 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
 }
 
 // ── AES hook variants ──────────────────────────────────────────────────────
-// lambda=128: key=16B, et_u=16B → hk = AES_s(et_u)  (pure ECB, no XOR)
+// lambda=128: key=16B, et_u=16B → hk = AES_s(et_u) XOR et_u.
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
+    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+    for (byte, input) in block.iter_mut().zip(et_u.iter()) {
+        *byte ^= input;
+    }
     block.to_vec()
 }
 

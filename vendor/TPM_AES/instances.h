@@ -36,14 +36,19 @@ typedef enum faest_paramid_t {
   FAEST_EM_192F           = 10,
   FAEST_EM_256S           = 11,
   FAEST_EM_256F           = 12,
-  PARAMETER_SET_MAX_INDEX = 13,
   /* DAA joining protocol — original single-AES FAEST parameter sets */
   DAA_FAEST_128S          = 20,
   DAA_FAEST_128F          = 21,
   DAA_FAEST_192S          = 22,
   DAA_FAEST_192F          = 23,
   DAA_FAEST_256S          = 24,
-  DAA_FAEST_256F          = 25
+  DAA_FAEST_256F          = 25,
+  /* 128-bit VOLE profiles for 256-bit Rijndael Davies--Meyer relations. */
+  DAA_RDM_JOIN_128S       = 26,
+  DAA_RDM_JOIN_128F       = 27,
+  DAA_RDM_SIGN_128S       = 28,
+  DAA_RDM_SIGN_128F       = 29,
+  PARAMETER_SET_MAX_INDEX = 30
 } faest_paramid_t;
 
 typedef struct faest_paramset_t {

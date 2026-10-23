@@ -29,9 +29,9 @@
   TPM-credential layout:
 
   AES-128 (LAMBDA=128):  3 AES-128 calls
-    slt  = AES128_{sk_u}(lid)           (16 bytes)
-    et_u = AES128_{sk_u}(gid)           (16 bytes, transient — NOT stored in sk)
-    hk   = AES128_{s}(et_u)             (16 bytes)
+    slt  = AES128_{sk_u}(lid) XOR lid   (16 bytes)
+    et_u = AES128_{sk_u}(gid) XOR gid   (16 bytes, transient — NOT stored in sk)
+    hk   = AES128_{s}(et_u) XOR et_u    (16 bytes)
 
     pk = lid(16) || gid(16) || slt(16) || hk(16)   = 64 bytes
     sk = lid(16) || gid(16) || sk_u(16) || s(16)   = 64 bytes
@@ -90,7 +90,7 @@ static inline void tpm_owf_slt(const uint8_t* sk_u, const uint8_t* lid, uint8_t*
 #elif @LAMBDA@ == 192
   owf_192(sk_u, lid, slt_out);  // AES192_{sk_u}(lid) || AES192_{sk_u}(lid⊕1)
 #else
-  owf_128(sk_u, lid, slt_out);  // AES128_{sk_u}(lid)
+  daa_aes128_dm(sk_u, lid, slt_out);  // AES128_{sk_u}(lid) XOR lid
 #endif
 }
 
@@ -101,7 +101,7 @@ static inline void tpm_owf_etu(const uint8_t* sk_u, const uint8_t* gid, uint8_t*
 #elif @LAMBDA@ == 192
   owf_192(sk_u, gid, etu_out);  // AES192_{sk_u}(gid) || AES192_{sk_u}(gid⊕1)
 #else
-  owf_128(sk_u, gid, etu_out);  // AES128_{sk_u}(gid)
+  daa_aes128_dm(sk_u, gid, etu_out);  // AES128_{sk_u}(gid) XOR gid
 #endif
 }
 
@@ -122,7 +122,7 @@ static inline void tpm_owf_hk(const uint8_t* s, const uint8_t* et_u, uint8_t* hk
   generic_aes_ecb_encrypt(&ctx, hk_out, et_u, 2);
   generic_aes_ecb_free(&ctx);
 #else
-  owf_128(s, et_u, hk_out);   // AES128_{s}(et_u)
+  daa_aes128_dm(s, et_u, hk_out);   // AES128_{s}(et_u) XOR et_u
 #endif
 }
 

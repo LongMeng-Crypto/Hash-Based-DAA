@@ -2744,10 +2744,12 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
         return false;
     };
     let count = if security == 128 { 1 } else { 2 };
+    let node_bytes = security / 8;
+    let tree_bytes = 32 + d * node_bytes;
     let agg_height = k.next_power_of_two().trailing_zeros() as usize;
     let mut header = b"DAAFROOT".to_vec();
     header.extend_from_slice(&[
-        4,
+        6,
         3,
         (security >> 8) as u8,
         security as u8,
@@ -2756,7 +2758,7 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
         k as u8,
         count as u8,
     ]);
-    if native.certificate.len() != 16 + 32 * (count * (d + 1) + agg_height - (count - 1))
+    if native.certificate.len() != 16 + count * tree_bytes + node_bytes * (agg_height - (count - 1))
         || native.certificate[..16] != header
         || !native.public_a.is_empty()
         || native.public_b.len() != count * 16
@@ -2768,7 +2770,7 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
         let mut address = [0u8; 16];
         address[..4].copy_from_slice(&[2, 4, ((security / 64 - 2) * 2 + fast) as u8, 0]);
         address[12] = anchor as u8;
-        let offset = 16 + anchor * (d + 1) * 32;
+        let offset = 16 + anchor * tree_bytes;
         if native.public_b[anchor * 16..(anchor + 1) * 16] != address
             || native.anchor_value[anchor * 32..(anchor + 1) * 32]
                 != native.certificate[offset..offset + 32]
@@ -3570,9 +3572,10 @@ mod tests {
                 .with_params(format!("sha2-{name}"))
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
             let count = if security == 128 { 1 } else { 2 };
+            let node_bytes = security / 8;
             let length = 16
-                + 32 * (count * (d + 1) + k.next_power_of_two().trailing_zeros() as usize
-                    - (count - 1));
+                + count * (32 + d * node_bytes)
+                + node_bytes * (k.next_power_of_two().trailing_zeros() as usize - (count - 1));
             // This fixture tests field linkage only; the C tests authenticate actual roots.
             let mut native = IssuerAnchorNative {
                 certificate: vec![0; length],
@@ -3585,7 +3588,7 @@ mod tests {
             };
             native.certificate[..8].copy_from_slice(b"DAAFROOT");
             native.certificate[8..16].copy_from_slice(&[
-                4,
+                6,
                 3,
                 (security >> 8) as u8,
                 security as u8,
@@ -3609,7 +3612,7 @@ mod tests {
                 assert!(!fsphincs_anchor_fields_match(&config, &wrong));
             }
             let mut old = native.clone();
-            old.certificate[8] = 3;
+            old.certificate[8] = if security == 128 { 4 } else { 3 };
             assert!(!fsphincs_anchor_fields_match(&config, &old));
             old = native.clone();
             old.public_b.resize(count * 32, 0);

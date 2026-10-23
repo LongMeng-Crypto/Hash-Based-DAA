@@ -89,6 +89,7 @@ int main(void) {
         return 2;
     printf("parameter=%s\n", FS_NAME);
     printf("kat_leaf_prf_version=%u\n", FS_LEAF_PRF_VERSION);
+    printf("kat_h1_version=%u\nkat_node_bytes=%u\n", FS_H1_VERSION, FS_NODE_BYTES);
     fingerprint("kat_pk", pk, sizeof(pk));
     fingerprint("kat_sk", sk, sizeof(sk));
     fingerprint("kat_signature", sig, siglen);

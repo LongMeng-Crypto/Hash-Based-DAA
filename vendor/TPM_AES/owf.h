@@ -12,6 +12,8 @@
 FAEST_BEGIN_C_DECL
 
 void owf_128(const uint8_t* key, const uint8_t* input, uint8_t* output);
+/* DAA-only feed-forward; generic AES and VOLE expansion remain unchanged. */
+void daa_aes128_dm(const uint8_t* key, const uint8_t* input, uint8_t* output);
 void owf_192(const uint8_t* key, const uint8_t* input, uint8_t* output);
 void owf_256(const uint8_t* key, const uint8_t* input, uint8_t* output);
 

@@ -47,8 +47,9 @@ int main(void) {
         return 1;
     }
 
-    printf("F-SPHINCS+ set=" FS_NAME " format=3 H3=SHA-%u anchors=%u parameters: n=256 d=%u k=%u q=%u h=%u\n",
-           FS_H3_DIGEST_BYTES * 8u, FS_ANCHORS, FS_D, FS_K, FS_Q, FS_H);
+    printf("F-SPHINCS+ set=" FS_NAME " H1_version=%u node_bytes=%u H3=SHA-%u anchors=%u parameters: seed_bits=256 d=%u k=%u q=%u h=%u\n",
+           FS_H1_VERSION, FS_NODE_BYTES, FS_H3_DIGEST_BYTES * 8u, FS_ANCHORS,
+           FS_D, FS_K, FS_Q, FS_H);
     printf("sizes: pk=%u B sk=%u B sig=%u B\n",
            FS_PK_BYTES, FS_SK_BYTES, FS_SIG_BYTES);
     printf("leaf_prf_version=%u address_bytes=%u seed_bytes=%u output_bytes=%u pi_i_compressions=%u\n",
@@ -106,7 +107,7 @@ int main(void) {
     const size_t h3_blocks_count = (9 + FS_N + FS_PK_BYTES + sizeof(msg) + pad + B - 1) / B +
         prefix / B + (expected_h3 - 1) * ((prefix % B + 4 + pad + B - 1) / B);
     const uint64_t expected_blocks =
-        expected_leaf * 2u + expected_tree * 3u + expected_pad * 2u +
+        1u + expected_leaf + expected_tree * ((16u + 2u * FS_NODE_BYTES + 9u + 63u) / 64u) + expected_pad +
         expected_h2 * 2u + (FS_SECURITY == 256 ? 0 : h3_blocks_count);
     if (prof.total != (FS_H + 1u) * per_layer + (FS_SECURITY == 256 ? 0 : expected_h3) ||
         prof.compression_blocks != expected_blocks ||
@@ -124,6 +125,36 @@ int main(void) {
             return 11;
         }
     }
+
+    /* Exercise exactly the guest's layer-streaming API and compact boundaries. */
+    uint8_t streamed[FS_MFORS_MSG_BYTES];
+    uint64_t streamed_index;
+    fsphincs_hash_context stream_ctx;
+    fsphincs_hash_init(&stream_ctx, pk);
+    fsphincs_verify_begin(streamed, &streamed_index, sig, msg, sizeof(msg), pk);
+    for (uint32_t step = 0; step <= FS_H; ++step) {
+        if (fsphincs_verify_layer_ctx(streamed, sig + FS_N + step * FS_MFORS_SIG_BYTES,
+                                 &stream_ctx, FS_H - step, streamed_index)) return 20;
+        streamed_index /= FS_Q;
+        const size_t offsets[] = {
+            FS_N + step * FS_MFORS_SIG_BYTES,
+            FS_N + step * FS_MFORS_SIG_BYTES + FS_N,
+            FS_N + (step + 1u) * FS_MFORS_SIG_BYTES - 1u
+        };
+        for (size_t j = 0; j < sizeof(offsets) / sizeof(offsets[0]); ++j) {
+            sig[offsets[j]] ^= 1;
+            if (!fsphincs_verify(sig, siglen, msg, sizeof(msg), pk)) return 21;
+            sig[offsets[j]] ^= 1;
+        }
+    }
+    if (fsphincs_verify_finish(streamed, pk)) return 22;
+    if (!fsphincs_verify(sig, siglen + 1u, msg, sizeof(msg), pk)) return 23;
+#if FS_SECURITY != 256
+    if (!fsphincs_verify(sig, FS_N + (FS_H + 1u) * FS_K * (FS_D + 1u) * FS_N,
+                         msg, sizeof(msg), pk)) return 24;
+#endif
+    printf("streaming_and_serialization_test=ok layer_bytes=%u node_bytes=%u\n",
+           FS_MFORS_SIG_BYTES, FS_NODE_BYTES);
 
     sig[FS_SIG_BYTES / 2] ^= 1;
     if (fsphincs_verify(sig, siglen, msg, sizeof(msg), pk) == 0) {
@@ -166,9 +197,9 @@ int main(void) {
         return 12;
     memset(sk, 0, FS_SK_BYTES);
     if (fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 13;
-    cert[8] = FS_FORMAT_VERSION;
+    cert[8] = FS_SECURITY == 128 ? FS_LEAF_PRF_VERSION : FS_FORMAT_VERSION;
     if (!fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 19;
-    cert[8] = FS_LEAF_PRF_VERSION;
+    cert[8] = FS_CERTIFICATE_VERSION;
     if (!fsphincs_issuer_anchor_verify(cert, certlen - 1, pk) ||
         !fsphincs_issuer_anchor_verify(cert, certlen + 1, pk)) return 17;
     for (size_t i = 0; i < 16; ++i) {

@@ -10,6 +10,12 @@
 #include "randomness.h"
 #include "utils.h"
 
+#if (defined(__i386__) || defined(__x86_64__)) && \
+    (defined(__GNUC__) || defined(__clang__))
+#include <wmmintrin.h>
+#define DAA_HAVE_RUNTIME_PCLMUL 1
+#endif
+
 // GF(2^8) with X^8 + X^4 + X^3 + X^1 + 1
 #define bf8_modulus (UINT8_C((1 << 4) | (1 << 3) | (1 << 1) | 1))
 // GF(2^64) with X^64 + X^4 + X^3 + X^1 + 1
@@ -30,6 +36,139 @@
 #define U64C(x0, x1, x2, x3, x4, x5, x6, x7)                                                       \
   ((UINT64_C(x7) << 56) | (UINT64_C(x6) << 48) | (UINT64_C(x5) << 40) | (UINT64_C(x4) << 32) |     \
    (UINT64_C(x3) << 24) | (UINT64_C(x2) << 16) | (UINT64_C(x1) << 8) | UINT64_C(x0))
+
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+ATTR_TARGET_PCLMUL
+static void bf_clmul_word(uint64_t lhs, uint64_t rhs, uint64_t out[2]) {
+  const __m128i a = _mm_set_epi64x(0, (long long)lhs);
+  const __m128i b = _mm_set_epi64x(0, (long long)rhs);
+  _mm_storeu_si128((__m128i*)out, _mm_clmulepi64_si128(a, b, 0x00));
+}
+
+/* Multiply two, three, or four 64-bit limb polynomials with Karatsuba. */
+ATTR_TARGET_PCLMUL
+static void bf_clmul_product_2(const uint64_t lhs[2], const uint64_t rhs[2],
+                               uint64_t product[4]) {
+  uint64_t p0[2], p1[2], cross[2];
+  bf_clmul_word(lhs[0], rhs[0], p0);
+  bf_clmul_word(lhs[1], rhs[1], p1);
+  bf_clmul_word(lhs[0] ^ lhs[1], rhs[0] ^ rhs[1], cross);
+  cross[0] ^= p0[0] ^ p1[0];
+  cross[1] ^= p0[1] ^ p1[1];
+  product[0] = p0[0];
+  product[1] = p0[1] ^ cross[0];
+  product[2] = cross[1] ^ p1[0];
+  product[3] = p1[1];
+}
+
+ATTR_TARGET_PCLMUL
+static void bf_clmul_product_3(const uint64_t lhs[3], const uint64_t rhs[3],
+                               uint64_t product[6]) {
+  uint64_t diagonal[3][2], cross01[2], cross02[2], cross12[2];
+  for (size_t i = 0; i != 3; ++i) bf_clmul_word(lhs[i], rhs[i], diagonal[i]);
+  bf_clmul_word(lhs[0] ^ lhs[1], rhs[0] ^ rhs[1], cross01);
+  bf_clmul_word(lhs[0] ^ lhs[2], rhs[0] ^ rhs[2], cross02);
+  bf_clmul_word(lhs[1] ^ lhs[2], rhs[1] ^ rhs[2], cross12);
+  for (size_t i = 0; i != 2; ++i) {
+    cross01[i] ^= diagonal[0][i] ^ diagonal[1][i];
+    cross02[i] ^= diagonal[0][i] ^ diagonal[2][i];
+    cross12[i] ^= diagonal[1][i] ^ diagonal[2][i];
+  }
+  memset(product, 0, 6 * sizeof(*product));
+  product[0] ^= diagonal[0][0]; product[1] ^= diagonal[0][1];
+  product[1] ^= cross01[0]; product[2] ^= cross01[1];
+  product[2] ^= diagonal[1][0]; product[3] ^= diagonal[1][1];
+  product[2] ^= cross02[0]; product[3] ^= cross02[1];
+  product[3] ^= cross12[0]; product[4] ^= cross12[1];
+  product[4] ^= diagonal[2][0]; product[5] ^= diagonal[2][1];
+}
+
+ATTR_TARGET_PCLMUL
+static void bf_clmul_product_4(const uint64_t lhs[4], const uint64_t rhs[4],
+                               uint64_t product[8]) {
+  const uint64_t lhs_cross[2] = {lhs[0] ^ lhs[2], lhs[1] ^ lhs[3]};
+  const uint64_t rhs_cross[2] = {rhs[0] ^ rhs[2], rhs[1] ^ rhs[3]};
+  uint64_t low[4], high[4], cross[4];
+  bf_clmul_product_2(lhs, rhs, low);
+  bf_clmul_product_2(lhs + 2, rhs + 2, high);
+  bf_clmul_product_2(lhs_cross, rhs_cross, cross);
+  memset(product, 0, 8 * sizeof(*product));
+  for (size_t i = 0; i != 4; ++i) {
+    cross[i] ^= low[i] ^ high[i];
+    product[i] ^= low[i];
+    product[i + 2] ^= cross[i];
+    product[i + 4] ^= high[i];
+  }
+}
+
+ATTR_TARGET_PCLMUL
+static void bf_clmul_product_word(const uint64_t* lhs, size_t words, uint64_t rhs,
+                                  uint64_t* product) {
+  memset(product, 0, (words + 1) * sizeof(*product));
+  for (size_t i = 0; i != words; ++i) {
+    uint64_t partial[2];
+    bf_clmul_word(lhs[i], rhs, partial);
+    product[i] ^= partial[0];
+    product[i + 1] ^= partial[1];
+  }
+}
+
+ATTR_TARGET_PCLMUL
+static void bf_reduce_word(uint64_t* product, size_t high_index,
+                           size_t field_words, uint64_t modulus) {
+  uint64_t reduced[2];
+  bf_clmul_word(product[high_index], modulus, reduced);
+  product[high_index] = 0;
+  product[high_index - field_words] ^= reduced[0];
+  product[high_index - field_words + 1] ^= reduced[1];
+}
+
+ATTR_TARGET_PCLMUL
+static void bf_reduce(uint64_t* product, size_t product_words,
+                      size_t field_words, uint64_t modulus) {
+  for (size_t i = product_words; i-- > field_words;)
+    bf_reduce_word(product, i, field_words, modulus);
+}
+
+/* Multiply and reduce asymmetric extension-field operands with PCLMUL.
+ *
+ * The BAVC leaf hashes use 9x3 and 12x4 limb products for the 192- and
+ * 256-bit parameter sets. Keeping this helper generic preserves the exact
+ * field representation while replacing the old bit-serial hot path. */
+ATTR_TARGET_PCLMUL
+static void bf_clmul_reduce(uint64_t* dst, const uint64_t* lhs,
+                            size_t lhs_words, const uint64_t* rhs,
+                            size_t rhs_words, size_t field_words,
+                            uint64_t modulus) {
+  uint64_t product[24] = {0};
+  for (size_t i = 0; i != lhs_words; ++i) {
+    for (size_t j = 0; j != rhs_words; ++j) {
+      uint64_t partial[2];
+      bf_clmul_word(lhs[i], rhs[j], partial);
+      product[i + j] ^= partial[0];
+      product[i + j + 1] ^= partial[1];
+    }
+  }
+  for (size_t i = lhs_words + rhs_words; i-- > field_words;)
+    bf_reduce_word(product, i, field_words, modulus);
+  for (size_t i = 0; i != field_words; ++i) dst[i] = product[i];
+}
+
+static bool bf_runtime_has_pclmul(void) {
+  return __builtin_cpu_supports("pclmul");
+}
+
+/* GF(2^64) needs a second reduction fold. */
+ATTR_TARGET_PCLMUL
+static uint64_t bf64_mul_pclmul(uint64_t lhs, uint64_t rhs) {
+  uint64_t product[2], fold[2];
+  bf_clmul_word(lhs, rhs, product);
+  bf_clmul_word(product[1], bf64_modulus, fold);
+  product[0] ^= fold[0];
+  bf_clmul_word(fold[1], bf64_modulus, fold);
+  return product[0] ^ fold[0];
+}
+#endif
 
 ATTR_CONST uint8_t bits_sq(uint8_t x) {
   uint8_t res = set_bit(get_bit(x, 0) ^ get_bit(x, 4) ^ get_bit(x, 6), 0);
@@ -95,6 +234,11 @@ bf64_t bf64_rand(void) {
 }
 
 bf64_t bf64_mul(bf64_t lhs, bf64_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    return bf64_mul_pclmul(lhs, rhs);
+  }
+#endif
   bf64_t result = (-(rhs & 1)) & lhs;
   for (unsigned int idx = 1; idx != 64; ++idx) {
     const uint64_t mask = -((lhs >> 63) & 1);
@@ -243,6 +387,19 @@ static inline uint64_t bf128_bit_to_uint64_mask(bf128_t value, unsigned int bit)
 }
 
 bf128_t bf128_mul(bf128_t lhs, bf128_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[2] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1)};
+    const uint64_t b[2] = {BF_VALUE(rhs, 0), BF_VALUE(rhs, 1)};
+    uint64_t product[4];
+    bf_clmul_product_2(a, b, product);
+    bf_reduce(product, 4, 2, bf128_modulus);
+    bf128_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    return result;
+  }
+#endif
   bf128_t result = bf128_and_64(lhs, bf128_bit_to_uint64_mask(rhs, 0));
   for (unsigned int idx = 1; idx != 128; ++idx) {
     const uint64_t mask = bf128_bit_to_uint64_mask(lhs, 128 - 1);
@@ -255,6 +412,18 @@ bf128_t bf128_mul(bf128_t lhs, bf128_t rhs) {
 }
 
 bf128_t bf128_mul_64(bf128_t lhs, bf64_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[2] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1)};
+    uint64_t product[3];
+    bf_clmul_product_word(a, 2, rhs, product);
+    bf_reduce(product, 3, 2, bf128_modulus);
+    bf128_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    return result;
+  }
+#endif
   bf128_t result = bf128_and_64(lhs, bf64_bit_to_mask(rhs, 0));
   for (unsigned int idx = 1; idx != 64; ++idx) {
     const uint64_t mask = bf128_bit_to_uint64_mask(lhs, 128 - 1);
@@ -446,6 +615,20 @@ static inline uint64_t bf192_bit_to_uint64_mask(bf192_t value, unsigned int bit)
 }
 
 bf192_t bf192_mul(bf192_t lhs, bf192_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[3] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1), BF_VALUE(lhs, 2)};
+    const uint64_t b[3] = {BF_VALUE(rhs, 0), BF_VALUE(rhs, 1), BF_VALUE(rhs, 2)};
+    uint64_t product[6];
+    bf_clmul_product_3(a, b, product);
+    bf_reduce(product, 6, 3, bf192_modulus);
+    bf192_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    BF_VALUE(result, 2) = product[2];
+    return result;
+  }
+#endif
   bf192_t result = bf192_and_64(lhs, bf192_bit_to_uint64_mask(rhs, 0));
   for (unsigned int idx = 1; idx != 192; ++idx) {
     const uint64_t mask = bf192_bit_to_uint64_mask(lhs, 192 - 1);
@@ -458,6 +641,19 @@ bf192_t bf192_mul(bf192_t lhs, bf192_t rhs) {
 }
 
 bf192_t bf192_mul_64(bf192_t lhs, bf64_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[3] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1), BF_VALUE(lhs, 2)};
+    uint64_t product[4];
+    bf_clmul_product_word(a, 3, rhs, product);
+    bf_reduce(product, 4, 3, bf192_modulus);
+    bf192_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    BF_VALUE(result, 2) = product[2];
+    return result;
+  }
+#endif
   bf192_t result = bf192_and_64(lhs, bf64_bit_to_mask(rhs, 0));
   for (unsigned int idx = 1; idx != 64; ++idx) {
     const uint64_t mask = bf192_bit_to_uint64_mask(lhs, 192 - 1);
@@ -654,6 +850,21 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf256_bit_to_uint64_mask(bf
 }
 
 bf256_t bf256_mul(bf256_t lhs, bf256_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[4] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1), BF_VALUE(lhs, 2), BF_VALUE(lhs, 3)};
+    const uint64_t b[4] = {BF_VALUE(rhs, 0), BF_VALUE(rhs, 1), BF_VALUE(rhs, 2), BF_VALUE(rhs, 3)};
+    uint64_t product[8];
+    bf_clmul_product_4(a, b, product);
+    bf_reduce(product, 8, 4, bf256_modulus);
+    bf256_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    BF_VALUE(result, 2) = product[2];
+    BF_VALUE(result, 3) = product[3];
+    return result;
+  }
+#endif
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf256_t mod = BF256C(bf256_modulus, 0, 0, 0);
 #endif
@@ -673,6 +884,20 @@ bf256_t bf256_mul(bf256_t lhs, bf256_t rhs) {
 }
 
 bf256_t bf256_mul_64(bf256_t lhs, bf64_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    const uint64_t a[4] = {BF_VALUE(lhs, 0), BF_VALUE(lhs, 1), BF_VALUE(lhs, 2), BF_VALUE(lhs, 3)};
+    uint64_t product[5];
+    bf_clmul_product_word(a, 4, rhs, product);
+    bf_reduce(product, 5, 4, bf256_modulus);
+    bf256_t result = {0};
+    BF_VALUE(result, 0) = product[0];
+    BF_VALUE(result, 1) = product[1];
+    BF_VALUE(result, 2) = product[2];
+    BF_VALUE(result, 3) = product[3];
+    return result;
+  }
+#endif
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf256_t mod = BF256C(bf256_modulus, 0, 0, 0);
 #endif
@@ -910,6 +1135,18 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf576_bit_to_uint64_mask(bf
 #endif
 
 bf576_t bf576_mul_192(bf576_t lhs, bf192_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    uint64_t a[9], b[3], result[9];
+    uint8_t lhs_bytes[BF576_NUM_BYTES], result_bytes[BF576_NUM_BYTES];
+    bf576_store(lhs_bytes, lhs);
+    for (size_t i = 0; i != 9; ++i) a[i] = bf64_load(lhs_bytes + 8 * i);
+    for (size_t i = 0; i != 3; ++i) b[i] = BF_VALUE(rhs, i);
+    bf_clmul_reduce(result, a, 9, b, 3, 9, bf576_modulus);
+    for (size_t i = 0; i != 9; ++i) bf64_store(result_bytes + 8 * i, result[i]);
+    return bf576_load(result_bytes);
+  }
+#endif
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf192_t mod = BF192C(bf576_modulus, 0, 0);
 #endif
@@ -1016,6 +1253,18 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf768_bit_to_uint64_mask(bf
 #endif
 
 bf768_t bf768_mul_256(bf768_t lhs, bf256_t rhs) {
+#if defined(DAA_HAVE_RUNTIME_PCLMUL)
+  if (bf_runtime_has_pclmul()) {
+    uint64_t a[12], b[4], result[12];
+    uint8_t lhs_bytes[BF768_NUM_BYTES], result_bytes[BF768_NUM_BYTES];
+    bf768_store(lhs_bytes, lhs);
+    for (size_t i = 0; i != 12; ++i) a[i] = bf64_load(lhs_bytes + 8 * i);
+    for (size_t i = 0; i != 4; ++i) b[i] = BF_VALUE(rhs, i);
+    bf_clmul_reduce(result, a, 12, b, 4, 12, bf768_modulus);
+    for (size_t i = 0; i != 12; ++i) bf64_store(result_bytes + 8 * i, result[i]);
+    return bf768_load(result_bytes);
+  }
+#endif
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf256_t mod = BF256C(bf768_modulus, 0, 0, 0);
 #endif

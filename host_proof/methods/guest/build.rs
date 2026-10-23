@@ -219,6 +219,7 @@ fn main() {
     let fs_dir = "c_src/fsphincs_ref";
     let mut fs_build = cc::Build::new();
     fs_build
+        .define("RISC0_SHA_SYSCALL", None)
         .include(fs_dir)
         .include(dir)
         .define("FSPHINCS_VERIFY_ONLY", None)

@@ -768,6 +768,76 @@ ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_256(const uint8_t* key, uint8
 #endif
 #endif
 
+#if defined(HAVE_AESNI)
+/* Encrypt eight independent CTR blocks in parallel for long VOLE streams. */
+ATTR_TARGET_AESNI static void prg_aesni_batch8(const uint8_t* key, const uint8_t* iv,
+                                               uint8_t* out, unsigned int seclvl,
+                                               size_t outlen) {
+  __m128i rk[AES_ROUNDS_256 + 1];
+  unsigned int rounds;
+  switch (seclvl) {
+  case 256:
+    aes256_expand_key_aesni(rk, key);
+    rounds = AES_ROUNDS_256;
+    break;
+  case 192:
+    aes192_expand_key_aesni(rk, key);
+    rounds = AES_ROUNDS_192;
+    break;
+  default:
+    aes128_expand_key_aesni(rk, key);
+    rounds = AES_ROUNDS_128;
+    break;
+  }
+
+  __m128i counter = _mm_loadu_si128((const __m128i_u*)iv);
+  size_t blocks = outlen / IV_SIZE;
+  while (blocks >= 8) {
+    __m128i lane[8];
+    lane[0] = counter;
+    for (unsigned int i = 1; i != 8; ++i) {
+      lane[i] = sse2_increment_iv(lane[i - 1]);
+    }
+    counter = sse2_increment_iv(lane[7]);
+    for (unsigned int i = 0; i != 8; ++i) {
+      lane[i] = _mm_xor_si128(lane[i], rk[0]);
+    }
+    for (unsigned int round = 1; round != rounds; ++round) {
+      for (unsigned int i = 0; i != 8; ++i) {
+        lane[i] = _mm_aesenc_si128(lane[i], rk[round]);
+      }
+    }
+    for (unsigned int i = 0; i != 8; ++i) {
+      _mm_storeu_si128((__m128i_u*)out + i,
+                       _mm_aesenclast_si128(lane[i], rk[rounds]));
+    }
+    out += 8 * IV_SIZE;
+    blocks -= 8;
+  }
+  while (blocks-- != 0) {
+    __m128i block = _mm_xor_si128(counter, rk[0]);
+    for (unsigned int round = 1; round != rounds; ++round) {
+      block = _mm_aesenc_si128(block, rk[round]);
+    }
+    _mm_storeu_si128((__m128i_u*)out,
+                     _mm_aesenclast_si128(block, rk[rounds]));
+    counter = sse2_increment_iv(counter);
+    out += IV_SIZE;
+  }
+
+  if (outlen % IV_SIZE) {
+    __m128i block = _mm_xor_si128(counter, rk[0]);
+    for (unsigned int round = 1; round != rounds; ++round) {
+      block = _mm_aesenc_si128(block, rk[round]);
+    }
+    uint8_t last_block[IV_SIZE];
+    _mm_storeu_si128((__m128i_u*)last_block,
+                     _mm_aesenclast_si128(block, rk[rounds]));
+    memcpy(out, last_block, outlen % IV_SIZE);
+  }
+}
+#endif
+
 static void generic_prg(const uint8_t* key, uint8_t* internal_iv, uint8_t* out, unsigned int seclvl,
                         size_t outlen) {
   generic_aes_ecb_t ctx;
@@ -801,6 +871,10 @@ void prg(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out, un
 
 #if defined(HAVE_AESNI)
 // use AES-NI if possible
+  if (CPU_SUPPORTS_AESNI && outlen >= 8 * IV_SIZE) {
+    prg_aesni_batch8(key, internal_iv, out, seclvl, outlen);
+    return;
+  }
 #if defined(HAVE_AVX2)
   if (CPU_SUPPORTS_AESNI_AVX2) {
     switch (seclvl) {
@@ -1210,6 +1284,45 @@ static uint8_t* tpm_write_enc_witness_aes256(uint8_t* w, const uint8_t* plaintex
   return w;
 }
 
+/* Serialize the secret Rijndael-256 key and every nonlinear key-schedule word. */
+static uint8_t* tpm_write_keyexp_witness_rijndael256(uint8_t* w,
+                                                     const aes_round_keys_t* rk,
+                                                     const faest_paramset_t* params) {
+  const unsigned int nk = 8;
+  for (unsigned int i = 0; i != nk; ++i) {
+    memcpy(w, rk->round_keys[i / 8][i % 8], sizeof(aes_word_t));
+    w += sizeof(aes_word_t);
+  }
+  for (unsigned int j = 0, ik = nk; j < params->Ske / 4; ++j, ik += 4) {
+    memcpy(w, rk->round_keys[ik / 8][ik % 8], sizeof(aes_word_t));
+    w += sizeof(aes_word_t);
+  }
+  return w;
+}
+
+/* Serialize the optimized FAEST witness for one 256-bit Rijndael encryption. */
+static uint8_t* tpm_write_enc_witness_rijndael256(uint8_t* w, const uint8_t* plaintext,
+                                                  const aes_round_keys_t* rk,
+                                                  const faest_paramset_t* params) {
+  const unsigned int block_words = 8;
+  aes_block_t state;
+  load_state(state, plaintext, block_words);
+  add_round_key(0, state, rk, block_words);
+  for (unsigned int round = 1; round < params->R; ++round) {
+    if (round % 2 == 1) {
+      w = store_invnorm_state(w, state, block_words);
+    }
+    sub_bytes(state, block_words);
+    shift_row(state, block_words);
+    if (round % 2 == 0) {
+      w = store_state(w, state, block_words);
+    }
+    mix_column(state, block_words);
+    add_round_key(round, state, rk, block_words);
+  }
+  return w;
+}
+
 void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const faest_paramset_t* params) {
   const unsigned int lambda      = params->lambda;
   const unsigned int num_rounds  = params->R;
@@ -1221,6 +1334,47 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
   #if !defined(NDEBUG)
     uint8_t* const w_out = w;
   #endif
+
+  /* Rijndael-256 DM Join: Kexp(sk) || Enc(sk,gid). */
+  if (!is_em && lambda == 128 && params->Nst == 8 &&
+      params->owf_input_size == 32 && params->owf_output_size == 32 &&
+      params->l == params->Lke + params->Lenc) {
+    aes_round_keys_t rk;
+    rijndael256_init_round_keys(&rk, key);
+    w = tpm_write_keyexp_witness_rijndael256(w, &rk, params);
+    w = tpm_write_enc_witness_rijndael256(w, in, &rk, params);
+#if !defined(NDEBUG)
+    assert(w - w_out == params->l / 8);
+#endif
+    return;
+  }
+
+  /* Rijndael-256 DM Sign: two shared key schedules, three calls, and hidden et. */
+  if (!is_em && lambda == 128 && params->Nst == 8 &&
+      params->owf_input_size == 64 && params->owf_output_size == 64) {
+    const uint8_t* sk = key;
+    const uint8_t* et = key + 32;
+    const uint8_t* s  = key + 64;
+    const uint8_t* lid = in;
+    const uint8_t* gid = in + 32;
+    aes_round_keys_t rk_sk;
+    aes_round_keys_t rk_s;
+
+    rijndael256_init_round_keys(&rk_sk, sk);
+    w = tpm_write_keyexp_witness_rijndael256(w, &rk_sk, params);
+    w = tpm_write_enc_witness_rijndael256(w, lid, &rk_sk, params);
+    w = tpm_write_enc_witness_rijndael256(w, gid, &rk_sk, params);
+
+    rijndael256_init_round_keys(&rk_s, s);
+    w = tpm_write_keyexp_witness_rijndael256(w, &rk_s, params);
+    w = tpm_write_enc_witness_rijndael256(w, et, &rk_s, params);
+    memcpy(w, et, 32);
+    w += 32;
+#if !defined(NDEBUG)
+    assert(w - w_out == params->l / 8);
+#endif
+    return;
+  }
 
   // --------------------------------------------------------------------
   // TPM-credential (3-AES) witness extension fast path:

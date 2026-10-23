@@ -135,18 +135,39 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
         build.file(tpm.join(file));
     }
 
-    for file in [
-        "faest_aes_128.c",
-        "faest_aes_192.c",
-        "faest_aes_256.c",
-        "faest_128s.c",
-        "faest_128f.c",
-        "faest_192s.c",
-        "faest_192f.c",
-        "faest_256s.c",
-        "faest_256f.c",
+    // Render current templates into OUT_DIR instead of linking stale Meson snapshots.
+    let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    for (field, cipher, rounds, standard, suffix) in [
+        ("128", "128", "FAEST_128S_R", "1", "128"),
+        ("192", "192", "FAEST_192S_R", "1", "192"),
+        ("256", "256", "FAEST_256S_R", "1", "256"),
+        ("128", "256", "14", "0", "rijndael256_128"),
     ] {
-        build.file(tpm_build.join(file));
+        let values = [
+            ("SSS", field),
+            ("FIELD_BITS", field),
+            ("CIPHER_KEY_BITS", cipher),
+            ("CIPHER_ROUNDS", rounds),
+            ("STANDARD_INSTANCE", standard),
+            ("FUNCTION_SUFFIX", suffix),
+        ];
+        let path = out.join(format!("faest_aes_{suffix}.c"));
+        render_c_template(&tpm.join("faest_aes.c.in"), &path, &values);
+        build.file(path);
+    }
+    let parameters = std::fs::read_to_string(tpm_build.join("parameters.h")).unwrap();
+    for profile in ["128s", "128f", "192s", "192f", "256s", "256f"] {
+        let prefix = format!("#define FAEST_{}_", profile.to_uppercase());
+        let values: Vec<(&str, &str)> = parameters
+            .lines()
+            .filter_map(|line| {
+                let rest = line.strip_prefix(&prefix)?;
+                rest.split_once(' ')
+            })
+            .collect();
+        let path = out.join(format!("faest_{profile}.c"));
+        render_c_template(&tpm.join("faest_param.c.in"), &path, &values);
+        build.file(path);
     }
 
     for file in [
@@ -161,4 +182,18 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
     }
 
     build.compile("daa_tpm_faest_128s");
+}
+
+/// Expands the same template substitutions as Meson, failing on missing parameters.
+fn render_c_template(input: &std::path::Path, output: &std::path::Path, values: &[(&str, &str)]) {
+    let mut source = std::fs::read_to_string(input).expect("read TPM template");
+    for (name, value) in values {
+        source = source.replace(&format!("@{name}@"), value);
+    }
+    assert!(
+        !source.contains('@'),
+        "unexpanded TPM template: {}",
+        input.display()
+    );
+    std::fs::write(output, source).expect("write generated TPM source");
 }

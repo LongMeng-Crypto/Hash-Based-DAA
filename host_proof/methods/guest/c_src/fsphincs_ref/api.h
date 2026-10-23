@@ -10,6 +10,18 @@ extern "C" {
 #endif
 
 typedef struct {
+    uint8_t pub_seed[FS_N];
+    uint32_t state[10]; /* SHA-256 bytes and counter; aligned for the guest syscall. */
+} fsphincs_hash_context;
+
+/* Absorbs the padded public seed once per operation, without global mutable state. */
+void fsphincs_hash_init(fsphincs_hash_context *ctx, const uint8_t pub_seed[FS_N]);
+/* Streaming layer entry point sharing the caller's precomputed public state. */
+int fsphincs_verify_layer_ctx(uint8_t value[FS_MFORS_MSG_BYTES],
+    const uint8_t layer_sig[FS_MFORS_SIG_BYTES], const fsphincs_hash_context *ctx,
+    uint32_t layer, uint64_t node);
+
+typedef struct {
     uint64_t total;
     uint64_t compression_blocks;
     uint64_t node_seed;

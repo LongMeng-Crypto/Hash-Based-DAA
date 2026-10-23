@@ -29,7 +29,7 @@ const D: usize = fs_params::D;
 const H: usize = 6;
 const Q: u64 = 1024;
 const MFORS_MSG_BYTES: usize = (K * D + 7) / 8;
-const MFORS_SIG_BYTES: usize = K * (D + 1) * N;
+const MFORS_SIG_BYTES: usize = fs_params::MFORS_SIG_BYTES;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
 const ET_BYTES: usize = 16;
@@ -75,6 +75,7 @@ const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 static mut LAYER_SIGNATURE: [u8; MFORS_SIG_BYTES] = [0; MFORS_SIG_BYTES];
 
 extern "C" {
+    fn fsphincs_hash_init(ctx: *mut u32, pub_seed: *const u8);
     fn fsphincs_verify_begin(
         value: *mut u8,
         leaf_index: *mut u64,
@@ -83,10 +84,10 @@ extern "C" {
         msglen: usize,
         pk: *const u8,
     );
-    fn fsphincs_verify_layer(
+    fn fsphincs_verify_layer_ctx(
         value: *mut u8,
         layer_sig: *const u8,
-        pub_seed: *const u8,
+        ctx: *const u32,
         layer: u32,
         node: u64,
     ) -> i32;
@@ -98,6 +99,10 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
+    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+    for (byte, input) in block.iter_mut().zip(et_u.iter()) {
+        *byte ^= input;
+    }
     let mut hk = [0u8; HK_BYTES];
     hk.copy_from_slice(&block);
     hk
@@ -208,13 +213,22 @@ fn main() {
         );
     }
 
+    // C context: 32 public-seed bytes plus 40 state/counter bytes, aligned to u32.
+    let mut hash_ctx = [0u32; 18];
+    unsafe { fsphincs_hash_init(hash_ctx.as_mut_ptr(), pk.as_ptr()) };
     let layer_ptr = core::ptr::addr_of_mut!(LAYER_SIGNATURE).cast::<u8>();
     for step in 0..=H {
         let layer_sig = unsafe { core::slice::from_raw_parts_mut(layer_ptr, MFORS_SIG_BYTES) };
         env::read_slice(layer_sig);
         let layer = (H - step) as u32;
         let result = unsafe {
-            fsphincs_verify_layer(value.as_mut_ptr(), layer_ptr, pk.as_ptr(), layer, node)
+            fsphincs_verify_layer_ctx(
+                value.as_mut_ptr(),
+                layer_ptr,
+                hash_ctx.as_ptr(),
+                layer,
+                node,
+            )
         };
         assert!(result == 0);
         if step != H {

@@ -18,6 +18,25 @@ fi
 
 iterations="${ITERATIONS:-1}"
 segment_po2="${SEGMENT_PO2:-20}"
+hook_mode="${HOST_HOOK_MODE:-sha2-3f}"
+case "${hook_mode}" in
+  aes-3f)
+    tpm_backend=aes
+    tpm_scheme=ours
+    ;;
+  sha2-3f)
+    tpm_backend=sha2
+    tpm_scheme=ours
+    ;;
+  sha2-5f)
+    tpm_backend=sha2
+    tpm_scheme=chen23
+    ;;
+  *)
+    printf 'HOST_HOOK_MODE must be aes-3f, sha2-3f, or sha2-5f\n' >&2
+    exit 2
+    ;;
+esac
 timestamp="$(date +%Y%m%d-%H%M%S)"
 log_dir="${HOST_BENCH_LOG_DIR:-${workspace_dir}/benchmarks/host_sha2}"
 case_dir="${HOST_BENCH_CASE_DIR:-${workspace_dir}/results/host_sha2/${timestamp}}"
@@ -58,8 +77,8 @@ run_host_case() {
     printf '%s\n' '================================================================'
 
     env \
-      DAA_TPM_BACKEND=sha2 \
-      DAA_TPM_SHA_SCHEME="${relation}" \
+      DAA_TPM_BACKEND="${tpm_backend}" \
+      DAA_TPM_SHA_SCHEME="${tpm_scheme}" \
       DAA_CREDENTIAL_SCHEME="${credential}" \
       SPHINCS_PARAMS="sphincs-sha2-${parameter}" \
       SPHINCS_THASH=simple \
@@ -95,7 +114,7 @@ run_host_case() {
 }
 
 {
-  printf '%s\n' 'Complete SHA-2 Host proof benchmark'
+  printf '%s\n' 'Complete selectable-hook Host proof benchmark'
   printf 'date             : %s\n' "$(date --iso-8601=seconds)"
   printf 'DAA commit       : %s\n' "$(git rev-parse --short HEAD)"
   if [[ -d "${HOME}/RISC0-SHA256/.git" ]]; then
@@ -104,6 +123,7 @@ run_host_case() {
   printf 'cargo target     : %s\n' "${CARGO_TARGET_DIR}"
   printf 'segment_po2      : %s\n' "${segment_po2}"
   printf 'iterations       : %s\n' "${iterations}"
+  printf 'host hook mode   : %s\n' "${hook_mode}"
   printf 'combined log     : %s\n' "${log_file}"
   printf 'summary TSV      : %s\n' "${summary_file}"
   printf 'per-case logs    : %s\n' "${case_dir}"
@@ -112,24 +132,24 @@ run_host_case() {
   # already-supported SHA-256 Succinct and Identity recursion layers.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
-      direct ours sphincs "${parameter}" 2 succinct 1 \
+      direct "${hook_mode}" sphincs "${parameter}" 2 succinct 1 \
       daa_sha256_backend_host
   done
 
   # Existing ZK-WOTS+ relation: opt4, with no Identity wrapper.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
-      zkwots ours sphincs "${parameter}" 4 composite 0 \
+      zkwots "${hook_mode}" sphincs "${parameter}" 4 composite 0 \
       daa_sha256_backend_host
     run_host_case \
-      zkwots ours sphincs "${parameter}" 4 succinct 0 \
+      zkwots "${hook_mode}" sphincs "${parameter}" 4 succinct 0 \
       daa_sha256_backend_host
   done
 
-  # Six F-SPHINCS+ alternatives use the same Ours-3F one-SHA hook.
+  # Six F-SPHINCS+ alternatives use the selected Host hook relation.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     for receipt in composite succinct; do
-      run_host_case fsphincs ours fsphincs "${parameter}" 2 "${receipt}" 0 bench_fsphincs_risc0
+      run_host_case fsphincs "${hook_mode}" fsphincs "${parameter}" 2 "${receipt}" 0 bench_fsphincs_risc0
     done
   done
 

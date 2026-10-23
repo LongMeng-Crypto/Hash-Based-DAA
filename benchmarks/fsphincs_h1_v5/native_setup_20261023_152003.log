@@ -1,0 +1,151 @@
+suite=fsphincs-h1-v5-native-setup H1_128=16B H1_192_256=32B leaf_prf_version=4 date=2026-10-23T15:20:03+01:00
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target iterations=3
+native timings exclude capability tests and compilation; deterministic inputs are test-only
+===== native parameter=128s run=1 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128s \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128s H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=16 k=22 q=1024 h=6
+sizes: pk=76 B sk=108 B sig=44384 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 1.017768 s
+sign = 7.103350 s
+verify = 0.000737497 s
+verify SHA-256 calls: total=2929 compression_blocks=5859 leaf=154 tree=2681 pad=70 H2=21 H3=3
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=418 L1=418 L2=418 L3=418 L4=418 L5=418 L6=418
+streaming_and_serialization_test=ok layer_bytes=6336 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=384
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== native parameter=128s run=2 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128s \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128s H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=16 k=22 q=1024 h=6
+sizes: pk=76 B sk=108 B sig=44384 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 0.989445 s
+sign = 7.149317 s
+verify = 0.000787018 s
+verify SHA-256 calls: total=2929 compression_blocks=5859 leaf=154 tree=2681 pad=70 H2=21 H3=3
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=418 L1=418 L2=418 L3=418 L4=418 L5=418 L6=418
+streaming_and_serialization_test=ok layer_bytes=6336 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=384
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== native parameter=128s run=3 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128s \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128s H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=16 k=22 q=1024 h=6
+sizes: pk=76 B sk=108 B sig=44384 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 1.039327 s
+sign = 6.888968 s
+verify = 0.000788760 s
+verify SHA-256 calls: total=2929 compression_blocks=5859 leaf=154 tree=2681 pad=70 H2=21 H3=3
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=418 L1=418 L2=418 L3=418 L4=418 L5=418 L6=418
+streaming_and_serialization_test=ok layer_bytes=6336 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=384
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== KAT parameter=128s =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128s \
+  fsphincs.c issuer_anchor.c kat.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_kat
+deterministic KAT 128s: ok; independent H3/layers/certificate/index checks: ok
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== native parameter=128f run=1 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128f \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128f H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=12 k=61 q=1024 h=6
+sizes: pk=124 B sk=156 B sig=95680 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 0.169292 s
+sign = 1.215002 s
+verify = 0.001884349 s
+verify SHA-256 calls: total=6046 compression_blocks=12093 leaf=427 tree=5565 pad=21 H2=28 H3=5
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=863 L1=863 L2=863 L3=863 L4=863 L5=863 L6=863
+streaming_and_serialization_test=ok layer_bytes=13664 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=336
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== native parameter=128f run=2 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128f \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128f H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=12 k=61 q=1024 h=6
+sizes: pk=124 B sk=156 B sig=95680 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 0.171029 s
+sign = 1.200881 s
+verify = 0.001616545 s
+verify SHA-256 calls: total=6046 compression_blocks=12093 leaf=427 tree=5565 pad=21 H2=28 H3=5
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=863 L1=863 L2=863 L3=863 L4=863 L5=863 L6=863
+streaming_and_serialization_test=ok layer_bytes=13664 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=336
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== native parameter=128f run=3 =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic -DFSPHINCS_PROFILE \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128f \
+  fsphincs.c issuer_anchor.c benchmark.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_benchmark
+F-SPHINCS+ set=128f H1_version=5 node_bytes=16 H3=SHA-256 anchors=1 parameters: seed_bits=256 d=12 k=61 q=1024 h=6
+sizes: pk=124 B sk=156 B sig=95680 B
+leaf_prf_version=4 address_bytes=16 seed_bytes=32 output_bytes=32 pi_i_compressions=1
+keygen = 0.176706 s
+sign = 1.205229 s
+verify = 0.001676715 s
+verify SHA-256 calls: total=6046 compression_blocks=12093 leaf=427 tree=5565 pad=21 H2=28 H3=5
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=863 L1=863 L2=863 L3=863 L4=863 L5=863 L6=863
+streaming_and_serialization_test=ok layer_bytes=13664 node_bytes=16
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=336
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+===== KAT parameter=128f =====
+make: Entering directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+cc -O3 -std=c11 -Wall -Wextra -Wpedantic \
+  -I. -I../sphincs_ref -I../sphincs_ref/params \
+  -DPARAMS=sphincs-sha2-128s -DFSPHINCS_PARAMS=128f \
+  fsphincs.c issuer_anchor.c kat.c \
+  ../sphincs_ref/sha2.c \
+  -o fsphincs_kat
+deterministic KAT 128f: ok; independent H3/layers/certificate/index checks: ok
+make: Leaving directory '/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest/c_src/fsphincs_ref'
+setup_proof=skipped RUN_SETUP=0
+benchmark_complete=1

@@ -40,7 +40,8 @@ extern "C" {
  *   gid      : always 16 bytes (128-bit group identifier)
  *   et_u_out : 16 bytes (lambda=128) or 32 bytes (lambda=192/256)
  *
- * For lambda=192/256 two AES calls are made:
+ * For lambda=128: et_u = AES_sk_u(gid) XOR gid (DM-v1).
+ * For lambda=192/256 the legacy two plain-AES calls are unchanged:
  *   et_u[0:16] = AES_{sk_u}(gid)
  *   et_u[16:32] = AES_{sk_u}(gid XOR 1)   (LSB of first byte flipped)
  */

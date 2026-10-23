@@ -1,0 +1,10 @@
+Optimized AES VOLE DAA benchmark
+date=2026-09-20T19:02:23+01:00
+commit=aafab0c
+iterations=100
+phases=join
+parameters=192s
+build_dir=/home/lm0052/.cache/sedaa-tpm-aes-vole
+
+phase	parameter	prover_ms	verifier_ms	proof_bytes
+join	192s	23.976032	12.457273	11260

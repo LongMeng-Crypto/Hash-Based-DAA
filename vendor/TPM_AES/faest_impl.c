@@ -170,9 +170,16 @@ ATTR_PURE static inline const uint8_t* dsignature_ctr(const uint8_t* base_ptr,
 // FAEST.Sign: line 3
 static void hash_mu(uint8_t* mu, const uint8_t* owf_input, size_t owf_input_size,
                     const uint8_t* owf_output, size_t owf_output_size, const uint8_t* msg,
-                    size_t msglen, unsigned int lambda) {
+                    size_t msglen, unsigned int lambda, const faest_paramset_t* params) {
   H2_context_t h1_ctx;
   H2_init(&h1_ctx, lambda);
+  /* Bind the changed DAA relation, so legacy plain-AES proofs cannot be reinterpreted. */
+  if (lambda == 128 && params->Nst == 4 && !faest_is_em(params)) {
+    static const uint8_t domain[] = "DAA-AES128-DM-v1";
+    const uint8_t shape[] = {params->owf_input_size, params->owf_output_size, params->tau};
+    H2_update(&h1_ctx, domain, sizeof(domain) - 1);
+    H2_update(&h1_ctx, shape, sizeof(shape));
+  }
   H2_update(&h1_ctx, owf_input, owf_input_size);
   H2_update(&h1_ctx, owf_output, owf_output_size);
   H2_update(&h1_ctx, msg, msglen);
@@ -298,6 +305,11 @@ static inline void aes_prove(uint8_t* a0_tilde, uint8_t* a1_tilde, uint8_t* a2_t
                              const uint8_t* w, const uint8_t* u, uint8_t** V, const uint8_t* owf_in,
                              const uint8_t* owf_out, const uint8_t* chall_2,
                              const faest_paramset_t* params) {
+  if (params->lambda == 128 && params->Nst == 8) {
+    aes_rijndael256_128_prover(a0_tilde, a1_tilde, a2_tilde, w, u, V, owf_in, owf_out,
+                               chall_2, params);
+    return;
+  }
   switch (params->lambda) {
   case 256:
     aes_256_prover(a0_tilde, a1_tilde, a2_tilde, w, u, V, owf_in, owf_out, chall_2, params);
@@ -315,6 +327,11 @@ static inline void aes_verify(uint8_t* a0_tilde, const uint8_t* d, uint8_t** Q,
                               const uint8_t* a1_tilde, const uint8_t* a2_tilde,
                               const uint8_t* owf_in, const uint8_t* owf_out,
                               const faest_paramset_t* params) {
+  if (params->lambda == 128 && params->Nst == 8) {
+    aes_rijndael256_128_verifier(a0_tilde, d, Q, owf_in, owf_out, chall_2, chall_3,
+                                 a1_tilde, a2_tilde, params);
+    return;
+  }
   switch (params->lambda) {
   case 256:
     aes_256_verifier(a0_tilde, d, Q, owf_in, owf_out, chall_2, chall_3, a1_tilde, a2_tilde, params);
@@ -342,7 +359,7 @@ void faest_sign(uint8_t* sig, const uint8_t* msg, size_t msg_len, const uint8_t*
   // ::3
   uint8_t mu[MAX_LAMBDA_BYTES * 2];
   hash_mu(mu, owf_input, params->owf_input_size, owf_output, params->owf_output_size, msg, msg_len,
-          lambda);
+          lambda, params);
 
   // ::4-5
   uint8_t rootkey[MAX_LAMBDA_BYTES], iv[IV_SIZE];
@@ -456,7 +473,7 @@ int faest_verify(const uint8_t* msg, size_t msglen, const uint8_t* sig, const ui
   // ::2
   uint8_t mu[MAX_LAMBDA_BYTES * 2];
   hash_mu(mu, owf_input, params->owf_input_size, owf_output, params->owf_output_size, msg, msglen,
-          lambda);
+          lambda, params);
 
   // ::3
   uint8_t iv[IV_SIZE];

@@ -1,0 +1,208 @@
+suite=fsphincs-h1-v6-host H1_nodes=16/24/32B H1_address=16B padded_pubseed=64B leaf_prf_version=4 hook=ours-one-SHA backend=sha-256 identity=0
+execution_only=0
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target date=2026-10-23T18:32:12+01:00
+===== parameter=128s receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 15s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128s H1_version=6 node_bytes=16 leaf_prf_version=4 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=76 B sk=108 B signature=44384 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=566.665 sign_ms=3935.418
+receipt=Composite segment_hashes=sha-256
+prover_ms=3648.194
+prover_us=3648194
+verifier_ms=1.220
+verifier_us=1219
+proof_bytes=282304
+seal_bytes=281128
+guest_cycles: user=624941 total=1048576 paging=26831 reserved=396804 segments=1
+===== parameter=128s receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128s H1_version=6 node_bytes=16 leaf_prf_version=4 (k=22) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=76 B sk=108 B signature=44384 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=595.472 sign_ms=4146.009
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=6796.728
+prover_us=6796728
+verifier_ms=0.779
+verifier_us=778
+proof_bytes=274212
+seal_bytes=272780
+guest_cycles: user=624941 total=1048576 paging=26831 reserved=396804 segments=1
+===== parameter=128f receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 13s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128f H1_version=6 node_bytes=16 leaf_prf_version=4 (k=61) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=124 B sk=156 B signature=95680 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=113.336 sign_ms=718.635
+receipt=Composite segment_hashes=sha-256,sha-256
+prover_ms=5636.820
+prover_us=5636819
+verifier_ms=2.237
+verifier_us=2237
+proof_bytes=550748
+seal_bytes=549008
+guest_cycles: user=1295696 total=1572864 paging=55012 reserved=222156 segments=2
+===== parameter=128f receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128f H1_version=6 node_bytes=16 leaf_prf_version=4 (k=61) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=124 B sk=156 B signature=95680 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=101.206 sign_ms=684.802
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=18476.132
+prover_us=18476132
+verifier_ms=0.776
+verifier_us=775
+proof_bytes=274596
+seal_bytes=272780
+guest_cycles: user=1295696 total=1572864 paging=55012 reserved=222156 segments=2
+===== parameter=192s receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 12s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192s H1_version=6 node_bytes=24 leaf_prf_version=4 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=98 B sk=130 B signature=96128 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=1242.620 sign_ms=7656.543
+receipt=Composite segment_hashes=sha-256,sha-256
+prover_ms=5653.634
+prover_us=5653634
+verifier_ms=2.254
+verifier_us=2254
+proof_bytes=550668
+seal_bytes=549008
+guest_cycles: user=1324497 total=1572864 paging=74868 reserved=173499 segments=2
+===== parameter=192s receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192s H1_version=6 node_bytes=24 leaf_prf_version=4 (k=33) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=98 B sk=130 B signature=96128 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=1146.030 sign_ms=7629.390
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=18630.169
+prover_us=18630168
+verifier_ms=0.779
+verifier_us=779
+proof_bytes=274516
+seal_bytes=272780
+guest_cycles: user=1324497 total=1572864 paging=74868 reserved=173499 segments=2
+===== parameter=192f receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192f H1_version=6 node_bytes=24 leaf_prf_version=4 (k=92) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=170 B sk=202 B signature=206112 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=191.541 sign_ms=1417.995
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256
+prover_ms=11135.453
+prover_us=11135452
+verifier_ms=3.588
+verifier_us=3587
+proof_bytes=845800
+seal_bytes=843384
+guest_cycles: user=2774874 total=3145728 paging=133316 reserved=237538 segments=3
+===== parameter=192f receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-192f H1_version=6 node_bytes=24 leaf_prf_version=4 (k=92) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=170 B sk=202 B signature=206112 B message=72 B
+DAA hook: backend=sha2 relation=ours et_u=48 B gr_u=24 B secret=24 B hk=48 B cet=0 B
+native keygen_ms=197.687 sign_ms=1366.602
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=27708.973
+prover_us=27708973
+verifier_ms=0.798
+verifier_us=797
+proof_bytes=275092
+seal_bytes=272780
+guest_cycles: user=2774874 total=3145728 paging=133316 reserved=237538 segments=3
+===== parameter=256s receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 10s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256s H1_version=6 node_bytes=32 leaf_prf_version=4 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=1587.432 sign_ms=9925.490
+receipt=Composite segment_hashes=sha-256,sha-256
+prover_ms=7409.143
+prover_us=7409143
+verifier_ms=2.438
+verifier_us=2438
+proof_bytes=564204
+seal_bytes=562256
+guest_cycles: user=1826770 total=2097152 paging=111900 reserved=158482 segments=2
+===== parameter=256s receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256s H1_version=6 node_bytes=32 leaf_prf_version=4 (k=43) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=118 B sk=150 B signature=163776 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=1536.793 sign_ms=9895.030
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=21802.338
+prover_us=21802338
+verifier_ms=0.794
+verifier_us=794
+proof_bytes=274804
+seal_bytes=272780
+guest_cycles: user=1826770 total=2097152 paging=111900 reserved=158482 segments=2
+===== parameter=256f receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 09s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256f H1_version=6 node_bytes=32 leaf_prf_version=4 (k=120) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=212 B sk=244 B signature=349472 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=250.440 sign_ms=1756.776
+receipt=Composite segment_hashes=sha-256,sha-256,sha-256,sha-256
+prover_ms=14709.160
+prover_us=14709160
+verifier_ms=4.781
+verifier_us=4780
+proof_bytes=1127572
+seal_bytes=1124512
+guest_cycles: user=3775464 total=4194304 paging=253898 reserved=164942 segments=4
+===== parameter=256f receipt=succinct segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 08s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-256f H1_version=6 node_bytes=32 leaf_prf_version=4 (k=120) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Succinct segment_po2=20
+credential: pk=212 B sk=244 B signature=349472 B message=96 B
+DAA hook: backend=sha2 relation=ours et_u=64 B gr_u=32 B secret=32 B hk=64 B cet=0 B
+native keygen_ms=252.622 sign_ms=1775.346
+receipt=Succinct succinct_hashfn=sha-256
+prover_ms=50087.971
+prover_us=50087971
+verifier_ms=0.780
+verifier_us=780
+proof_bytes=275556
+seal_bytes=272780
+guest_cycles: user=3775464 total=4194304 paging=253898 reserved=164942 segments=4
+benchmark_complete=1

@@ -1,5 +1,5 @@
 /*
- * daa_faest.c — Original single-AES FAEST for the DAA Joining Protocol
+ * daa_faest.c — FAEST Join proofs: AES-128-DM and legacy AES-192/256
  *
  * Each public function dispatches to a per-variant static helper that holds
  * ONE known faest_paramset_t pointer.  This mirrors how faest_128s.c calls
@@ -7,7 +7,7 @@
  * pass the same opportunity to specialise faest_sign/faest_verify with
  * compile-time-constant loop bounds.
  *
- * OWF: uses owf_128/192/256 from owf.c (AES-NI accelerated).
+ * OWF: uses daa_aes128_dm or owf_192/256 (AES-NI accelerated).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -93,7 +93,7 @@ void daa_faest_owf(unsigned int lambda, const uint8_t* sk_u,
   switch (lambda) {
   case 256: owf_256(sk_u, gid, et_u_out); break;
   case 192: owf_192(sk_u, gid, et_u_out); break;
-  default:  owf_128(sk_u, gid, et_u_out); break;
+  default:  daa_aes128_dm(sk_u, gid, et_u_out); break;
   }
 }
 

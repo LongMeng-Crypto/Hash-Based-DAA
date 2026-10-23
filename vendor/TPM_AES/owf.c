@@ -178,6 +178,14 @@ void owf_128(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   generic_aes_ecb_free(&ctx);
 }
 
+/* Evaluate the one-block DAA DM relation, including safe in-place operation. */
+void daa_aes128_dm(const uint8_t* key, const uint8_t* input, uint8_t* output) {
+  uint8_t data[16];
+  memcpy(data, input, sizeof(data));
+  owf_128(key, data, output);
+  for (unsigned int i = 0; i < sizeof(data); ++i) output[i] ^= data[i];
+}
+
 void owf_192(const uint8_t* key, const uint8_t* input, uint8_t* output) {
 #if defined(HAVE_AESNI)
 #if defined(HAVE_AVX2)

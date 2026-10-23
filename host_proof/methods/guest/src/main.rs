@@ -101,6 +101,10 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
+    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+    for (byte, input) in block.iter_mut().zip(et_u.iter()) {
+        *byte ^= input;
+    }
     let mut out = [0u8; HK_BYTES];
     out.copy_from_slice(&block);
     out

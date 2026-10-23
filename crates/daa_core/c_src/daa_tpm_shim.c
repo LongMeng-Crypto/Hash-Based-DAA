@@ -34,7 +34,7 @@ static void tpm_owf(unsigned int lambda,
   } else if (lambda == 192u) {
     owf_192(key, input, output);
   } else {
-    owf_128(key, input, output);
+    daa_aes128_dm(key, input, output);
   }
 }
 
@@ -54,7 +54,7 @@ static void tpm_hk(unsigned int lambda,
     generic_aes_ecb_encrypt(&ctx, hk, et, 2);
     generic_aes_ecb_free(&ctx);
   } else {
-    owf_128(s, et, hk);
+    daa_aes128_dm(s, et, hk);
   }
 }
 

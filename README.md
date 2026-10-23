@@ -42,7 +42,7 @@ not measurements reported in CDENW'23.
 | TPM construction | Credential / host verifier | TPM proof | Host hook | Host proof |
 |---|---|---|---|---|
 | Ours-3F | Standard SPHINCS+: Direct (opt2) or ZK-WOTS+ (opt4) | VOLEith SHA-2, s/f | One SHA-2 | RISC0 SHA-256 |
-| Ours-3F | F-SPHINCS+ format v3, six parameter sets | VOLEith SHA-2, s/f | One SHA-2 | RISC0 SHA-256 |
+| Ours-3F | F-SPHINCS+, six parameter sets | VOLEith SHA-2, s/f | One SHA-2 | RISC0 SHA-256 |
 | CDENW'23--Ours-5F | Comparison/compatibility path | VOLEith SHA-2, s/f | Two SHA-2 evaluations | Supported, not used in the new v3 host tables |
 
 Ours-3F evaluates:
@@ -80,8 +80,11 @@ preserved but is not used for the current SHA-2 tables.
 ### F-SPHINCS+ parameter sets and format
 
 [parameter_sets.h](host_proof/methods/guest/c_src/fsphincs_ref/parameter_sets.h)
-is the shared C/Rust source of truth. All six sets keep 32-byte internal
-seeds/nodes, `q=1024`, and `h=6` (seven M-FORS signature layers).
+is the shared C/Rust source of truth. All six sets keep 32-byte seeds and
+leaf secrets, `q=1024`, and `h=6` (seven M-FORS signature layers).
+H1/tree nodes are 16/24/32 bytes for the 128/192/256 families. H1 version 6
+uses a lossless 16-byte address and reuses the full SHA-256 state after
+absorbing the 64-byte padded public-seed prefix.
 
 | Parameter | Inner-tree height `d` | Tree count `k` | H3 |
 |---|---:|---:|---|
@@ -265,6 +268,33 @@ ITERATIONS=10 scripts/benchmark_tpm_sha.sh
 The preparation cost is reported separately and is not included in the warm
 per-proof averages.
 
+### Optimized AES Join and TPM-signing proofs
+
+The vendored `TPM_AES` backend supports the six `128/192/256-s/f` profiles
+for both the one-AES Join relation and the linked three-function TPM signing
+relation.  Run the complete matrix with the persistent Meson cache:
+
+```sh
+ITERATIONS=20 scripts/benchmark_tpm_aes_vole.sh
+```
+
+Select either phase or a subset of profiles without rebuilding:
+
+```sh
+PHASES=join PARAMETERS="128s 128f" ITERATIONS=100 \
+  scripts/benchmark_tpm_aes_vole.sh
+
+PHASES=sign PARAMETERS="192s 192f 256s 256f" ITERATIONS=20 \
+  scripts/benchmark_tpm_aes_vole.sh
+```
+
+`TPM_AES_BUILD_DIR` defaults to `~/.cache/sedaa-tpm-aes-vole`; it is not
+deleted by the script. Timestamped logs are written under
+`benchmarks/tpm_aes_vole/`. The Host proof remains independently selectable:
+`DAA_TPM_BACKEND=aes` uses the one-AES hook, while
+`DAA_TPM_BACKEND=sha2 DAA_TPM_SHA_SCHEME=ours` and `chen23` select the
+one- and two-SHA-2 hook relations respectively.
+
 ### Issuer Setup anchor benchmark
 
 Run all six SPHINCS+ parameters with either Setup proof mode:
@@ -304,11 +334,20 @@ Run the 30 current SHA-2 host cases at segment size `2^20`:
 SEGMENT_PO2=20 ITERATIONS=1 scripts/benchmark_host_sha2.sh
 ```
 
+Select the compiled TPM-to-Host hook without changing the credential or RISC0
+verification relation:
+
+```sh
+HOST_HOOK_MODE=aes-3f  SEGMENT_PO2=20 ITERATIONS=1 scripts/benchmark_host_sha2.sh
+HOST_HOOK_MODE=sha2-3f SEGMENT_PO2=20 ITERATIONS=1 scripts/benchmark_host_sha2.sh
+HOST_HOOK_MODE=sha2-5f SEGMENT_PO2=20 ITERATIONS=1 scripts/benchmark_host_sha2.sh
+```
+
 This covers:
 
 - six Direct SPHINCS+ Succinct/Identity cases;
 - six ZK-WOTS+ Composite and six ZK-WOTS+ Succinct cases; and
-- six F-SPHINCS+ v3 Composite and six F-SPHINCS+ v3 Succinct cases,
+- six F-SPHINCS+ Composite and six F-SPHINCS+ Succinct cases,
   all using Ours-3F and one SHA-2 hook.
 
 Use `SEGMENT_PO2=22` or another supported exponent for segmentation studies.
@@ -324,32 +363,35 @@ Paper timings use the emitted `prover_us` and `verifier_us`, not the outer
 Cargo wall-clock time, because the latter can include compilation and process
 startup.
 
-### F-SPHINCS+ compact leaf-PRF checks and benchmarks
+### F-SPHINCS+ H1-truncation checks and benchmarks
 
 The new F-SPHINCS+ credential is an alternative under **Ours-3F plus one SHA-2
 hook**. Select one of `128s,128f,192s,192f,256s,256f`, paired with the same
 VOLEith parameter. Old independent k/security selectors and k=35/70 are removed.
-Native and Setup tables use the three-run compact-address measurements from
-2026-09-09. Host tables retain the earlier v3 verifier measurements: the verifier
-does not evaluate the secret-key PRFs, and its hash workload is unchanged.
+H1 version 6 uses 16/24/32-byte nodes, lossless 16-byte addresses, and a
+cached, block-padded public-seed prefix. Seeds, leaf secrets, the compact
+leaf PRF, and H2/H3 algorithms remain unchanged. Regenerate keys,
+credentials, certificates and guest images for all six sets.
 
 ```sh
-# Six native credentials, deterministic KATs, and six matching Setup proofs:
-ITERATIONS=3 bash scripts/benchmark_fsphincs_native_setup.sh
+# Changed native credentials and deterministic KATs; RUN_SETUP=1 also measures pi_I:
+RUN_SETUP=1 FSPHINCS_PARAMS_LIST="128s 128f 192s 192f 256s 256f" ITERATIONS=3 \
+  bash scripts/benchmark_fsphincs_native_setup.sh
 
-# Six credentials x Composite/Succinct x the requested segment sizes:
-SEGMENT_PO2_LIST="22 21 20" bash scripts/benchmark_fsphincs_host.sh
+# Changed credentials x Composite/Succinct x the requested segment sizes:
+FSPHINCS_EXECUTE_ONLY=0 FSPHINCS_PARAMS_LIST="128s 128f 192s 192f 256s 256f" \
+  SEGMENT_PO2_LIST="22 21 20" RECEIPT_LIST="composite succinct" \
+  bash scripts/benchmark_fsphincs_host.sh
 
 # One native test, with automatic binary cleanup:
 make -C host_proof/methods/guest/c_src/fsphincs_ref test FSPHINCS_PARAMS=128f
 ```
 
-New logs go to `benchmarks/fsphincs_leaf_prf_v4/`; historical logs remain in
-`benchmarks/fsphincs_v3/`. Both scripts reuse
-`~/.cache/sedaa-risc0-shared-target`. Leaf-PRF v4 compresses only the address
-to 16 bytes; the node PRF and 32-byte seeds/outputs are unchanged. Regenerate
-keypairs, credentials and certificates together for the new signer; do not
-extend old keys with it. The scripts also check the deterministic KATs.
+New logs go to `benchmarks/fsphincs_h1_v6/`; historical logs are preserved.
+Both scripts reuse `~/.cache/sedaa-risc0-shared-target`. Omit the parameter list
+to run all six sets. Native targets automatically remove their test binaries.
+See [DESIGN.md](host_proof/methods/guest/c_src/fsphincs_ref/DESIGN.md) for the
+new layout, exact compression counts, compatibility and security assumptions.
 
 ### Compatibility sweeps
 
@@ -361,25 +403,33 @@ relations explicitly.
 
 ## Current Benchmark Results
 
-The following tables reproduce the performance tables in `Paper/main.tex`,
-including their labels, columns, values, and displayed precision.
+The following tables collect the performance results from `Paper/main.tex`.
+The F-SPHINCS+ rows below are synchronized with its latest measurements;
+other rows retain their existing results and presentation.
 Times are seconds; KB means 1024 bytes.
 
-In the TPM panels, Variant-1 is the CDENW'23-style 5F reimplementation and
-Variant-2 is Ours-3F. All host panels use **one SHA-2 hook**; there, Variant-1
-identifies the F-SPHINCS+ credential family. Host measurements use the
-SHA-256 RISC0 backend with segment size `2^20`.
+All six F-SPHINCS+ rows use H1 v6. Native and Setup-proof timings are
+three-run means; host timings use one run per receipt mode at segment
+size `2^20`, with one SHA-2 hook and no Identity wrapper.
+
+In the TPM panels, SHA2-5F is the CDENW'23-style relation and SHA2-3F is
+Ours-3F; their reductions isolate the benefit of reducing the number of
+functions under the same primitive. AES-3F is reported separately as an
+alternative concrete instantiation and is not included in those reductions.
+All host panels use **one SHA-2 hook**; there, Variant-1 identifies the
+F-SPHINCS+ credential family. Host measurements use the SHA-256 RISC0 backend
+with segment size `2^20`.
 
 ### Credential-scheme setup
 
 | Variant | Credential scheme | Parameters | Keygen (s) | Public key (B) | Secret key (B) |
 | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 1.16 | 76 | 108 |
-| Variant-1 | F-SPHINCS+ | 128f | 0.208 | 124 | 156 |
-| Variant-1 | F-SPHINCS+ | 192s | 1.75 | 98 | 130 |
-| Variant-1 | F-SPHINCS+ | 192f | 0.322 | 170 | 202 |
-| Variant-1 | F-SPHINCS+ | 256s | 2.24 | 118 | 150 |
-| Variant-1 | F-SPHINCS+ | 256f | 0.426 | 212 | 244 |
+| Variant-1 | F-SPHINCS+ | 128s | 0.564 | 76 | 108 |
+| Variant-1 | F-SPHINCS+ | 128f | 0.099 | 124 | 156 |
+| Variant-1 | F-SPHINCS+ | 192s | 1.15 | 98 | 130 |
+| Variant-1 | F-SPHINCS+ | 192f | 0.223 | 170 | 202 |
+| Variant-1 | F-SPHINCS+ | 256s | 1.50 | 118 | 150 |
+| Variant-1 | F-SPHINCS+ | 256f | 0.292 | 212 | 244 |
 | Variant-2 | SPHINCS+ | 128s | 0.050 | 32 | 64 |
 | Variant-2 | SPHINCS+ | 128f | 0.001 | 32 | 64 |
 | Variant-2 | SPHINCS+ | 192s | 0.062 | 48 | 96 |
@@ -395,12 +445,12 @@ Composite. Compression counts include the work counted in the paper.
 
 | Variant / solution | Credential scheme | Credential parameter | Proof parameter | SHA-2 comp. | Anchor generation (s) | Certificate verification (s) | Preparation (s) | Prove (s) | Verify (s) | Proof (KB) | Public cert. (KB) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 128s | 1 | 1.10 | 0.000009 | 0.005 | 0.019 | 0.015 | 32.57 | 0.703 |
-| Variant-1 | F-SPHINCS+ | 128f | 128f | 1 | 0.192 | 0.000008 | 0.005 | 0.005 | 0.004 | 46.76 | 0.609 |
-| Variant-1 | F-SPHINCS+ | 192s | 192s | 2 | 1.66 | 0.000015 | 0.010 | 0.043 | 0.038 | 92.55 | 1.234 |
-| Variant-1 | F-SPHINCS+ | 192f | 192f | 2 | 0.283 | 0.000013 | 0.010 | 0.012 | 0.009 | 136.93 | 1.016 |
-| Variant-1 | F-SPHINCS+ | 256s | 256s | 2 | 2.16 | 0.000016 | 0.011 | 0.074 | 0.067 | 130.71 | 1.234 |
-| Variant-1 | F-SPHINCS+ | 256f | 256f | 2 | 0.382 | 0.000014 | 0.010 | 0.017 | 0.014 | 186.65 | 1.016 |
+| Variant-1 | F-SPHINCS+ | 128s | 128s | 1 | 0.552 | 0.000003 | 0.008 | 0.017 | 0.015 | 32.57 | 0.375 |
+| Variant-1 | F-SPHINCS+ | 128f | 128f | 1 | 0.096 | 0.000003 | 0.005 | 0.005 | 0.004 | 46.76 | 0.328 |
+| Variant-1 | F-SPHINCS+ | 192s | 192s | 2 | 1.10 | 0.000011 | 0.010 | 0.044 | 0.038 | 92.55 | 0.945 |
+| Variant-1 | F-SPHINCS+ | 192f | 192f | 2 | 0.185 | 0.000009 | 0.010 | 0.011 | 0.009 | 136.93 | 0.781 |
+| Variant-1 | F-SPHINCS+ | 256s | 256s | 2 | 1.41 | 0.000011 | 0.010 | 0.074 | 0.066 | 130.71 | 1.234 |
+| Variant-1 | F-SPHINCS+ | 256f | 256f | 2 | 0.248 | 0.000010 | 0.010 | 0.018 | 0.014 | 186.65 | 1.016 |
 | Variant-2 / Solution 1 | SPHINCS+ | 128s | 128s | 2 | 0.296 | 0.00027 | 0.010 | 0.028 | 0.023 | 61.70 | 5.43 |
 | Variant-2 / Solution 1 | SPHINCS+ | 128f | 128f | 2 | 0.015 | 0.00086 | 0.010 | 0.008 | 0.006 | 89.12 | 13.79 |
 | Variant-2 / Solution 1 | SPHINCS+ | 192s | 192s | 2 | 0.554 | 0.00043 | 0.010 | 0.048 | 0.038 | 93.05 | 10.92 |
@@ -416,13 +466,21 @@ Composite. Compression counts include the work counted in the paper.
 
 ### Join protocol
 
-Panel A is shared by both variants. A complete Join selects the matching
-security level and s/f profile from both panels.
+Panel A gives AES and SHA-2 instantiations of the shared one-function Join
+relation. The evaluated implementation variants select the SHA-2 rows; AES
+is an alternative concrete instantiation. A complete Join selects the
+matching security level and s/f profile from both panels.
 
-#### Panel A: shared TPM joining proof
+#### Panel A: TPM joining proof
 
-| VOLEith parameter | Hash | Prove (s) | Verify (s) | Proof (KB) |
+| VOLEith parameter | F instance | Prove (s) | Verify (s) | Proof (KB) |
 | --- | --- | --- | --- | --- |
+| 128s | AES-128 | 0.009 | 0.009 | 4.40 |
+| 128f | AES-128 | 0.002 | 0.002 | 5.79 |
+| 192s | AES-192 | 0.024 | 0.012 | 11.00 |
+| 192f | AES-192 | 0.003 | 0.002 | 14.60 |
+| 256s | AES-256 | 0.027 | 0.026 | 20.21 |
+| 256f | AES-256 | 0.005 | 0.005 | 25.93 |
 | 128s | SHA-256 | 0.018 | 0.015 | 32.42 |
 | 128f | SHA-256 | 0.004 | 0.003 | 46.54 |
 | 192s | SHA-384 | 0.056 | 0.044 | 115.71 |
@@ -434,12 +492,12 @@ security level and s/f profile from both panels.
 
 | Variant | Credential scheme | Parameters | Sign (s) | Verify (s) | Credential (KB) |
 | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 7.79 | 0.001 | 81.84 |
-| Variant-1 | F-SPHINCS+ | 128f | 1.40 | 0.002 | 173.50 |
-| Variant-1 | F-SPHINCS+ | 192s | 11.79 | 0.002 | 122.75 |
-| Variant-1 | F-SPHINCS+ | 192f | 2.08 | 0.003 | 261.66 |
-| Variant-1 | F-SPHINCS+ | 256s | 15.17 | 0.002 | 159.94 |
-| Variant-1 | F-SPHINCS+ | 256f | 2.68 | 0.004 | 341.28 |
+| Variant-1 | F-SPHINCS+ | 128s | 3.92 | 0.001 | 43.34 |
+| Variant-1 | F-SPHINCS+ | 128f | 0.687 | 0.001 | 93.44 |
+| Variant-1 | F-SPHINCS+ | 192s | 7.84 | 0.001 | 93.88 |
+| Variant-1 | F-SPHINCS+ | 192f | 1.40 | 0.002 | 201.28 |
+| Variant-1 | F-SPHINCS+ | 256s | 10.13 | 0.001 | 159.94 |
+| Variant-1 | F-SPHINCS+ | 256f | 1.78 | 0.003 | 341.28 |
 | Variant-2 | SPHINCS+ | 128s | 0.286 | 0.001 | 7.69 |
 | Variant-2 | SPHINCS+ | 128f | 0.014 | 0.001 | 16.70 |
 | Variant-2 | SPHINCS+ | 192s | 0.516 | 0.001 | 15.88 |
@@ -451,14 +509,17 @@ security level and s/f profile from both panels.
 
 #### Panel A: TPM signing
 
-| VOLEith parameter | Variant-1 prove (s) | Variant-1 proof (KB) | Variant-2 prove (s) | Variant-2 proof (KB) | Prove reduction | Proof reduction |
-| --- | --- | --- | --- | --- | --- | --- |
-| 128s | 0.064 | 178.63 | 0.033 | 91.73 | 48.1% | 48.6% |
-| 128f | 0.021 | 259.20 | 0.010 | 132.81 | 52.1% | 48.8% |
-| 192s | 0.247 | 552.82 | 0.134 | 334.46 | 45.9% | 39.5% |
-| 192f | 0.073 | 827.32 | 0.036 | 499.79 | 51.0% | 39.6% |
-| 256s | 0.449 | 920.80 | 0.206 | 470.75 | 54.1% | 48.9% |
-| 256f | 0.120 | 1335.87 | 0.059 | 681.25 | 50.9% | 49.0% |
+The prove/proof reductions compare SHA2-3F with SHA2-5F. AES-3F is an
+alternative concrete instantiation and is not part of the reduction.
+
+| VOLEith parameter | SHA2-5F prove (s) | SHA2-5F proof (KB) | SHA2-3F prove (s) | SHA2-3F proof (KB) | Prove reduction | Proof reduction | AES-3F prove (s) | AES-3F proof (KB) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 128s | 0.064 | 178.63 | 0.033 | 91.73 | 48.1% | 48.6% | 0.011 | 7.41 |
+| 128f | 0.021 | 259.20 | 0.010 | 132.81 | 52.1% | 48.8% | 0.003 | 10.16 |
+| 192s | 0.247 | 552.82 | 0.134 | 334.46 | 45.9% | 39.5% | 0.024 | 20.37 |
+| 192f | 0.073 | 827.32 | 0.036 | 499.79 | 51.0% | 39.6% | 0.005 | 28.66 |
+| 256s | 0.449 | 920.80 | 0.206 | 470.75 | 54.1% | 48.9% | 0.034 | 35.77 |
+| 256f | 0.120 | 1335.87 | 0.059 | 681.25 | 50.9% | 49.0% | 0.010 | 48.55 |
 
 #### Panel B: host signing
 
@@ -467,12 +528,12 @@ Succinct do not use an additional Identity wrapper.
 
 | Variant | Host construction | Credential | Composite prove (s) | Composite proof (KB) | Succinct prove (s) | Succinct proof (KB) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 10.96 | 825.12 | 27.25 | 267.79 |
-| Variant-1 | F-SPHINCS+ | 128f | 22.49 | 1899.48 | 66.39 | 268.16 |
-| Variant-1 | F-SPHINCS+ | 192s | 18.00 | 1374.84 | 48.76 | 268.08 |
-| Variant-1 | F-SPHINCS+ | 192f | 35.17 | 2748.98 | 100.97 | 268.64 |
-| Variant-1 | F-SPHINCS+ | 256s | 21.64 | 1649.84 | 59.31 | 268.36 |
-| Variant-1 | F-SPHINCS+ | 256f | 43.43 | 3548.70 | 128.53 | 269.10 |
+| Variant-1 | F-SPHINCS+ | 128s | 3.65 | 275.69 | 6.80 | 267.79 |
+| Variant-1 | F-SPHINCS+ | 128f | 5.64 | 537.84 | 18.48 | 268.16 |
+| Variant-1 | F-SPHINCS+ | 192s | 5.65 | 537.76 | 18.63 | 268.08 |
+| Variant-1 | F-SPHINCS+ | 192f | 11.14 | 825.98 | 27.71 | 268.64 |
+| Variant-1 | F-SPHINCS+ | 256s | 7.41 | 550.98 | 21.80 | 268.36 |
+| Variant-1 | F-SPHINCS+ | 256f | 14.71 | 1101.14 | 50.09 | 269.10 |
 | Variant-2 | Direct SPHINCS+ | 128s | Not applicable | Not applicable | 9.712 | 267.44 |
 | Variant-2 | Direct SPHINCS+ | 128f | Not applicable | Not applicable | 18.619 | 267.44 |
 | Variant-2 | Direct SPHINCS+ | 192s | Not applicable | Not applicable | 71.022 | 267.69 |
@@ -490,25 +551,28 @@ Succinct do not use an additional Identity wrapper.
 
 #### Panel A: TPM verification
 
-| VOLEith parameter | Variant-1 verify (s) | Variant-2 verify (s) | Reduction |
-| --- | --- | --- | --- |
-| 128s | 0.053 | 0.030 | 42.7% |
-| 128f | 0.016 | 0.008 | 47.6% |
-| 192s | 0.223 | 0.119 | 46.7% |
-| 192f | 0.062 | 0.030 | 51.0% |
-| 256s | 0.432 | 0.192 | 55.6% |
-| 256f | 0.105 | 0.045 | 57.3% |
+The reduction compares SHA2-3F with SHA2-5F; AES-3F is reported only as
+an alternative instantiation.
+
+| VOLEith parameter | SHA2-5F verify (s) | SHA2-3F verify (s) | Reduction | AES-3F verify (s) |
+| --- | --- | --- | --- | --- |
+| 128s | 0.053 | 0.030 | 42.7% | 0.010 |
+| 128f | 0.016 | 0.008 | 47.6% | 0.002 |
+| 192s | 0.223 | 0.119 | 46.7% | 0.016 |
+| 192f | 0.062 | 0.030 | 51.0% | 0.004 |
+| 256s | 0.432 | 0.192 | 55.6% | 0.033 |
+| 256f | 0.105 | 0.045 | 57.3% | 0.008 |
 
 #### Panel B: host verification
 
 | Variant | Host construction | Credential | Composite verify (s) | Succinct verify (s) |
 | --- | --- | --- | --- | --- |
-| Variant-1 | F-SPHINCS+ | 128s | 0.004 | 0.00087 |
-| Variant-1 | F-SPHINCS+ | 128f | 0.008 | 0.00078 |
-| Variant-1 | F-SPHINCS+ | 192s | 0.006 | 0.00080 |
-| Variant-1 | F-SPHINCS+ | 192f | 0.014 | 0.00080 |
-| Variant-1 | F-SPHINCS+ | 256s | 0.007 | 0.00079 |
-| Variant-1 | F-SPHINCS+ | 256f | 0.015 | 0.00079 |
+| Variant-1 | F-SPHINCS+ | 128s | 0.001 | 0.00078 |
+| Variant-1 | F-SPHINCS+ | 128f | 0.002 | 0.00078 |
+| Variant-1 | F-SPHINCS+ | 192s | 0.002 | 0.00078 |
+| Variant-1 | F-SPHINCS+ | 192f | 0.004 | 0.00080 |
+| Variant-1 | F-SPHINCS+ | 256s | 0.002 | 0.00079 |
+| Variant-1 | F-SPHINCS+ | 256f | 0.005 | 0.00078 |
 | Variant-2 | Direct SPHINCS+ | 128s | Not applicable | 0.00077 |
 | Variant-2 | Direct SPHINCS+ | 128f | Not applicable | 0.00077 |
 | Variant-2 | Direct SPHINCS+ | 192s | Not applicable | 0.00082 |
@@ -524,10 +588,11 @@ Succinct do not use an additional Identity wrapper.
 
 ### Source logs
 
-- [TPM Join and signing](benchmarks/tpm_sha_ours3h_vs_chen23_5h.log).
+- [SHA-2 TPM Join and signing](benchmarks/tpm_sha_ours3h_vs_chen23_5h.log).
+- [AES TPM Join and signing](benchmarks/tpm_aes_vole/tpm_aes_20260920-185834.log); the 192s Join row uses the [100-run rerun](benchmarks/tpm_aes_vole/tpm_aes_20260920-190152.log).
 - [SPHINCS+ Setup Solution 1](benchmarks/issuer_anchor/issuer_anchor_seed-anchor_composite_20260906_191550.log)
   and [Solution 2](benchmarks/issuer_anchor/issuer_anchor_fixed-top-wots_composite_20260906_000205.log).
 - [SPHINCS+ host results](benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv).
-- [F-SPHINCS+ native](benchmarks/fsphincs_leaf_prf_v4/native_setup_20260909_110012.log),
-  [Setup](benchmarks/fsphincs_leaf_prf_v4/setup_detail_20260909_110012.log), and
-  [host results](benchmarks/fsphincs_v3/host_20260909_015334.log).
+- [F-SPHINCS+ native](benchmarks/fsphincs_h1_v6/native_setup_20261023_171809.log),
+  [Setup](benchmarks/fsphincs_h1_v6/setup_detail_20261023_171809.log), and
+  [host results](benchmarks/fsphincs_h1_v6/host_20261023_183212.log).

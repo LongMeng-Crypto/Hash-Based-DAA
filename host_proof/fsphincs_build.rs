@@ -26,10 +26,15 @@ pub fn configure(header: &str, sphincs_params: &str) -> (String, String) {
     if env::var("DAA_CREDENTIAL_SCHEME").as_deref() == Ok("fsphincs") && paired != name {
         panic!("F-SPHINCS credential and TPM security/profile must match: {name} != {paired}");
     }
+    let node_bytes = security / 8;
+    let h1_version = 6;
     let source = format!(
         "// Generated from parameter_sets.h; do not edit.\n\
          pub const K: usize = {k};\n\
          pub const D: usize = {d};\n\
+         pub const NODE_BYTES: usize = {node_bytes};\n\
+         pub const H1_VERSION: usize = {h1_version};\n\
+         pub const MFORS_SIG_BYTES: usize = K * (32 + D * NODE_BYTES);\n\
          pub const ANCHORS: usize = {};\n",
         if security == 128 { 1 } else { 2 }
     );
@@ -44,6 +49,8 @@ pub fn configure(header: &str, sphincs_params: &str) -> (String, String) {
         ("K", k.to_string()),
         ("D", d.to_string()),
         ("FAST", fast.to_string()),
+        ("NODE_BYTES", node_bytes.to_string()),
+        ("H1_VERSION", h1_version.to_string()),
     ] {
         println!("cargo:rustc-env=FSPHINCS_{key}={value}");
     }

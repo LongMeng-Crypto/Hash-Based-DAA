@@ -49,8 +49,10 @@ fn main() {
     };
     let msg = b"F-SPHINCS+ DAA issuer credential benchmark";
     println!(
-        "F-SPHINCS+ set={} format=3 leaf_prf_version=4 n=256 d={} k={} q=1024 h=6",
+        "F-SPHINCS+ set={} H1_version={} node_bytes={} leaf_prf_version=4 seed_bits=256 d={} k={} q=1024 h=6",
         env!("FSPHINCS_PARAMS"),
+        env!("FSPHINCS_H1_VERSION"),
+        env!("FSPHINCS_NODE_BYTES"),
         env!("FSPHINCS_D"),
         env!("FSPHINCS_K")
     );

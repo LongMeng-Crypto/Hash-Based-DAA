@@ -533,6 +533,11 @@ parameters_header = configure_file(output: 'parameters.h', output_format: 'c', c
 
 faest_128_data = configuration_data()
 faest_128_data.set('SSS', '128')
+faest_128_data.set('FIELD_BITS', '128')
+faest_128_data.set('CIPHER_KEY_BITS', '128')
+faest_128_data.set('CIPHER_ROUNDS', 'FAEST_128S_R')
+faest_128_data.set('STANDARD_INSTANCE', '1')
+faest_128_data.set('FUNCTION_SUFFIX', '128')
 faest_aes_128 = configure_file(
   output: 'faest_aes_128.c',
   input: 'faest_aes.c.in',
@@ -540,6 +545,11 @@ faest_aes_128 = configure_file(
 )
 faest_192_data = configuration_data()
 faest_192_data.set('SSS', '192')
+faest_192_data.set('FIELD_BITS', '192')
+faest_192_data.set('CIPHER_KEY_BITS', '192')
+faest_192_data.set('CIPHER_ROUNDS', 'FAEST_192S_R')
+faest_192_data.set('STANDARD_INSTANCE', '1')
+faest_192_data.set('FUNCTION_SUFFIX', '192')
 faest_aes_192 = configure_file(
   output: 'faest_aes_192.c',
   input: 'faest_aes.c.in',
@@ -547,10 +557,28 @@ faest_aes_192 = configure_file(
 )
 faest_256_data = configuration_data()
 faest_256_data.set('SSS', '256')
+faest_256_data.set('FIELD_BITS', '256')
+faest_256_data.set('CIPHER_KEY_BITS', '256')
+faest_256_data.set('CIPHER_ROUNDS', 'FAEST_256S_R')
+faest_256_data.set('STANDARD_INSTANCE', '1')
+faest_256_data.set('FUNCTION_SUFFIX', '256')
 faest_aes_256 = configure_file(
   output: 'faest_aes_256.c',
   input: 'faest_aes.c.in',
   configuration: faest_256_data,
+)
+
+faest_rijndael256_128_data = configuration_data()
+faest_rijndael256_128_data.set('SSS', '128')
+faest_rijndael256_128_data.set('FIELD_BITS', '128')
+faest_rijndael256_128_data.set('CIPHER_KEY_BITS', '256')
+faest_rijndael256_128_data.set('CIPHER_ROUNDS', '14')
+faest_rijndael256_128_data.set('STANDARD_INSTANCE', '0')
+faest_rijndael256_128_data.set('FUNCTION_SUFFIX', 'rijndael256_128')
+faest_aes_rijndael256_128 = configure_file(
+  output: 'faest_aes_rijndael256_128.c',
+  input: 'faest_aes.c.in',
+  configuration: faest_rijndael256_128_data,
 )
 
 include_directories = [include_directories('.')]
@@ -574,6 +602,7 @@ faest_sources = files(
   faest_aes_128,
   faest_aes_192,
   faest_aes_256,
+  faest_aes_rijndael256_128,
 ]
 
 if has_usable_builtin == false
@@ -770,6 +799,21 @@ executable('daa_bench',
 
 executable('daa_aes_profile',
   files('daa_aes_profile.c', 'daa_faest.c', 'daa_faest_opt.c'),
+  dependencies: [libfaest_static_dependency] + build_dependencies,
+  include_directories: include_directories,
+  c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],
+)
+
+daa_aes_dm_test = executable('daa_aes_dm_test',
+  files('daa_aes_dm_test.c', 'daa_faest.c'),
+  dependencies: [libfaest_static_dependency] + build_dependencies,
+  include_directories: include_directories,
+  c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],
+)
+test('daa-aes128-dm', daa_aes_dm_test)
+
+executable('daa_rijndael_dm_profile',
+  files('daa_rijndael_dm_profile.c', 'daa_rijndael_dm.c'),
   dependencies: [libfaest_static_dependency] + build_dependencies,
   include_directories: include_directories,
   c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],
