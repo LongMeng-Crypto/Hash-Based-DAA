@@ -475,8 +475,8 @@ matching security level and s/f profile from both panels.
 
 | VOLEith parameter | F instance | Prove (s) | Verify (s) | Proof (KB) |
 | --- | --- | --- | --- | --- |
-| 128s | AES-128 | 0.009 | 0.009 | 4.40 |
-| 128f | AES-128 | 0.002 | 0.002 | 5.79 |
+| 128s | AES-128-DM | 0.009 | 0.008 | 4.40 |
+| 128f | AES-128-DM | 0.002 | 0.001 | 5.79 |
 | 192s | AES-192 | 0.024 | 0.012 | 11.00 |
 | 192f | AES-192 | 0.003 | 0.002 | 14.60 |
 | 256s | AES-256 | 0.027 | 0.026 | 20.21 |
@@ -511,10 +511,12 @@ matching security level and s/f profile from both panels.
 
 The prove/proof reductions compare SHA2-3F with SHA2-5F. AES-3F is an
 alternative concrete instantiation and is not part of the reduction.
+The AES columns use AES-128-DM for 128s/128f (100-run means);
+192/256 retain the historical plain-AES measurements.
 
 | VOLEith parameter | SHA2-5F prove (s) | SHA2-5F proof (KB) | SHA2-3F prove (s) | SHA2-3F proof (KB) | Prove reduction | Proof reduction | AES-3F prove (s) | AES-3F proof (KB) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 128s | 0.064 | 178.63 | 0.033 | 91.73 | 48.1% | 48.6% | 0.011 | 7.41 |
+| 128s | 0.064 | 178.63 | 0.033 | 91.73 | 48.1% | 48.6% | 0.012 | 7.41 |
 | 128f | 0.021 | 259.20 | 0.010 | 132.81 | 52.1% | 48.8% | 0.003 | 10.16 |
 | 192s | 0.247 | 552.82 | 0.134 | 334.46 | 45.9% | 39.5% | 0.024 | 20.37 |
 | 192f | 0.073 | 827.32 | 0.036 | 499.79 | 51.0% | 39.6% | 0.005 | 28.66 |
@@ -553,6 +555,9 @@ Succinct do not use an additional Identity wrapper.
 
 The reduction compares SHA2-3F with SHA2-5F; AES-3F is reported only as
 an alternative instantiation.
+The AES verifier rows use AES-128-DM for 128s/128f (100-run means)
+and historical plain AES for 192/256. The new 128s/128f verifier means
+round to the same three-decimal values as the previous measurements.
 
 | VOLEith parameter | SHA2-5F verify (s) | SHA2-3F verify (s) | Reduction | AES-3F verify (s) |
 | --- | --- | --- | --- | --- |
@@ -589,7 +594,8 @@ an alternative instantiation.
 ### Source logs
 
 - [SHA-2 TPM Join and signing](benchmarks/tpm_sha_ours3h_vs_chen23_5h.log).
-- [AES TPM Join and signing](benchmarks/tpm_aes_vole/tpm_aes_20260920-185834.log); the 192s Join row uses the [100-run rerun](benchmarks/tpm_aes_vole/tpm_aes_20260920-190152.log).
+- [AES-128-DM TPM Join and signing, 100-run means](benchmarks/tpm_aes_dm_v1/tpm_aes_20261023-212221.log).
+- [Historical plain-AES TPM Join and signing (192/256 rows)](benchmarks/tpm_aes_vole/tpm_aes_20260920-185834.log); the 192s Join row uses the [100-run rerun](benchmarks/tpm_aes_vole/tpm_aes_20260920-190152.log).
 - [SPHINCS+ Setup Solution 1](benchmarks/issuer_anchor/issuer_anchor_seed-anchor_composite_20260906_191550.log)
   and [Solution 2](benchmarks/issuer_anchor/issuer_anchor_fixed-top-wots_composite_20260906_000205.log).
 - [SPHINCS+ host results](benchmarks/host_sha2/host_sha2_all_20260904-012627.tsv).

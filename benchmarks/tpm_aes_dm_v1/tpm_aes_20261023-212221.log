@@ -1,0 +1,13 @@
+Optimized AES VOLE DAA benchmark: AES-128-DM-v1; 192/256 remain legacy plain AES
+date=2026-10-23T21:22:27+01:00
+commit=1721213
+iterations=100
+phases=join,sign
+parameters=128s,128f
+build_dir=/home/lm0052/.cache/sedaa-tpm-aes-vole
+
+phase	parameter	prover_ms	verifier_ms	proof_bytes
+join	128s	8.636717	8.303746	4506
+join	128f	1.705734	1.493953	5924
+sign	128s	11.654030	9.687654	7586
+sign	128f	2.819320	2.413300	10404
