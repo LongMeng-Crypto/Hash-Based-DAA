@@ -68,7 +68,7 @@ int main(void) {
     const uint8_t message[] = "F-SPHINCS+ deterministic format-v3 KAT";
     uint8_t seed[FS_SEED_BYTES], R[FS_N], pk[FS_PK_BYTES], sk[FS_SK_BYTES];
     uint8_t layers[(FS_H + 1) * FS_MFORS_MSG_BYTES], root_seed[FS_N];
-    uint8_t addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_N];
+    uint8_t addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_LEAF_BYTES];
     uint8_t *sig = malloc(FS_SIG_BYTES);
     const size_t clen = fsphincs_issuer_anchor_certificate_bytes();
     uint8_t *cert = malloc(clen);
@@ -89,6 +89,7 @@ int main(void) {
         return 2;
     printf("parameter=%s\n", FS_NAME);
     printf("kat_leaf_prf_version=%u\n", FS_LEAF_PRF_VERSION);
+    printf("kat_leaf_bytes=%u\n", FS_LEAF_BYTES);
     printf("kat_h1_version=%u\nkat_node_bytes=%u\n", FS_H1_VERSION, FS_NODE_BYTES);
     fingerprint("kat_pk", pk, sizeof(pk));
     fingerprint("kat_sk", sk, sizeof(sk));

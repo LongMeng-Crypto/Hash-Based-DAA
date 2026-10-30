@@ -75,7 +75,9 @@ const MSG_BYTES: usize = ET_BYTES + NONCE_BYTES;
 static mut LAYER_SIGNATURE: [u8; MFORS_SIG_BYTES] = [0; MFORS_SIG_BYTES];
 
 extern "C" {
+    // Computes the public H1 prefix state once for all seven verification layers.
     fn fsphincs_hash_init(ctx: *mut u32, pub_seed: *const u8);
+    // Derives the first M-FORS message and node index from H3.
     fn fsphincs_verify_begin(
         value: *mut u8,
         leaf_index: *mut u64,
@@ -84,6 +86,7 @@ extern "C" {
         msglen: usize,
         pk: *const u8,
     );
+    // Consumes one v7 layer using the shared public H1 state.
     fn fsphincs_verify_layer_ctx(
         value: *mut u8,
         layer_sig: *const u8,
@@ -91,10 +94,12 @@ extern "C" {
         layer: u32,
         node: u64,
     ) -> i32;
+    // Checks the recovered root value against the canonical issuer key.
     fn fsphincs_verify_finish(value: *const u8, pk: *const u8) -> i32;
 }
 
 #[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+// Computes the AES-128-DM hook using the same private entry token as the TPM.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
@@ -109,6 +114,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+// Retains the historical two-block plain AES-192 hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -122,6 +128,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
+// Retains the historical two-block plain AES-256 hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -139,21 +146,25 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     not(daa_tpm_sha_chen23),
     not(any(fsphincs_192, fsphincs_256))
 ))]
+// Computes the Ours-3F SHA-256 hook on the shared private seed and entry token.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_192))]
+// Computes the Ours-3F SHA-384 hook on the shared private seed and entry token.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_256))]
+// Computes the Ours-3F SHA-512 hook on the shared private seed and entry token.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha512_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha_chen23, not(any(fsphincs_192, fsphincs_256))))]
+// Computes both CDENW'23 comparison hooks with SHA-256.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -162,6 +173,7 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, fsphincs_192))]
+// Computes both CDENW'23 comparison hooks with SHA-384.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -170,6 +182,7 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, fsphincs_256))]
+// Computes both CDENW'23 comparison hooks with SHA-512.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -177,6 +190,7 @@ fn cdenw23_hooks(
     daa_sha_hook::sha512_cdenw23_hooks(sst, et_u)
 }
 
+// Verifies seven streamed credential layers and the matching hook, then commits public outputs.
 fn main() {
     let mut pk = [0u8; PK_BYTES];
     let mut hk_pub = [0u8; HK_BYTES];

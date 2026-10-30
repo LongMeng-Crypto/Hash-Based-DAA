@@ -827,7 +827,7 @@ fn generate_anchor_material(
     let mut anchor_value = vec![
         0u8;
         if credential_is_fsphincs() {
-            fs_params::ANCHORS * 32
+            fs_params::ANCHORS * fs_params::LEAF_BYTES
         } else {
             2 * witness.len()
         }

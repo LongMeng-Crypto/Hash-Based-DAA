@@ -298,7 +298,7 @@ fn main() {
         .with_hashfn(backend.clone())
         .with_receipt_kind(kind);
     println!(
-        "F-SPHINCS+-{} H1_version={} node_bytes={} leaf_prf_version=4 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
+        "F-SPHINCS+-{} H1_version={} node_bytes={} leaf_prf_version=7 (k={}) RISC0 GPU benchmark: backend={} receipt_kind={:?} segment_po2={}",
         env!("FSPHINCS_PARAMS"),
         fs_params::H1_VERSION,
         fs_params::NODE_BYTES,
@@ -335,7 +335,7 @@ fn main() {
         expected.extend_from_slice(&pk);
         assert_eq!(session.journal.bytes, expected);
         println!(
-            "guest_execute=ok parameter={} hook={} H1_version={} node_bytes={} leaf_prf_version=4",
+            "guest_execute=ok parameter={} hook={} H1_version={} node_bytes={} leaf_prf_version=7",
             env!("FSPHINCS_PARAMS"),
             env!("DAA_TPM_SHA_SCHEME"),
             fs_params::H1_VERSION,

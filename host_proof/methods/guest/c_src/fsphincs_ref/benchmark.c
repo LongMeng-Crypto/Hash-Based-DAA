@@ -53,7 +53,7 @@ int main(void) {
     printf("sizes: pk=%u B sk=%u B sig=%u B\n",
            FS_PK_BYTES, FS_SK_BYTES, FS_SIG_BYTES);
     printf("leaf_prf_version=%u address_bytes=%u seed_bytes=%u output_bytes=%u pi_i_compressions=%u\n",
-           FS_LEAF_PRF_VERSION, FS_LEAF_ADDR_BYTES, FS_N, FS_N, FS_ANCHORS);
+           FS_LEAF_PRF_VERSION, FS_LEAF_ADDR_BYTES, FS_N, FS_LEAF_BYTES, FS_ANCHORS);
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
     if (fsphincs_keypair(pk, sk) != 0) return 2;
@@ -138,7 +138,7 @@ int main(void) {
         streamed_index /= FS_Q;
         const size_t offsets[] = {
             FS_N + step * FS_MFORS_SIG_BYTES,
-            FS_N + step * FS_MFORS_SIG_BYTES + FS_N,
+            FS_N + step * FS_MFORS_SIG_BYTES + FS_LEAF_BYTES,
             FS_N + (step + 1u) * FS_MFORS_SIG_BYTES - 1u
         };
         for (size_t j = 0; j < sizeof(offsets) / sizeof(offsets[0]); ++j) {
@@ -190,14 +190,14 @@ int main(void) {
     /* Extract S_root, erase the master key, then sign two new messages. */
     const size_t certlen = fsphincs_issuer_anchor_certificate_bytes();
     uint8_t *cert = malloc(certlen);
-    uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_N];
+    uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_LEAF_BYTES];
     uint8_t lower_seed[FS_N], R[FS_N];
     if (!cert || fsphincs_issuer_anchor_generate(cert, certlen, pk, sk) ||
         fsphincs_issuer_anchor_relation(root_seed, addr, outputs, cert, certlen, pk, sk))
         return 12;
     memset(sk, 0, FS_SK_BYTES);
     if (fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 13;
-    cert[8] = FS_SECURITY == 128 ? FS_LEAF_PRF_VERSION : FS_FORMAT_VERSION;
+    cert[8] = 6; /* Former H1-v6 certificate format must be rejected. */
     if (!fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 19;
     cert[8] = FS_CERTIFICATE_VERSION;
     if (!fsphincs_issuer_anchor_verify(cert, certlen - 1, pk) ||

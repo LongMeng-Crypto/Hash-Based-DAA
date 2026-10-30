@@ -324,13 +324,15 @@ static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
     hash_parts(out, DOM_NODE_SEED, master, FS_N, addr, sizeof(addr), NULL, 0);
 }
 
-/* Derives a full 256-bit leaf secret with one compact-address SHA-256 block. */
-static void derive_leaf_secret(uint8_t out[FS_N], const uint8_t node_seed[FS_N],
+/* Derives a security-sized leaf secret from one compact-address SHA-256 block. */
+static void derive_leaf_secret(uint8_t out[FS_LEAF_BYTES], const uint8_t node_seed[FS_N],
                                uint32_t layer, uint64_t node,
                                uint32_t tree, uint32_t leaf) {
     uint8_t addr[FS_LEAF_ADDR_BYTES];
     if (fsphincs_leaf_prf_address(addr, layer, node, tree, leaf) != 0) abort();
-    hash_parts(out, DOM_LEAF_SECRET, node_seed, FS_N, addr, sizeof(addr), NULL, 0);
+    uint8_t digest[FS_N];
+    hash_parts(digest, DOM_LEAF_SECRET, node_seed, FS_N, addr, sizeof(addr), NULL, 0);
+    memcpy(out, digest, FS_LEAF_BYTES);
 }
 #endif
 
@@ -383,16 +385,16 @@ static int tree_root_and_auth(uint8_t root[FS_NODE_BYTES], uint8_t *auth,
                               uint32_t target) {
     const uint32_t leaves = 1u << FS_D;
     uint8_t *nodes = (uint8_t *)malloc((size_t)leaves * FS_NODE_BYTES);
-    uint8_t secret[FS_N];
+    uint8_t secret[FS_LEAF_BYTES];
     if (!nodes) return -1;
     _Alignas(4) uint8_t leaf_block[128], node_block[128];
-    init_h1_block(leaf_block, DOM_LEAF_HASH, layer, node, tree, FS_N);
+    init_h1_block(leaf_block, DOM_LEAF_HASH, layer, node, tree, FS_LEAF_BYTES);
     init_h1_block(node_block, DOM_TREE_NODE, layer, node, tree, 2 * FS_NODE_BYTES);
     for (uint32_t i = 0; i < leaves; ++i) {
         derive_leaf_secret(secret, node_seed, layer, node, tree, i);
         h1_position(leaf_block, 0, i);
-        memcpy(leaf_block + FS_H1_ADDR_BYTES, secret, FS_N);
-        counted_h1(nodes + (size_t)i * FS_NODE_BYTES, ctx, leaf_block, FS_N, DOM_LEAF_HASH);
+        memcpy(leaf_block + FS_H1_ADDR_BYTES, secret, FS_LEAF_BYTES);
+        counted_h1(nodes + (size_t)i * FS_NODE_BYTES, ctx, leaf_block, FS_LEAF_BYTES, DOM_LEAF_HASH);
     }
     uint32_t count = leaves, idx = target;
     for (uint32_t height = 0; height < FS_D; ++height) {
@@ -415,17 +417,17 @@ static int tree_root_and_auth(uint8_t root[FS_NODE_BYTES], uint8_t *auth,
 #endif
 
 /* Recovers a signing-tree root using reusable preimages and ping-pong states. */
-static void root_from_auth(uint8_t root[FS_NODE_BYTES], const uint8_t secret[FS_N],
+static void root_from_auth(uint8_t root[FS_NODE_BYTES], const uint8_t secret[FS_LEAF_BYTES],
                            const uint8_t *auth, uint32_t target,
                            const fsphincs_hash_context *ctx, uint32_t layer,
                            uint64_t node, uint32_t tree) {
     _Alignas(4) uint8_t state[2][FS_NODE_BYTES];
     _Alignas(4) uint8_t leaf_input[128];
     _Alignas(4) uint8_t node_input[128];
-    init_h1_block(leaf_input, DOM_LEAF_HASH, layer, node, tree, FS_N);
+    init_h1_block(leaf_input, DOM_LEAF_HASH, layer, node, tree, FS_LEAF_BYTES);
     h1_position(leaf_input, 0, target);
-    memcpy(leaf_input + 16, secret, FS_N);
-    counted_h1(state[0], ctx, leaf_input, FS_N, DOM_LEAF_HASH);
+    memcpy(leaf_input + 16, secret, FS_LEAF_BYTES);
+    counted_h1(state[0], ctx, leaf_input, FS_LEAF_BYTES, DOM_LEAF_HASH);
 
     init_h1_block(node_input, DOM_TREE_NODE, layer, node, tree, 2 * FS_NODE_BYTES);
     uint32_t idx = target;
@@ -449,7 +451,7 @@ static void root_from_auth(uint8_t root[FS_NODE_BYTES], const uint8_t secret[FS_
     memcpy(root, state[current], FS_NODE_BYTES);
 }
 
-/* Optionally records the shared path above the first one or two tree roots. */
+/* Optionally records the aggregation path shared by the two fixed anchor roots. */
 static void aggregate_roots_with_path(uint8_t root[FS_NODE_BYTES], const uint8_t *roots,
                             const fsphincs_hash_context *ctx,
                             uint32_t layer, uint64_t node, uint8_t *path) {
@@ -528,7 +530,7 @@ static int mfors_sign_node_seed(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     for (uint32_t i = 0; i < FS_K; ++i) {
         uint32_t idx = fsphincs_md_index(md, i);
         derive_leaf_secret(sig, node_seed, layer, node, i, idx);
-        if (tree_root_and_auth(roots + (size_t)i * FS_NODE_BYTES, sig + FS_N,
+        if (tree_root_and_auth(roots + (size_t)i * FS_NODE_BYTES, sig + FS_LEAF_BYTES,
                                node_seed, ctx, layer, node, i, idx) != 0)
             return -1;
         sig += FS_TREE_SIG_BYTES;
@@ -561,7 +563,7 @@ void fsphincs_derive_root_seed(uint8_t out[FS_N], const uint8_t master[FS_N]) {
     derive_node_seed(out, master, 0, 0);
 }
 
-/* Fixes anchors at leaf zero in root signing trees zero and, when needed, one. */
+/* Fixes both anchors at leaf zero in root signing trees zero and one. */
 void fsphincs_root_anchor_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t anchor) {
     if (anchor >= FS_ANCHORS || fsphincs_leaf_prf_address(out, 0, 0, anchor, 0) != 0)
         abort();
@@ -580,7 +582,7 @@ int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
         if (i < FS_ANCHORS) {
             uint8_t *part = payload + i * stride;
             derive_leaf_secret(part, root_seed, 0, 0, i, 0);
-            auth = part + FS_N;
+            auth = part + FS_LEAF_BYTES;
         }
         if (tree_root_and_auth(roots + i * FS_NODE_BYTES, auth, root_seed, &ctx,
                                0, 0, i, 0) != 0) return -1;
@@ -591,7 +593,7 @@ int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
     return 0;
 }
 
-/* Reconstructs one/two inner trees and the shared aggregation authentication path. */
+/* Recovers two inner roots, their shared aggregation path, and the H2 public value. */
 void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
     const uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t pub_seed[FS_N]) {
     fsphincs_hash_context ctx;
@@ -600,7 +602,7 @@ void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
     const size_t stride = FS_TREE_SIG_BYTES;
     for (uint32_t i = 0; i < FS_ANCHORS; ++i)
         root_from_auth(roots[i], payload + i * stride,
-                       payload + i * stride + FS_N, 0, &ctx, 0, 0, i);
+                       payload + i * stride + FS_LEAF_BYTES, 0, &ctx, 0, 0, i);
     uint32_t height = 0;
     if (FS_ANCHORS == 2u) {
         hash_node(current, roots[0], roots[1], &ctx, 0, 0, FS_K, 1, 0);
@@ -629,7 +631,7 @@ static int mfors_recover_ctx(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
 #endif
     for (uint32_t i = 0; i < FS_K; ++i) {
         uint32_t idx = fsphincs_md_index(md, i);
-        root_from_auth(roots + (size_t)i * FS_NODE_BYTES, sig, sig + FS_N, idx,
+        root_from_auth(roots + (size_t)i * FS_NODE_BYTES, sig, sig + FS_LEAF_BYTES, idx,
                        ctx, layer, node, i);
         sig += FS_TREE_SIG_BYTES;
     }

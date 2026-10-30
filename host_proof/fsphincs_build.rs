@@ -34,9 +34,9 @@ pub fn configure(header: &str, sphincs_params: &str) -> (String, String) {
          pub const D: usize = {d};\n\
          pub const NODE_BYTES: usize = {node_bytes};\n\
          pub const H1_VERSION: usize = {h1_version};\n\
-         pub const MFORS_SIG_BYTES: usize = K * (32 + D * NODE_BYTES);\n\
-         pub const ANCHORS: usize = {};\n",
-        if security == 128 { 1 } else { 2 }
+         pub const LEAF_BYTES: usize = {node_bytes};\n\
+         pub const MFORS_SIG_BYTES: usize = K * (LEAF_BYTES + D * NODE_BYTES);\n\
+         pub const ANCHORS: usize = 2;\n"
     );
     fs::write(
         Path::new(&env::var("OUT_DIR").unwrap()).join("fsphincs_params.rs"),

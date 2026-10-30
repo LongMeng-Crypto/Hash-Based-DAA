@@ -29,14 +29,15 @@
 #define FS_NAME FS_STRING(FSPHINCS_PARAMS)
 
 #define FS_FORMAT_VERSION 3u
-/* Keep node PRF/H2/H3 v3 and the full-width compact leaf PRF v4. */
-#define FS_LEAF_PRF_VERSION 4u
+/* Keep node PRF/H2/H3 v3; v7 leaf PRFs expose security/8 leading bytes. */
+#define FS_LEAF_PRF_VERSION 7u
+#define FS_LEAF_BYTES (FS_SECURITY / 8u)
 #define FS_LEAF_ADDR_BYTES 16u
 /* H1 v6 uses compact addresses and a cached, block-padded public seed. */
 #define FS_NODE_BYTES (FS_SECURITY / 8u)
 #define FS_H1_VERSION 6u
 #define FS_H1_ADDR_BYTES 16u
-#define FS_CERTIFICATE_VERSION 6u
+#define FS_CERTIFICATE_VERSION 7u
 #define FS_PARAMETER_ID ((FS_SECURITY / 64u - 2u) * 2u + FS_FAST)
 #if FS_K <= 32
 #define FS_AGG_LOG 5u
@@ -46,12 +47,12 @@
 #define FS_AGG_LOG 7u
 #endif
 #define FS_AGG_LEAVES (1u << FS_AGG_LOG)
-#define FS_ANCHORS (FS_SECURITY == 128 ? 1u : 2u)
+#define FS_ANCHORS 2u
 #define FS_ANCHOR_PATH_LEVELS (FS_AGG_LOG - (FS_ANCHORS == 2u ? 1u : 0u))
 #define FS_ANCHOR_PAYLOAD_BYTES \
     (FS_ANCHORS * FS_TREE_SIG_BYTES + FS_ANCHOR_PATH_LEVELS * FS_NODE_BYTES)
 
-/* Seeds, randomizers, disclosed secrets and H2 digests stay 256 bits. */
+/* Master/node seeds, randomizers and H2 intermediate digests stay 256 bits. */
 #define FS_N 32u
 #define FS_Q 1024u
 #define FS_H 6u
@@ -64,7 +65,7 @@
 #define FS_H3_DIGEST_BYTES (FS_SECURITY == 256 ? 64u : 32u)
 #define FS_H3_BLOCK_BYTES (2u * FS_H3_DIGEST_BYTES)
 
-#define FS_TREE_SIG_BYTES (FS_N + FS_D * FS_NODE_BYTES)
+#define FS_TREE_SIG_BYTES (FS_LEAF_BYTES + FS_D * FS_NODE_BYTES)
 #define FS_MFORS_SIG_BYTES (FS_K * FS_TREE_SIG_BYTES)
 #define FS_SIG_BYTES (FS_N + (FS_H + 1u) * FS_MFORS_SIG_BYTES)
 #define FS_PK_BYTES (FS_N + FS_MFORS_MSG_BYTES)

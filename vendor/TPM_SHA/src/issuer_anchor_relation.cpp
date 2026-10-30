@@ -111,7 +111,8 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
       append(preimage, seed);
       append(preimage, std::span<const Wire>(public_b).subspan(node * 16 * 8, 16 * 8));
       const auto anchor = vole_circuits::sha2::build_sha256(circuit_, preimage);
-      add_truncated_outputs(circuit_, anchor.fips_bits, 32);
+      add_truncated_outputs(circuit_, anchor.fips_bits,
+                            vole_backend::security_parameters(level_).lambda_bytes);
     }
   }
 
@@ -122,8 +123,7 @@ Relation::Relation(vole_backend::SecurityLevel level, Kind kind)
 
 // Selects the number of root-seed observations proved under one witness.
 std::size_t Relation::anchors() const {
-  return kind_ == Kind::FSphincs &&
-         level_ == vole_backend::SecurityLevel::Bits128 ? 1 : 2;
+  return 2;
 }
 
 // Returns the private master-seed or root-node-seed length for this scheme.
@@ -144,7 +144,7 @@ std::size_t Relation::public_b_bytes() const {
 
 // Returns the public anchor output length.
 std::size_t Relation::anchor_bytes() const {
-  return anchors() * seed_bytes();
+  return anchors() * vole_backend::security_parameters(level_).lambda_bytes;
 }
 
 // Reports the number of secret-dependent SHA-256 compression blocks.

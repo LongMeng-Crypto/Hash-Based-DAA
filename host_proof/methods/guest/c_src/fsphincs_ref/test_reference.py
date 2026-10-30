@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent H1-v6 padded-seed verifier and unchanged v4 leaf-PRF KATs."""
+"""Independent H1-v6 verifier with v7 truncated leaf PRFs and dual anchors."""
 import argparse
 import hashlib
 from pathlib import Path
@@ -29,18 +29,20 @@ def main():
     fields = dict(line.rstrip().split("=", 1) for line in sys.stdin if "=" in line)
     sec, fast, d, k = SETS[args.params]
     assert fields["parameter"] == args.params
-    assert fields["kat_leaf_prf_version"] == "4"
+    assert fields["kat_leaf_prf_version"] == "7"
     assert fields["kat_root_seed"] == V3_ROOT_SEEDS[args.params]
     n, h, q = 32, 6, 1024
     node_bytes = sec//8
     h1_version = 6
-    certificate_version = 6
-    tree_sig_bytes = n+d*node_bytes
+    leaf_bytes = sec//8
+    certificate_version = 7
+    tree_sig_bytes = leaf_bytes+d*node_bytes
+    assert fields["kat_leaf_bytes"] == str(leaf_bytes)
     assert fields["kat_h1_version"] == "6"
     assert fields["kat_node_bytes"] == str(node_bytes)
     bits, m = k*d, (k*d+7)//8
     agg = 1 << (k-1).bit_length()
-    anchors = 1 if sec == 128 else 2
+    anchors = 2
     pk, sk, sig, msg, cert, root_seed, addresses, endpoints = (
         bytes.fromhex(fields["fixture_"+name]) for name in
         ("pk", "sk", "sig", "message", "certificate", "root_seed", "addresses", "anchors"))
@@ -69,11 +71,11 @@ def main():
         return bytes(out)
 
     def leaf_addr(layer=0, node=0, tree=0, index=0):
-        """Encode only the leaf PRF in 16 bytes; other hash addresses stay v3."""
+        """Encode the v7 leaf PRF in 16 bytes; H1 v6 and node-PRF/H2 v3 stay separate."""
         assert 0 <= layer <= h and 0 <= node < q**layer
         assert 0 <= tree < k and 0 <= index < 2**d
         parameter_id = (sec//64-2)*2+fast
-        return bytes([2, 4, parameter_id, layer]) + node.to_bytes(8, "big") + \
+        return bytes([2, 7, parameter_id, layer]) + node.to_bytes(8, "big") + \
             bytes([tree]) + index.to_bytes(2, "big") + b"\x00"
 
     def h3(message, randomizer=R, public_key=pk):
@@ -99,7 +101,7 @@ def main():
 
     def recover(secret, path, target, layer, node, tree):
         """Authenticate one disclosed leaf secret through its inner M-FORS path."""
-        assert len(secret) == n and len(path) == d*node_bytes
+        assert len(secret) == leaf_bytes and len(path) == d*node_bytes
         value = h1(pub + bytes(32) + addr(3, layer, node, tree, 0, target) + secret)
         for height in range(1, d+1):
             sibling = path[(height-1)*node_bytes:height*node_bytes]
@@ -127,9 +129,9 @@ def main():
         roots = []
         for tree, target in enumerate(indices(md)):
             fragment = sig[offset:offset+tree_sig_bytes]
-            assert fragment[:32] == sha(node_seed+leaf_addr(layer, node, tree, target))
+            assert fragment[:leaf_bytes] == sha(node_seed+leaf_addr(layer, node, tree, target))[:leaf_bytes]
             offset += len(fragment)
-            roots.append(recover(fragment[:32], fragment[32:], target, layer, node, tree))
+            roots.append(recover(fragment[:leaf_bytes], fragment[leaf_bytes:], target, layer, node, tree))
         roots += [h1(pub+bytes(32)+addr(5, layer, node, i)) for i in range(k, agg)]
         height = 0
         while len(roots) > 1:
@@ -143,16 +145,16 @@ def main():
     assert root_seed == sha(sk[:32]+addr(1))
     header = b"DAAFROOT"+bytes([certificate_version, 3, sec >> 8, sec & 255, fast, d, k, anchors])
     assert cert[:16] == header
-    assert len(addresses) == anchors*16 and len(endpoints) == anchors*32
+    assert len(addresses) == anchors*16 and len(endpoints) == anchors*leaf_bytes
     roots = []
     offset = 16
     for tree in range(anchors):
         a = leaf_addr(tree=tree)
         assert addresses[tree*16:(tree+1)*16] == a
         assert len(root_seed+a) == 48
-        secret = cert[offset:offset+32]
-        assert secret == sha(root_seed+a) == endpoints[tree*32:(tree+1)*32]
-        roots.append(recover(secret, cert[offset+32:offset+tree_sig_bytes], 0, 0, 0, tree))
+        secret = cert[offset:offset+leaf_bytes]
+        assert secret == sha(root_seed+a)[:leaf_bytes] == endpoints[tree*leaf_bytes:(tree+1)*leaf_bytes]
+        roots.append(recover(secret, cert[offset+leaf_bytes:offset+tree_sig_bytes], 0, 0, 0, tree))
         offset += tree_sig_bytes
     height = 1 if anchors == 2 else 0
     value = parent(roots[0], roots[1], 0, 0, k, 1, 0) if anchors == 2 else roots[0]
@@ -175,13 +177,11 @@ def main():
         assert fields["kat_"+label] == sha(data).hex()
     manifest = "\n".join(f"{key}={value}" for key, value in fields.items()
                          if key == "parameter" or key.startswith("kat_"))+"\n"
-    if sec == 128:
-        legacy = Path(__file__).with_name("kat") / "legacy_h1_v3" / (args.params+".txt")
-        old = dict(line.split("=", 1) for line in legacy.read_text().splitlines())
-        for key in ("kat_root_seed", "kat_anchors", "kat_addresses"):
-            assert fields[key] == old[key], "H1 update must not change seed derivation"
-        for key in ("kat_pk", "kat_signature", "kat_certificate"):
-            assert fields[key] != old[key], "H1 v6 must have distinct public artifacts"
+    legacy = Path(__file__).with_name("kat") / "legacy_pre_v7" / (args.params+".txt")
+    old = dict(line.split("=", 1) for line in legacy.read_text().splitlines())
+    assert fields["kat_root_seed"] == old["kat_root_seed"], "Node PRF must not change"
+    for key in ("kat_anchors", "kat_addresses", "kat_pk", "kat_signature", "kat_certificate"):
+        assert fields[key] != old[key], "v7 must have distinct public artifacts"
     if args.emit:
         print(manifest, end="")
         print("independent_reference=ok", file=sys.stderr)

@@ -867,13 +867,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     }
     // Check every selected output and address, including through the native
     // verifier so rejection cannot be caused only by the Rust statement hash.
-    let anchors = if config.credential_scheme == CredentialScheme::FSphincsPlus
-        && config.security == SecurityLevel::L128
-    {
-        1
-    } else {
-        2
-    };
+    let anchors = 2;
     for node in 0..anchors {
         for mutate_address in [false, true] {
             let mut wrong = native.clone();
@@ -2637,7 +2631,7 @@ struct IssuerSetupAnchorExternal {
 fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     match config.credential_scheme {
         CredentialScheme::SphincsPlus => 1,
-        CredentialScheme::FSphincsPlus => 4,
+        CredentialScheme::FSphincsPlus => 5,
     }
 }
 
@@ -2743,13 +2737,14 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
     let Ok([security, fast, d, k]) = <[usize; 4]>::try_from(values) else {
         return false;
     };
-    let count = if security == 128 { 1 } else { 2 };
+    let count = 2;
     let node_bytes = security / 8;
-    let tree_bytes = 32 + d * node_bytes;
+    let leaf_bytes = security / 8;
+    let tree_bytes = leaf_bytes + d * node_bytes;
     let agg_height = k.next_power_of_two().trailing_zeros() as usize;
     let mut header = b"DAAFROOT".to_vec();
     header.extend_from_slice(&[
-        6,
+        7,
         3,
         (security >> 8) as u8,
         security as u8,
@@ -2762,18 +2757,18 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
         || native.certificate[..16] != header
         || !native.public_a.is_empty()
         || native.public_b.len() != count * 16
-        || native.anchor_value.len() != count * 32
+        || native.anchor_value.len() != count * leaf_bytes
     {
         return false;
     }
     for anchor in 0..count {
         let mut address = [0u8; 16];
-        address[..4].copy_from_slice(&[2, 4, ((security / 64 - 2) * 2 + fast) as u8, 0]);
+        address[..4].copy_from_slice(&[2, 7, ((security / 64 - 2) * 2 + fast) as u8, 0]);
         address[12] = anchor as u8;
         let offset = 16 + anchor * tree_bytes;
         if native.public_b[anchor * 16..(anchor + 1) * 16] != address
-            || native.anchor_value[anchor * 32..(anchor + 1) * 32]
-                != native.certificate[offset..offset + 32]
+            || native.anchor_value[anchor * leaf_bytes..(anchor + 1) * leaf_bytes]
+                != native.certificate[offset..offset + leaf_bytes]
         {
             return false;
         }
@@ -3521,17 +3516,71 @@ mod tests {
     #[test]
     fn fsphincs_compact_anchor_circuit_lengths() {
         for level in [128, 192, 256] {
-            for old_kind in [2, 3] {
+            for old_kind in [2, 3, 4] {
                 assert_ne!(unsafe { daa_issuer_anchor_prepare(level, 1, old_kind) }, 0);
             }
             let config = ProtocolConfig::default()
                 .with_params(format!("sha2-{level}s"))
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
             let stats = issuer_anchor_stats(&config).unwrap();
-            let count = if level == 128 { 1 } else { 2 };
+            let count = 2;
             assert_eq!(stats.private_input_bits, 256);
             assert_eq!(stats.public_input_bits, count * 128);
-            assert_eq!(stats.output_bits, count * 256);
+            assert_eq!(stats.output_bits, count * level as usize);
+        }
+    }
+
+    /// Real VOLE proofs bind both truncated outputs to the same seed for all six profiles.
+    #[test]
+    fn fsphincs_dual_anchor_shared_witness() {
+        for parameter in ["128s", "128f", "192s", "192f", "256s", "256f"] {
+            let config = ProtocolConfig::default()
+                .with_params(format!("sha2-{parameter}"))
+                .with_credential_scheme(CredentialScheme::FSphincsPlus);
+            let width = config.security.key_bytes();
+            let mut native = IssuerAnchorNative {
+                certificate: vec![], witness: vec![0x31; 32], public_a: vec![],
+                public_b: vec![0; 32], anchor_value: vec![],
+                generation: Duration::ZERO, certificate_verify: Duration::ZERO,
+            };
+            for i in 0..2 {
+                let address = &mut native.public_b[i * 16..(i + 1) * 16];
+                address[0] = 2;
+                address[1] = 7;
+                address[2] = ((config.security.bits() / 64 - 2) * 2) as u8
+                    + u8::from(parameter.ends_with('f'));
+                address[12] = i as u8;
+                let mut hash = Sha256::new();
+                hash.update(&native.witness);
+                hash.update(address);
+                native.anchor_value.extend_from_slice(&hash.finalize()[..width]);
+            }
+            let context = b"dual-anchor-shared-witness-regression";
+            // Test the VOLE relation directly, independently of certificate prechecks.
+            let accepts = |value: &IssuerAnchorNative, proof: &ProofArtifact| unsafe {
+                daa_issuer_anchor_verify(
+                    config.security.bits(), config.tpm_sha_profile.code(),
+                    issuer_anchor_kind(&config), value.public_a.as_ptr(), value.public_a.len(),
+                    value.public_b.as_ptr(), value.public_b.len(),
+                    value.anchor_value.as_ptr(), value.anchor_value.len(),
+                    context.as_ptr(), context.len(), proof.proof_bytes.as_ptr(), proof.proof_bytes.len(),
+                ) == 0
+            };
+            let proof = prove_issuer_anchor_real(&config, &native, context).unwrap();
+            assert!(accepts(&native, &proof), "{parameter}");
+            let mut mixed = native.clone();
+            let mut hash = Sha256::new();
+            hash.update([0x32; 32]);
+            hash.update(&mixed.public_b[16..]);
+            mixed.anchor_value[width..].copy_from_slice(&hash.finalize()[..width]);
+            assert!(!accepts(&mixed, &proof), "{parameter}: mixed seed accepted");
+            if let Ok(invalid) = prove_issuer_anchor_real(&config, &mixed, context) {
+                assert!(!accepts(&mixed, &invalid), "{parameter}: inconsistent witness proved");
+            }
+            let mut duplicate = native.clone();
+            duplicate.public_b.copy_within(0..16, 16);
+            duplicate.anchor_value.copy_within(0..width, width);
+            assert!(prove_issuer_anchor_real(&config, &duplicate, context).is_err());
         }
     }
 
@@ -3550,7 +3599,7 @@ mod tests {
                 .with_params(parameter)
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
             assert!(config.ensure_real_supported().is_ok());
-            assert_eq!(issuer_anchor_kind(&config), 4);
+            assert_eq!(issuer_anchor_kind(&config), 5);
             let opposite = if parameter.ends_with('s') { "f" } else { "s" };
             let wrong = config.with_tpm_sha_profile(TpmShaProfile::from_name(opposite));
             assert!(wrong.ensure_real_supported().is_err());
@@ -3571,10 +3620,10 @@ mod tests {
             let config = ProtocolConfig::default()
                 .with_params(format!("sha2-{name}"))
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
-            let count = if security == 128 { 1 } else { 2 };
+            let count = 2;
             let node_bytes = security / 8;
             let length = 16
-                + count * (32 + d * node_bytes)
+                + count * (node_bytes + d * node_bytes)
                 + node_bytes * (k.next_power_of_two().trailing_zeros() as usize - (count - 1));
             // This fixture tests field linkage only; the C tests authenticate actual roots.
             let mut native = IssuerAnchorNative {
@@ -3582,13 +3631,13 @@ mod tests {
                 witness: vec![],
                 public_a: vec![],
                 public_b: vec![0; count * 16],
-                anchor_value: vec![0; count * 32],
+                anchor_value: vec![0; count * node_bytes],
                 generation: Duration::ZERO,
                 certificate_verify: Duration::ZERO,
             };
             native.certificate[..8].copy_from_slice(b"DAAFROOT");
             native.certificate[8..16].copy_from_slice(&[
-                6,
+                7,
                 3,
                 (security >> 8) as u8,
                 security as u8,
@@ -3599,20 +3648,20 @@ mod tests {
             ]);
             for i in 0..count {
                 let a = &mut native.public_b[i * 16..(i + 1) * 16];
-                a[..4].copy_from_slice(&[2, 4, ((security / 64 - 2) * 2) as u8 + fast, 0]);
+                a[..4].copy_from_slice(&[2, 7, ((security / 64 - 2) * 2) as u8 + fast, 0]);
                 a[12] = i as u8;
             }
             assert!(fsphincs_anchor_fields_match(&config, &native));
             for i in 0..count {
                 let mut wrong = native.clone();
-                wrong.anchor_value[i * 32] ^= 1;
+                wrong.anchor_value[i * node_bytes] ^= 1;
                 assert!(!fsphincs_anchor_fields_match(&config, &wrong));
                 wrong = native.clone();
                 wrong.public_b[i * 16 + 14] ^= 1;
                 assert!(!fsphincs_anchor_fields_match(&config, &wrong));
             }
             let mut old = native.clone();
-            old.certificate[8] = if security == 128 { 4 } else { 3 };
+            old.certificate[8] = 6;
             assert!(!fsphincs_anchor_fields_match(&config, &old));
             old = native.clone();
             old.public_b.resize(count * 32, 0);

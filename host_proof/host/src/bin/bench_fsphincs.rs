@@ -1,7 +1,9 @@
 use std::time::Instant;
 
 extern "C" {
+    // Generates a credential keypair through the native C implementation.
     fn fsphincs_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+    // Produces a v7 detached credential using the native signing routine.
     fn fsphincs_sign_signature(
         sig: *mut u8,
         siglen: *mut usize,
@@ -9,6 +11,7 @@ extern "C" {
         msglen: usize,
         sk: *const u8,
     ) -> i32;
+    // Verifies the native credential before accepting a timing sample.
     fn fsphincs_verify(
         sig: *const u8,
         siglen: usize,
@@ -16,12 +19,16 @@ extern "C" {
         msglen: usize,
         pk: *const u8,
     ) -> i32;
+    // Reads the exact public-key size from the selected C parameter set.
     fn fsphincs_pk_bytes() -> usize;
+    // Reads the exact secret-key size from the selected C parameter set.
     fn fsphincs_sk_bytes() -> usize;
+    // Reads the v7 signature size with security-sized leaf-PRF outputs.
     fn fsphincs_sig_bytes() -> usize;
 }
 
 #[no_mangle]
+/// Supplies deterministic test randomness to C; never use for production keys.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaCha20Rng;
@@ -49,7 +56,7 @@ fn main() {
     };
     let msg = b"F-SPHINCS+ DAA issuer credential benchmark";
     println!(
-        "F-SPHINCS+ set={} H1_version={} node_bytes={} leaf_prf_version=4 seed_bits=256 d={} k={} q=1024 h=6",
+        "F-SPHINCS+ set={} H1_version={} node_bytes={} leaf_prf_version=7 seed_bits=256 d={} k={} q=1024 h=6",
         env!("FSPHINCS_PARAMS"),
         env!("FSPHINCS_H1_VERSION"),
         env!("FSPHINCS_NODE_BYTES"),

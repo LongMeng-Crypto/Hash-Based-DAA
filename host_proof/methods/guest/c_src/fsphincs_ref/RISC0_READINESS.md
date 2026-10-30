@@ -1,10 +1,13 @@
-# RISC0 guest, format v3
+# RISC0 guest, H1 v6 / leaf PRF v7
 
-Leaf PRF v4 compresses only the signer's secret-expansion addresses to 16 bytes.
-It changes generated credentials and the separate VOLEith Setup proof, not any
-verifier hash address or guest relation. With `FSPHINCS_VERIFY_ONLY`, all six
-native optimized object files were byte-identical before/after this change.
-New execution-only checks must use fresh v4 keypairs and credentials.
+Leaf PRF v7 exposes 16/24/32-byte leaf secrets and uses two Setup anchors at
+every level. Master/node seeds remain 32 bytes. The native and guest verifier
+must agree on the smaller leaf payload and path offsets. Regenerate keys,
+credentials and certificates and rebuild guest images for all six sets. Raw
+signatures have no version header: at 256 bits the verification relation and
+lengths remain the same, so version selection must also bind the registered
+key and certificate, not rely on a length check. Verification hash counts do
+not fall: each leaf hash already fitted in one suffix compression before v7.
 
 The six sets in DESIGN.md share one streaming verification implementation.
 All tree verification uses the existing SHA-256 syscall path. Only H3 in the
@@ -13,7 +16,7 @@ RISC0 v3 has no SHA-512 syscall. No backend fork or shared-cache change is neede
 
 The largest per-layer signature buffer is 49,920 bytes (256f), not a complete
 credential. Verification allocates no heap tree, keeps fixed k/d/h loop bounds,
-reuses hash/address buffers and swaps 32-byte states. H3 streams message data
+reuses hash/address buffers and swaps 16/24/32-byte states. H3 streams message data
 through a 64/128-byte buffer, retains its full digest, and reuses expansion
 prefix state. Host and Guest use the same generated constants, including
 ceil(k*d/8). Setup, secret derivation and signing are excluded from the Guest.
@@ -28,12 +31,14 @@ Native profiling reports SHA-256 and SHA-512 compression counts separately.
 Prefix reuse is counted as actual executed work, not repeated logical input
 length. For one M-FORS layer, A=next_power_of_two(k), m=ceil(k*d/8):
 
-- k leaf hashes (2 SHA-256 compressions each);
-- k*d + A-1 tree hashes (3 each);
-- A-k deterministic padding roots (2 each);
+- k leaf hashes (1 SHA-256 suffix compression each);
+- k*d + A-1 tree hashes (1/2/2 each at 128/192/256);
+- A-k deterministic padding roots (1 each);
 - 1+ceil(m/32) H2 hashes (2 each).
 
-H3 is counted separately because its work depends on message/key length.
+The padded public-seed prefix costs one additional compression for the entire
+verification, not per hash or layer. H3 is counted separately because its work
+depends on message/key length. The SHA hook is additional to credential work.
 The old k=35/70 AES-hook measurements do not describe this format.
 
 Execution-only smoke test, without GPU proving:
@@ -44,5 +49,5 @@ FSPHINCS_EXECUTE_ONLY=1 RECEIPT_LIST=composite \
 ```
 
 A normal Host run proves and verifies the receipt and checks the entire public
-journal. Full GPU remeasurement is optional for the leaf-PRF-only change;
-it is required if the verifier image, receipt settings, or hook also change.
+journal. Rerun both Composite and Succinct measurements: v7 changes verifier
+payload widths and serialization even though its compression counts stay equal.

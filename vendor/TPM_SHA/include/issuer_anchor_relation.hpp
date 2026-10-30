@@ -12,7 +12,7 @@
 
 namespace daa::issuer_anchor {
 
-enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 4 };
+enum class Kind : std::uint8_t { Sphincs = 1, FSphincs = 5 };
 
 class Relation {
 public:
@@ -25,7 +25,7 @@ public:
   Kind kind() const { return kind_; }
   // Returns the private master-seed (SPHINCS+) or root-seed (F-SPHINCS+) length.
   std::size_t seed_bytes() const;
-  // Returns one anchor at 128 bits, two at 192/256 bits (SPHINCS+ always two).
+  // Returns two distinct-address anchors sharing one private seed at every level.
   std::size_t anchors() const;
   // Returns the first public-input field length.
   std::size_t public_a_bytes() const;

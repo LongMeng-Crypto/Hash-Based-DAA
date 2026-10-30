@@ -37,19 +37,28 @@ typedef struct {
     uint64_t sha512_compression_blocks;
 } fsphincs_profile;
 
+/* Returns the 32-byte public seed plus the canonical M-FORS public-value length. */
 size_t fsphincs_publickeybytes(void);
+/* Returns the 32-byte master seed plus the serialized public-key length. */
 size_t fsphincs_secretkeybytes(void);
+/* Counts the randomizer and seven layers with security-sized leaves and nodes. */
 size_t fsphincs_signaturebytes(void);
+/* Returns the combined master/public-seed entropy length for key generation. */
 size_t fsphincs_seedbytes(void);
 
+/* Generates a keypair deterministically from caller-supplied seed entropy. */
 int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed);
+/* Generates a keypair using the caller's randombytes implementation. */
 int fsphincs_keypair(uint8_t *pk, uint8_t *sk);
+/* Signs using a fresh randomizer and the v7 leaf-PRF serialization. */
 int fsphincs_sign_signature(uint8_t *sig, size_t *siglen,
                             const uint8_t *msg, size_t msglen,
                             const uint8_t *sk);
+/* Signs with an explicit randomizer for deterministic testing and simulation. */
 int fsphincs_sign_signature_with_randomizer(uint8_t *sig, size_t *siglen,
                             const uint8_t *msg, size_t msglen,
                             const uint8_t *sk, const uint8_t randomizer[FS_N]);
+/* Verifies the exact-length detached signature against a canonical public key. */
 int fsphincs_verify(const uint8_t *sig, size_t siglen,
                     const uint8_t *msg, size_t msglen,
                     const uint8_t *pk);
@@ -61,14 +70,19 @@ void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
                            const uint8_t randomizer[FS_N],
                            const uint8_t *msg, size_t msglen,
                            const uint8_t pk[FS_PK_BYTES]);
+/* Recovers one layer, constructing a local public-prefix state for this call. */
 int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
                           const uint8_t layer_sig[FS_MFORS_SIG_BYTES],
                           const uint8_t pub_seed[FS_N],
                           uint32_t layer, uint64_t node);
+/* Checks that the recovered root value matches the canonical public key. */
 int fsphincs_verify_finish(const uint8_t value[FS_MFORS_MSG_BYTES],
                            const uint8_t pk[FS_PK_BYTES]);
+/* Clears hash-workload counters without modifying any cryptographic state. */
 void fsphincs_profile_reset(void);
+/* Copies workload counters, or zeroes when profiling is disabled. */
 void fsphincs_profile_get(fsphincs_profile *out);
+/* Verifies a signature and optionally exports all seven recovered layer values. */
 int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *
                               FS_MFORS_MSG_BYTES],
                              uint64_t *leaf_index,
@@ -76,17 +90,19 @@ int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *
                              const uint8_t *msg, size_t msglen,
                              const uint8_t *pk);
 
-/* Exposed for deterministic unit/benchmark coverage of the paper's M-FORS. */
+/* Signs one M-FORS node from its master-derived seed for unit/benchmark coverage. */
 int fs_mfors_sign(uint8_t *sig, uint8_t pk_value[FS_MFORS_MSG_BYTES],
                   const uint8_t md[FS_MFORS_MSG_BYTES],
                   const uint8_t master_seed[FS_N],
                   const uint8_t pub_seed[FS_N],
                   uint32_t layer, uint64_t node);
+/* Recovers one M-FORS public value from the selected secrets and inner paths. */
 int fs_mfors_recover(uint8_t pk_value[FS_MFORS_MSG_BYTES],
                      const uint8_t *sig,
                      const uint8_t md[FS_MFORS_MSG_BYTES],
                      const uint8_t pub_seed[FS_N],
                      uint32_t layer, uint64_t node);
+/* Verifies one complete M-FORS signature against its expected public value. */
 int fs_mfors_verify(const uint8_t *sig,
                     const uint8_t expected_pk[FS_MFORS_MSG_BYTES],
                     const uint8_t md[FS_MFORS_MSG_BYTES],
@@ -97,7 +113,7 @@ int fs_mfors_verify(const uint8_t *sig,
 uint32_t fsphincs_md_index(const uint8_t md[FS_MFORS_MSG_BYTES], uint32_t tree);
 /* Derives the root-node capability without exposing the master seed. */
 void fsphincs_derive_root_seed(uint8_t out[FS_N], const uint8_t master[FS_N]);
-/* Constructs fixed tree-0(/tree-1), leaf-0 anchors and a shared aggregation path. */
+/* Constructs fixed tree-0 and tree-1 leaf-0 anchors and a shared aggregation path. */
 int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
     uint8_t root_pk[FS_MFORS_MSG_BYTES], const uint8_t root_seed[FS_N],
     const uint8_t pub_seed[FS_N]);

@@ -61,22 +61,22 @@ int fsphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
 
 /* Derives the public addressed-PRF statement from an authenticated certificate. */
 int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES],
-    uint8_t anchors[FS_ANCHORS * FS_N], const uint8_t *certificate,
+    uint8_t anchors[FS_ANCHORS * FS_LEAF_BYTES], const uint8_t *certificate,
     size_t len, const uint8_t *pk) {
     if (!addresses || !anchors ||
         fsphincs_issuer_anchor_verify(certificate, len, pk) != 0) return -1;
     const size_t stride = FS_TREE_SIG_BYTES;
     for (uint32_t i = 0; i < FS_ANCHORS; ++i) {
         fsphincs_root_anchor_address(addresses + i * FS_LEAF_ADDR_BYTES, i);
-        memcpy(anchors + i * FS_N,
-               certificate + ANCHOR_HEADER_BYTES + i * stride, FS_N);
+        memcpy(anchors + i * FS_LEAF_BYTES,
+               certificate + ANCHOR_HEADER_BYTES + i * stride, FS_LEAF_BYTES);
     }
     return 0;
 }
 
 /* Exports the one root seed and checks each endpoint before invoking VOLEith. */
 int fsphincs_issuer_anchor_relation(uint8_t root_seed[FS_N],
-    uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES], uint8_t anchors[FS_ANCHORS * FS_N],
+    uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES], uint8_t anchors[FS_ANCHORS * FS_LEAF_BYTES],
     const uint8_t *certificate, size_t len, const uint8_t *pk, const uint8_t *sk) {
     if (!root_seed || !sk || !pk || memcmp(sk + FS_N, pk, FS_PK_BYTES) != 0 ||
         fsphincs_issuer_anchor_statement(addresses, anchors, certificate, len, pk) != 0)
@@ -87,7 +87,7 @@ int fsphincs_issuer_anchor_relation(uint8_t root_seed[FS_N],
     for (uint32_t i = 0; i < FS_ANCHORS; ++i) {
         memcpy(input + FS_N, addresses + i * FS_LEAF_ADDR_BYTES, FS_LEAF_ADDR_BYTES);
         sha256(expected, input, sizeof(input));
-        if (memcmp(expected, anchors + i * FS_N, FS_N) != 0) return -1;
+        if (memcmp(expected, anchors + i * FS_LEAF_BYTES, FS_LEAF_BYTES) != 0) return -1;
     }
     return 0;
 }
