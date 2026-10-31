@@ -1,0 +1,14 @@
+suite=fsphincs-h1-v6-host H1_nodes=16/24/32B H1_address=16B padded_pubseed=64B leaf_prf_version=4 hook=ours-one-SHA backend=sha-256 identity=0
+execution_only=1
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target date=2026-10-23T16:39:45+01:00
+===== parameter=128f receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 20s
+     Running `/home/lm0052/.cache/sedaa-risc0-shared-target/release/bench_fsphincs_risc0`
+F-SPHINCS+-128f H1_version=6 node_bytes=16 leaf_prf_version=4 (k=61) RISC0 GPU benchmark: backend=sha-256 receipt_kind=Composite segment_po2=20
+credential: pk=124 B sk=156 B signature=95680 B message=48 B
+DAA hook: backend=sha2 relation=ours et_u=32 B gr_u=16 B secret=16 B hk=32 B cet=0 B
+native keygen_ms=111.993 sign_ms=772.261
+guest_execute=ok parameter=128f hook=ours H1_version=6 node_bytes=16 leaf_prf_version=4
+benchmark_complete=1

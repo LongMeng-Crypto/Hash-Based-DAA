@@ -1,0 +1,48 @@
+{
+  "iterations": 1,
+  "averages": {
+  "entries": [
+    { "name": "setup.total", "micros": 41562 },
+    { "name": "setup.anchor.generate", "micros": 303906 },
+    { "name": "setup.anchor.certificate_verify", "micros": 371 },
+    { "name": "setup.pi_i.prepare", "micros": 30647 },
+    { "name": "setup.pi_i.prove", "micros": 29849 },
+    { "name": "setup.pi_i.verify", "micros": 24083 },
+    { "name": "join.host", "micros": 0 },
+    { "name": "join.tpm.keygen_owf", "micros": 0 },
+    { "name": "join.tpm.pi_join_prove", "micros": 9957 },
+    { "name": "join.issuer.commit_check", "micros": 0 },
+    { "name": "join.issuer.pi_join_verify", "micros": 8832 },
+    { "name": "join.issuer.credential_sign", "micros": 305000 },
+    { "name": "join.total", "micros": 323789 },
+    { "name": "sign.tpm.3aes", "micros": 1 },
+    { "name": "sign.tpm.pi_tpm_prove", "micros": 12055 },
+    { "name": "sign.host.precompute", "micros": 1 },
+    { "name": "sign.host.pi_host_prove", "micros": 4400000 },
+    { "name": "sign.total", "micros": 4412057 },
+    { "name": "revoke.update_state", "micros": 0 },
+    { "name": "revoke.total", "micros": 0 },
+    { "name": "verify.revocation_check", "micros": 0 },
+    { "name": "verify.pi_tpm_verify", "micros": 10632 },
+    { "name": "verify.pi_host_verify", "micros": 2000 },
+    { "name": "verify.total", "micros": 12632 },
+    { "name": "link.slt_compare", "micros": 0 },
+    { "name": "link.total", "micros": 0 }
+  ],
+  "sizes": [
+    { "name": "size.setup.issuer_anchor_certificate_bytes", "bytes": 5562 },
+    { "name": "size.setup.pi_i.voleith_proof_bytes", "bytes": 63177 },
+    { "name": "size.pi_join.faest_signature_bytes", "bytes": 4506 },
+    { "name": "size.issuer_credential.sigma", "bytes": 7856 },
+    { "name": "size.issuer_credential.issuer_nonce", "bytes": 16 },
+    { "name": "size.issuer_credential.total", "bytes": 7872 },
+    { "name": "size.signature.pi_tpm.faest_signature_bytes", "bytes": 7586 },
+    { "name": "size.signature.pi_host.serialized_receipt_bytes", "bytes": 525948 },
+    { "name": "size.signature.pi_host.seal_bytes", "bytes": 525072 },
+    { "name": "size.signature.pi_host.receipt_overhead_bytes", "bytes": 876 },
+    { "name": "size.signature.remaining", "bytes": 48 },
+    { "name": "size.signature.total", "bytes": 533582 }
+  ]
+
+  }
+}

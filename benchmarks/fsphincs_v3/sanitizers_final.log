@@ -1,0 +1,24 @@
+===== regression parameter=128f sanitizer=1 =====
+F-SPHINCS+ set=128f format=3 H3=SHA-256 anchors=1 parameters: n=256 d=12 k=61 q=1024 h=6
+sizes: pk=124 B sk=156 B sig=177664 B
+keygen = 0.500974 s
+sign = 3.479354 s
+verify = 0.005016811 s
+verify SHA-256 calls: total=6046 compression_blocks=17658 leaf=427 tree=5565 pad=21 H2=28 H3=5
+verify SHA-512 calls: total=0 compression_blocks=0
+M-FORS layer SHA-256 calls: L0=863 L1=863 L2=863 L3=863 L4=863 L5=863 L6=863
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=624
+deterministic KAT 128f: ok; independent H3/layers/certificate/index checks: ok
+===== regression parameter=256f sanitizer=1 =====
+F-SPHINCS+ set=256f format=3 H3=SHA-512 anchors=2 parameters: n=256 d=12 k=120 q=1024 h=6
+sizes: pk=212 B sk=244 B sig=349472 B
+keygen = 1.127859 s
+sign = 7.466809 s
+verify = 0.009559306 s
+verify SHA-256 calls: total=11914 compression_blocks=34797 leaf=840 tree=10969 pad=56 H2=49 H3=0
+verify SHA-512 calls: total=4 compression_blocks=8
+M-FORS layer SHA-256 calls: L0=1702 L1=1702 L2=1702 L3=1702 L4=1702 L5=1702 L6=1702
+round-trip and mutation test: ok
+root_seed_capability_test=ok fresh_credentials=2 original_master_erased=1 certificate_bytes=1040
+deterministic KAT 256f: ok; independent H3/layers/certificate/index checks: ok

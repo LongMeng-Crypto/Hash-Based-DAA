@@ -166,30 +166,30 @@ void run_level(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
   const auto level_code = level == DAA_TPM_SHA_128 ? 1U :
                           level == DAA_TPM_SHA_192 ? 2U : 3U;
   const auto profile_code = profile == DAA_TPM_SHA_SMALL ? 1U : 2U;
-  check(join_proof[5] == 3 && join_proof[6] == level_code &&
+  check(join_proof[5] == 4 && join_proof[6] == level_code &&
             join_proof[7] == profile_code,
         "Join proof header does not bind level/profile");
-  check(sign_proof[5] == 3 && sign_proof[6] == level_code &&
+  check(sign_proof[5] == 4 && sign_proof[6] == level_code &&
             sign_proof[7] == profile_code,
         "sign proof header does not bind level/profile");
 
   const auto join_fingerprint = reference_hash(level, join_proof);
   const auto sign_fingerprint = reference_hash(level, sign_proof);
   const std::array<std::string_view, 6> expected_join_fingerprints{
-      "bc3e8ffd6fb4cc9c6504a828cc72be50e7c9536b65c2c897a0d6635e1ac89bd0",
-      "41fbdf11b8626fbd5be2f6d229940bd43ae0b30d52690a60ac8e20868bab6272",
-      "7dae22cce2866f8c8ff987bb60c6da8b170bd11974a2ab0db9091103cc6e67118b5c7fdb23788aab1d87e70b2a5030e4",
-      "06ca1bd7d6f800e38057c3f9dd8a6cd151d397df25e1efb0bfc2e3a243891744061de4f6e271362144ac98fb6e3dfe27",
-      "674da085287b3fcf9ef8fff0dc8baaac2c6981c634cee520128f1eb03860f624ce8f706bef70ba333a2b3365228dddf568c18aa941e365036a9d1161d61fa9a4",
-      "3fc962d5d72ad53954db573eecaaac369142edc415835b7e68264fd212524297f8094e56fad3c497bff1b0bd5e2559607aa91b81d3234728bd743f6b57a80592",
+      "9ad47ec8258baeb53765e92fae8a0de19394e091c9fa75bcf56549beddd48d64",
+      "c13d2d457240e4ae969cfc5bb5a5708b07498972912cf2e6f9a39ad2d6438cfc",
+      "0f104f6424aed7c25c6c9bde35623708c1e7e9979bbf015c95c0ddc1d3465b6095bf6cb93f1a0304232e2af3f94b8e39",
+      "d2e912fd86732b7245ed953cb2c64a8e1f02d9f079f2c25e31f0e95401262f7987ed77a555ff05020cd3e131fbd366ec",
+      "89c01e7fd6d8be60f6bdfe7bbb4a4ee0d24133bcf582af1decdf7887a141e8a391717a9a92b362ed888fb0d90801f940f02bcef5673afbf89decc6e9ce89fd44",
+      "af0ca34a328991466093d81a957934e1868f6e223e6765ef6a6a5da1a71da92a9ca66c08e9dc154fec8161168309d0691e480e34968740d765891e0903996435",
   };
   const std::array<std::string_view, 6> expected_sign_fingerprints{
-      "13f75ea8c8da1e7585200ba04bedd4f67236fcc019897bdfb8a232edd4ff683a",
-      "07483810e5e627101fbdfc484c2e71b2b585e885db2eff07e1d62bf0f9c8fc31",
-      "7928fdea1857776ae68e94c59f15a5a8f6bfe6e46495a45bf788edc10a74d89557a6c3b96680bef726df1a61f1e47e8c",
-      "897b3e9da12c979fe683be076640b76b1ef18025acbdd3e5a25bf1650f0e03bef74f522777a2ee72929850b77e384cc9",
-      "5ef097a710ce8d25afbadf6eb51e03a387259d32005f59d1d16a8d25fc8cf20c696399f659164db90dfe9463a7243e0d475e050b7a744170c9fc1a41b57badd1",
-      "42822793fb91f0da5e2e99064ee0103f22549c61b86b6a435bbeafb38240c2f638c74a1dd0856fb229f73dd8fa69169ddcfe1d883f27761f37a47bd53ca8d052",
+      "df902c0e47216f9616640f48289acdd09b68e83eb2ab012065c08565357b5e38",
+      "ed736223134044faf3eee21f8a1e18c3146feded79093ee9640b1b0a8ed38c74",
+      "5675cb741afccf28dabdcc4504d4b5a0fc33a26052ae7ef733179aba0e2f01ec602a961dcc3c4c759baad3ab17bef370",
+      "9eabf540180a78674406f6980757f77cf3d26e2b042d6648423e64cf63a60026866fe195b1cc9804f2b88c4bd3639c80",
+      "dc734a3a076c5992d865040dd660f0724a3945601ad6902162ce157474530d400df47064c98c365ead3d126eb01e65473a7b7293a8896d6d42ac3b9d93ac9e7a",
+      "72e439877ebd23828b917fb344b96cdbaa54693ec78482b507424d47a573e006b08d9efa75ce98053696ed60d0661d2b68e2eb7eb73f0834c1c3d6e742cba51a",
   };
   const auto level_index = level == DAA_TPM_SHA_128 ? 0U :
                            level == DAA_TPM_SHA_192 ? 1U : 2U;
@@ -314,16 +314,16 @@ void run_chen23_level(daa_tpm_sha_level level,
   const auto level_code = level == DAA_TPM_SHA_128 ? 1U :
                           level == DAA_TPM_SHA_192 ? 2U : 3U;
   const auto profile_code = profile == DAA_TPM_SHA_SMALL ? 1U : 2U;
-  check(proof.size() >= 8 && proof[5] == 3 && proof[6] == level_code &&
+  check(proof.size() >= 8 && proof[5] == 4 && proof[6] == level_code &&
             proof[7] == profile_code,
         "Chen23 proof header does not bind level/profile");
   const std::array<std::string_view, 6> expected_fingerprints{
-      "ba0446d1f1c1c7838a2478fc11257c705ac325ec854b96dc1ed2ece495ab38c3",
-      "d903ea11b2e89430cfc9a4791162451bd532e7294a0c13de5bdaef009970ef5d",
-      "9f9902ed2e426108c6155c8c0cacd9d9aeef0674872e97bedd29936999edcdf341be619cb558de2367692d643dce269f",
-      "fce1c46c4f1106013fe5f4976d952dc2d655439cb6fffa0fceb0949c3c8129e6327ca01eac37ff292cc70b31ef21ebd8",
-      "bfe63d53c557e60144474f921cd441519f99178fcaabeb0fef626588633f500a6d13abc1b4b5eff107e35ba57a5ad4704866956cabb5dfd871446e70cfbfcd97",
-      "4018c5ef754372c15408e5570f3a64d9fd55b06c3c2f9fc4f41b05936cb222e67ff6813d7cdbf762d9d3f2c3f3e381af20336e2106dab3dd01de7b4cc4d738e3",
+      "9afe2328d2000a677e0c9189ab9d0cfbe59b07a13ce73469ce3d81082e9a33f3",
+      "097829cdc41a560a7ec079a4c4df27a5a9cf038bdcbfcd3d7912fda5b37dc288",
+      "5c687ebc7856afea98adc00577507b836a89cd2e8cdca56468f9bcc40d15aa4226402c1c12be408f687f6d9e841bf80b",
+      "d8dcc90bf99e4cd7d4232fa3083c9b04a1ebea82024bc8e8ed3282e654f51cffbd743cd5ef31dff576e6417defd97709",
+      "de0a02fe2cd100c6d72d2897681e4cb5b1af4a837a977e38ab681044a756c499119d1f00a28574fbfee1c1b9e30156ed00f91cabc6f5e2aae6b2b1dccc9fa4a6",
+      "fd345d6b7327e03756d7fb00e9882726049c1b5b694c1611f36e47e81083e2457bbb451c11277e92417c1f761cdbfff95d0e9fd05a3ad999f5404fcccc405bb8",
   };
   const auto level_index = level == DAA_TPM_SHA_128 ? 0U :
                            level == DAA_TPM_SHA_192 ? 1U : 2U;

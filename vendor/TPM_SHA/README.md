@@ -1,3 +1,5 @@
+> This snapshot includes the [v1 soundness correction](SOUNDNESS_FIX_V1.md). Regenerate all old SHA-based Join/Sign/setup proofs. Previous formats are rejected.
+
 # DAA TPM SHA
 
 This is a minimal source snapshot of the VOLEith binary-circuit backend at
@@ -36,7 +38,7 @@ reimplementation for comparison; it is not an implementation or benchmark
 published by Chen et al. It is not used by the main DAA protocol path.
 
 The 128/192/256 levels use SHA-256/SHA-384/SHA-512. Each level supports both
-FAEST S (smaller proof) and F (faster proof) VOLE profiles. Proof format v3
+FAEST S (smaller proof) and F (faster proof) VOLE profiles. Proof format v4
 binds the level and profile in the serialized header, circuit identifier, and
 Fiat--Shamir transcript, so an S proof cannot be verified as F or conversely.
 

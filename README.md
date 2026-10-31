@@ -1,3 +1,5 @@
+> VOLEith SHA-based Join/Sign/setup proofs use the [corrected v4 constraint encoding](docs/voleith_soundness_v1.md). Rebuild and regenerate old proofs; previous wire versions are rejected.
+
 # Hash-Based DAA Prototype
 
 `DAA_FULL` is the complete single-machine implementation of the hash-based

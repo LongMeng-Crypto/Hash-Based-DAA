@@ -1,0 +1,99 @@
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target; build/startup/test time excluded from pi_I timings
+metadata_note: The first 128s/128f rows printed the old hardcoded certificate_version=4 label. Their actual certificates are version 6 (validated by the adapter and independent KAT). The CLI label was corrected during this run; measured values are unchanged.
+===== credential=fsphincs params=sha2-128s mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=4 leaf_prf_version=4 address_bytes=16 anchors=1
+credential=F-SPHINCS+ params=sha2-128s profile=s credential_security=128 compression_blocks=1
+keygen_ms=566.674
+anchor_generation_ms=556.442
+certificate_verify_ms=0.004
+pi_i_prepare_ms=15.655
+pi_i_prover_ms=18.365
+pi_i_verifier_ms=15.510
+pi_i_proof_bytes=33356
+public_certificate_bytes=384
+pi_i_circuit private_bits=256 public_bits=128 output_bits=256 and=21994 xor=93611 nodes=115991
+
+===== credential=fsphincs params=sha2-128f mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=4 leaf_prf_version=4 address_bytes=16 anchors=1
+credential=F-SPHINCS+ params=sha2-128f profile=f credential_security=128 compression_blocks=1
+keygen_ms=102.049
+anchor_generation_ms=100.563
+certificate_verify_ms=0.004
+pi_i_prepare_ms=16.989
+pi_i_prover_ms=5.811
+pi_i_verifier_ms=4.084
+pi_i_proof_bytes=47884
+public_certificate_bytes=336
+pi_i_circuit private_bits=256 public_bits=128 output_bits=256 and=21994 xor=93611 nodes=115991
+
+===== credential=fsphincs params=sha2-192s mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-192s profile=s credential_security=192 compression_blocks=2
+keygen_ms=1120.583
+anchor_generation_ms=1116.765
+certificate_verify_ms=0.011
+pi_i_prepare_ms=29.891
+pi_i_prover_ms=47.603
+pi_i_verifier_ms=39.566
+pi_i_proof_bytes=94772
+public_certificate_bytes=968
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-192f mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-192f profile=f credential_security=192 compression_blocks=2
+keygen_ms=193.061
+anchor_generation_ms=189.955
+certificate_verify_ms=0.010
+pi_i_prepare_ms=30.086
+pi_i_prover_ms=12.696
+pi_i_verifier_ms=9.695
+pi_i_proof_bytes=140212
+public_certificate_bytes=800
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-256s mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-256s profile=s credential_security=256 compression_blocks=2
+keygen_ms=1450.069
+anchor_generation_ms=1440.837
+certificate_verify_ms=0.011
+pi_i_prepare_ms=30.544
+pi_i_prover_ms=77.460
+pi_i_verifier_ms=68.256
+pi_i_proof_bytes=133850
+public_certificate_bytes=1264
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+===== credential=fsphincs params=sha2-256f mode=seed-anchor =====
+iterations=1
+Issuer Setup anchor benchmark: mode=seed-anchor
+pi_i_backend=VOLEith; root-node seed consistency assumption
+anchor_construction=root-seed certificate_version=6 leaf_prf_version=4 address_bytes=16 anchors=2
+credential=F-SPHINCS+ params=sha2-256f profile=f credential_security=256 compression_blocks=2
+keygen_ms=248.217
+anchor_generation_ms=249.598
+certificate_verify_ms=0.010
+pi_i_prepare_ms=32.378
+pi_i_prover_ms=20.132
+pi_i_verifier_ms=15.124
+pi_i_proof_bytes=191132
+public_certificate_bytes=1040
+pi_i_circuit private_bits=256 public_bits=256 output_bits=512 and=43988 xor=187222 nodes=231724
+
+benchmark_complete=1

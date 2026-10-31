@@ -1,0 +1,59 @@
+suite=fsphincs-h1-v6-host H1_nodes=16/24/32B H1_address=16B padded_pubseed=64B leaf_prf_version=4 hook=ours-one-SHA backend=sha-256 identity=0
+execution_only=1
+shared_cache=/home/lm0052/.cache/sedaa-risc0-shared-target date=2026-10-23T16:38:36+01:00
+===== parameter=128f receipt=composite segment_po2=20 run=1 =====
+   Compiling daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)
+   Compiling daa_sha256_backend_host v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/host)
+error: failed to run custom build command for `daa_sha256_backend_methods v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods)`
+
+Caused by:
+  process didn't exit successfully: `/home/lm0052/.cache/sedaa-risc0-shared-target/release/build/daa_sha256_backend_methods-19e1c031c09bbd6b/build-script-build` (exit status: 101)
+  --- stdout
+  cargo:rerun-if-changed=guest/Cargo.toml
+  cargo:rerun-if-changed=guest/Cargo.lock
+  cargo:rerun-if-changed=guest/build.rs
+  cargo:rerun-if-changed=../fsphincs_build.rs
+  cargo:rerun-if-changed=guest/src
+  cargo:rerun-if-changed=guest/c_src
+  cargo:rerun-if-changed=../../Cargo.toml
+  cargo:rerun-if-changed=../../Cargo.lock
+  cargo:rerun-if-env-changed=SPHINCS_PARAMS
+  cargo:rerun-if-env-changed=SPHINCS_THASH
+  cargo:rerun-if-env-changed=SPHINCS_PROFILE
+  cargo:rerun-if-env-changed=SPHINCS_OPT_LEVEL
+  cargo:rerun-if-env-changed=SPHINCS_OPT_128S
+  cargo:rerun-if-env-changed=SPHINCS_SKIP_AES_CHECK
+  cargo:rerun-if-env-changed=DAA_TPM_BACKEND
+  cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME
+  cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME
+  cargo:rerun-if-env-changed=FSPHINCS_PARAMS
+  cargo:rerun-if-env-changed=FSPHINCS_SECURITY
+  cargo:rerun-if-env-changed=FSPHINCS_K
+  cargo:rerun-if-env-changed=RISC0_BUILD_DEBUG
+  Building guest package: daa_sha256_backend_methods.guest
+  cargo:rerun-if-env-changed=RISC0_SKIP_BUILD
+  Using Rust toolchain version 1.91.1
+  Using rustc: /home/lm0052/.risc0/toolchains/v1.91.1-rust-x86_64-unknown-linux-gnu/bin/rustc
+  cargo:rerun-if-env-changed=RISC0_BUILD_LOCKED
+  cargo:rerun-if-env-changed=RISC0_RUST_SRC
+  cargo:rerun-if-env-changed=CC_riscv32im_risc0_zkvm_elf
+  cargo:rerun-if-env-changed=CFLAGS_riscv32im_risc0_zkvm_elf
+  Using C++ toolchain version 2024.1.5
+  cargo:rerun-if-env-changed=RISC0_BUILD_DEBUG
+
+  --- stderr
+  guest: Starting build for riscv32im-risc0-zkvm-elf
+  guest:    Compiling guest v0.1.0 (/home/lm0052/SEDAA/DAA_FULL/host_proof/methods/guest)
+  guest: error: linking with `rust-lld` failed: exit status: 1
+  guest:   |
+  guest:   = note:  "rust-lld" "-flavor" "gnu" "/tmp/rustcckqN4f/symbols.o" "<2 object files omitted>" "--as-needed" "-Bstatic" "-lfsphincs_ref" "-lsphincs_ref" "<sysroot>/lib/rustlib/riscv32im-risc0-zkvm-elf/lib/libpanic_abort-*.rlib" "/home/lm0052/.cache/sedaa-risc0-shared-target/riscv-guest/daa_sha256_backend_methods/guest/riscv32im-risc0-zkvm-elf/release/deps/{librisc0_zkvm-559beac29cae7d0a,librisc0_groth16-aede8a50d6109cfa,libark_groth16-a328bc4d9b2da2bc,libark_crypto_primitives-042ce3767a61c45a,libmerlin-110fa6dc1014bb6c,libbyteorder-9e4fc0dd6a32d8a9,libkeccak-2bf116f4060e79a0,libark_snark-6607e3549852f8b9,libark_relations-18d756e2c72059aa,libtracing_subscriber-39541d46c8b3fc71,libark_bn254-912196fa577ceca4,libark_ec-5c0e598c41fae192,libark_poly-25b935f102f13f7b,libahash-e06a6de6ec73a0d1,libhashbrown-7a2330e23d34c528,liballocator_api2-2815c49a6ff946bd,libitertools-8f1ba7b210a0acac,libeither-81ba31fea21da13f,libark_ff-2f5da80da9f492a0,libzeroize-814443429acba462,libark_serialize-135ea7fcf4d51f7d,libnum_bigint-4f3e9626f7308945,libnum_integer-46b77f7a47d85fdb,libarrayvec-7d4cf50c4592bf5e,libark_std-2fec6ab4bb74f2dc,libnum_traits-80090909ed91188a,librand-912e99e78b1b7b77,librand_chacha-ccfa6805f04b1c19,libppv_lite86-10182b4cfe63dde1,libzerocopy-dd53b9c405477cd9,librand_core-09fafb3287392500,librisc0_circuit_recursion-68fca3052424510c,librisc0_circuit_keccak-78df20b0cacdd2e8,librisc0_circuit_rv32im-f7888553a3b82aa7,librisc0_binfmt-691b466ffe13b2be,libpostcard-86f42786b146fc1b,libcobs-2d70f68b85cdbca0,libthiserror-637bd3a65f0f94a8,libsemver-99081d8eafb408ab,libruint-64c255e3a0a62ae4,liblazy_static-7af9e73c96c5532f,libspin-8f21bea9c49fc5ff,librisc0_zkp-f88d82a669516773,libtracing-fad4665839ab17bb,liblog-67902bdf8051bfca,libpin_project_lite-794001f96dbac5aa,libtracing_core-4365ecdc9acb3685,libonce_cell-d97507b7a1a57ed3,libhex-64610e47b4e38ba6,libsha2-83d49425241c8d69,libblake2-e605931526e6670e,libdigest-2b01fe4013924db4,libsubtle-d761ef4e613730b6,libconst_oid-0c88e9ea85268919,libblock_buffer-827a2501ab1d2425,libcrypto_common-48a7f4c9fbf0ab2f,libgeneric_array-33c5fcbf9be56ff7,libtypenum-af5e58637109a718,librisc0_zkvm_platform-2c331b6ff0986f06,liblibm-7b2d89e4789aebb4,libgetrandom-4185363137f1866e,libcfg_if-adf845bd341f86d5,libnum_enum-9b953f1cc186be64,libhex_literal-0dc351134b2c14c5,libserde-3025831d6825f2b9,libserde_core-af4bb10eca7aecac,librisc0_core-8898b71d06c57361,librand_core-57a04af8371d1e68,libbytemuck-09200e5c61e9e11c,libelf-15eebd762b7af745,libanyhow-a317ce9da2248341,libderive_more-4058b8d7c40f09f0,libborsh-ac1855a68fcf57e0}.rlib" "<sysroot>/lib/rustlib/riscv32im-risc0-zkvm-elf/lib/{libstd-*,libcfg_if-*,librustc_demangle-*,libstd_detect-*,libhashbrown-*,librustc_std_workspace_alloc-*,libminiz_oxide-*,libadler2-*,libunwind-*,liblibc-*,librustc_std_workspace_core-*,liballoc-*,libcore-*,libcompiler_builtins-*}.rlib" "-L" "/tmp/rustcckqN4f/raw-dylibs" "-Bdynamic" "-z" "noexecstack" "-L" "/home/lm0052/.cache/sedaa-risc0-shared-target/riscv-guest/daa_sha256_backend_methods/guest/riscv32im-risc0-zkvm-elf/release/build/guest-ec13fbf47d2a49f3/out" "-o" "/home/lm0052/.cache/sedaa-risc0-shared-target/riscv-guest/daa_sha256_backend_methods/guest/riscv32im-risc0-zkvm-elf/release/deps/fsphincs_guest-3b2cf4b0b0d5e073" "--gc-sections" "-O1" "--strip-debug" "-Ttext=0x00200800" "--fatal-warnings"
+  guest:   = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  guest:   = note: rust-lld: error: undefined symbol: abort
+  guest:           >>> referenced by fsphincs.c
+  guest:           >>>               418cfa4ff8cccd1d-fsphincs.o:(aggregate_roots_with_path.constprop.0) in archive /home/lm0052/.cache/sedaa-risc0-shared-target/riscv-guest/daa_sha256_backend_methods/guest/riscv32im-risc0-zkvm-elf/release/build/guest-ec13fbf47d2a49f3/out/libfsphincs_ref.a
+  guest:           >>> referenced by fsphincs.c
+  guest:           >>>               418cfa4ff8cccd1d-fsphincs.o:(mfors_recover_ctx) in archive /home/lm0052/.cache/sedaa-risc0-shared-target/riscv-guest/daa_sha256_backend_methods/guest/riscv32im-risc0-zkvm-elf/release/build/guest-ec13fbf47d2a49f3/out/libfsphincs_ref.a
+  guest:           
+  guest: 
+  guest: error: could not compile `guest` (bin "fsphincs_guest") due to 1 previous error
+  guest: warning: build failed, waiting for other jobs to finish...

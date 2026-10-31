@@ -94,3 +94,9 @@ tpm_sha_benchmark = executable(
 )
 
 test('DAA TPM SHA', tpm_sha_tests, timeout: 180)
+
+# Malicious-prover regressions independent of honest input validation.
+soundness_tests = executable('vole_soundness_tests', 'tests/soundness_regression.cpp',
+  dependencies: [tpm_sha_dep], include_directories: [project_includes, faest_includes],
+  cpp_args: prefix_args + ['-DVOLE_SOUNDNESS_DAA', '-DVOLE_SOUNDNESS_DATA_DIR="' + meson.current_source_dir() + '/tests/data/soundness-v3"'])
+test('VOLE constraint soundness', soundness_tests, timeout: 180)
