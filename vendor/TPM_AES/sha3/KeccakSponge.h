@@ -17,9 +17,6 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #ifndef _KeccakSponge_h_
 #define _KeccakSponge_h_
 
-/* For the documentation, please follow the link: */
-/* #include "KeccakSponge-documentation.h" */
-
 #include <string.h>
 #include "align.h"
 #include "config.h"

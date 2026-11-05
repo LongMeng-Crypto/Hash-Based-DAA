@@ -22,7 +22,8 @@ pub enum SecurityLevel {
 }
 
 impl SecurityLevel {
-    /// Derives the symmetric security level from a parameter-set name.
+
+    // Implements from name.
     pub fn from_name(name: &str) -> Self {
         if name.contains("192") {
             Self::L192
@@ -33,7 +34,7 @@ impl SecurityLevel {
         }
     }
 
-    /// Returns the byte length of AES/FAEST keys at this security level.
+    // Implements key bytes.
     pub fn key_bytes(self) -> usize {
         match self {
             Self::L128 => 16,
@@ -42,7 +43,7 @@ impl SecurityLevel {
         }
     }
 
-    /// Returns the byte length of public DAA tokens at this security level.
+    // Implements token bytes.
     pub fn token_bytes(self) -> usize {
         match self {
             Self::L128 => 16,
@@ -50,7 +51,7 @@ impl SecurityLevel {
         }
     }
 
-    /// Returns the full SHA-2 digest length used by the TPM-SHA backend.
+    // Implements sha digest bytes.
     pub fn sha_digest_bytes(self) -> usize {
         match self {
             Self::L128 => 32,
@@ -59,7 +60,7 @@ impl SecurityLevel {
         }
     }
 
-    /// Returns the numeric VOLEith security selector used by the C ABI.
+    // Implements bits.
     fn bits(self) -> u32 {
         match self {
             Self::L128 => 128,
@@ -69,7 +70,6 @@ impl SecurityLevel {
     }
 }
 
-/// Selects the FAEST-style size/speed tradeoff at a fixed security level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TpmShaProfile {
     Small,
@@ -77,6 +77,8 @@ pub enum TpmShaProfile {
 }
 
 impl TpmShaProfile {
+
+    // Implements from name.
     pub fn from_name(name: &str) -> Self {
         if name.ends_with('f') {
             Self::Fast
@@ -85,6 +87,7 @@ impl TpmShaProfile {
         }
     }
 
+    // Implements name.
     pub fn name(self) -> &'static str {
         match self {
             Self::Small => "s",
@@ -92,6 +95,7 @@ impl TpmShaProfile {
         }
     }
 
+    // Implements code.
     fn code(self) -> u32 {
         match self {
             Self::Small => 1,
@@ -100,14 +104,12 @@ impl TpmShaProfile {
     }
 }
 
-/// Selects the legacy AES/FAEST TPM relation or the SHA-2/VOLEith relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TpmBackend {
     Aes,
     Sha2,
 }
 
-/// Selects the SHA-2 TPM signing relation without changing the Join relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TpmShaScheme {
     Ours3F,
@@ -115,6 +117,8 @@ pub enum TpmShaScheme {
 }
 
 impl TpmShaScheme {
+
+    // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
             "ours" | "ours-3f" | "3f" => Ok(Self::Ours3F),
@@ -123,6 +127,7 @@ impl TpmShaScheme {
         }
     }
 
+    // Implements name.
     pub fn name(self) -> &'static str {
         match self {
             Self::Ours3F => "ours",
@@ -131,7 +136,6 @@ impl TpmShaScheme {
     }
 }
 
-/// Selects the issuer credential verified inside the RISC0 host proof.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CredentialScheme {
     SphincsPlus,
@@ -139,6 +143,8 @@ pub enum CredentialScheme {
 }
 
 impl CredentialScheme {
+
+    // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
             "sphincs" | "sphincs+" => Ok(Self::SphincsPlus),
@@ -147,6 +153,7 @@ impl CredentialScheme {
         }
     }
 
+    // Implements name.
     pub fn name(self) -> &'static str {
         match self {
             Self::SphincsPlus => "sphincs",
@@ -156,6 +163,8 @@ impl CredentialScheme {
 }
 
 impl TpmBackend {
+
+    // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
             "aes" | "legacy-aes" => Ok(Self::Aes),
@@ -164,6 +173,7 @@ impl TpmBackend {
         }
     }
 
+    // Implements name.
     pub fn name(self) -> &'static str {
         match self {
             Self::Aes => "aes",
@@ -172,7 +182,6 @@ impl TpmBackend {
     }
 }
 
-/// Independent Setup-proof choices; fixed WOTS is available only for standard SPHINCS+.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IssuerAnchorMode {
     SeedAnchor,
@@ -180,7 +189,8 @@ pub enum IssuerAnchorMode {
 }
 
 impl IssuerAnchorMode {
-    /// Parses the stable script and CLI labels for pi_I implementations.
+
+    // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
             "seed-anchor" | "seed-dual" => Ok(Self::SeedAnchor),
@@ -188,7 +198,8 @@ impl IssuerAnchorMode {
             _ => Err(DaaError::UnsupportedProtocolCombination),
         }
     }
-    /// Returns the external runner selector for this Setup proof.
+
+    // Implements name.
     pub fn name(self) -> &'static str {
         match self {
             Self::SeedAnchor => "seed-anchor",
@@ -213,7 +224,8 @@ pub struct ProtocolConfig {
 }
 
 impl Default for ProtocolConfig {
-    /// Builds the default SHA2-128s/SHA-256 real-proof configuration.
+
+    // Implements default.
     fn default() -> Self {
         let sphincs_params = "sha2-128s".to_string();
         Self {
@@ -233,12 +245,14 @@ impl Default for ProtocolConfig {
 }
 
 impl ProtocolConfig {
-    /// Selects Setup pi_I without changing Join, signing or credential formats.
+
+    // Implements with issuer anchor mode.
     pub fn with_issuer_anchor_mode(mut self, mode: IssuerAnchorMode) -> Self {
         self.issuer_anchor_mode = mode;
         self
     }
-    /// Selects the SPHINCS+/FAEST parameter label.
+
+    // Implements with params.
     pub fn with_params(mut self, params: impl Into<String>) -> Self {
         self.sphincs_params = normalize_param_name(&params.into());
         self.security = SecurityLevel::from_name(&self.sphincs_params);
@@ -246,43 +260,43 @@ impl ProtocolConfig {
         self
     }
 
-    /// Selects the RISC0 proof-system backend hash label.
+    // Implements with backend.
     pub fn with_backend(mut self, backend: impl Into<String>) -> Self {
         self.backend_hash = backend.into();
         self
     }
 
-    /// Selects simulated, TPM-only-real, or fully-real proof mode.
+    // Implements with proof mode.
     pub fn with_proof_mode(mut self, proof_mode: ProofMode) -> Self {
         self.proof_mode = proof_mode;
         self
     }
 
-    /// Selects the TPM primitive independently from the RISC0 receipt hash.
+    // Implements with tpm backend.
     pub fn with_tpm_backend(mut self, tpm_backend: TpmBackend) -> Self {
         self.tpm_backend = tpm_backend;
         self
     }
 
-    /// Selects Ours-3F or the CDENW'23--Ours-5F SHA-2 signing relation.
+    // Implements with tpm sha scheme.
     pub fn with_tpm_sha_scheme(mut self, scheme: TpmShaScheme) -> Self {
         self.tpm_sha_scheme = scheme;
         self
     }
 
-    /// Selects SPHINCS+ or F-SPHINCS+ as the issuer credential.
+    // Implements with credential scheme.
     pub fn with_credential_scheme(mut self, scheme: CredentialScheme) -> Self {
         self.credential_scheme = scheme;
         self
     }
 
-    /// Selects the TPM-SHA VOLE size/speed profile explicitly.
+    // Implements with tpm sha profile.
     pub fn with_tpm_sha_profile(mut self, profile: TpmShaProfile) -> Self {
         self.tpm_sha_profile = profile;
         self
     }
 
-    /// Returns the public TPM token length for the selected primitive.
+    // Implements token bytes.
     pub fn tpm_token_bytes(&self) -> usize {
         match self.tpm_backend {
             TpmBackend::Aes => self.security.token_bytes(),
@@ -290,7 +304,7 @@ impl ProtocolConfig {
         }
     }
 
-    /// Returns the issuer nonce length without conflating it with SHA digests.
+    // Implements issuer nonce bytes.
     pub fn issuer_nonce_bytes(&self) -> usize {
         match self.tpm_backend {
             TpmBackend::Aes => self.security.token_bytes(),
@@ -298,13 +312,13 @@ impl ProtocolConfig {
         }
     }
 
-    /// Selects an optional RISC0 segment limit exponent for host proofs.
+    // Implements with risc0 segment limit po2.
     pub fn with_risc0_segment_limit_po2(mut self, segment_limit_po2: Option<u32>) -> Self {
         self.risc0_segment_limit_po2 = segment_limit_po2;
         self
     }
 
-    /// Rejects unsupported parameter/proof combinations before running algorithms.
+    // Implements ensure real supported.
     fn ensure_real_supported(&self) -> DaaResult<()> {
         if self.credential_scheme == CredentialScheme::FSphincsPlus
             && self.tpm_sha_profile != TpmShaProfile::from_name(&self.sphincs_params)
@@ -329,7 +343,7 @@ impl ProtocolConfig {
         Ok(())
     }
 
-    /// Returns the selected DAA/SPHINCS+/FAEST parameter specification.
+    // Implements param spec.
     fn param_spec(&self) -> DaaResult<ParamSpec> {
         param_spec(&self.sphincs_params).ok_or(DaaError::UnsupportedParameterSet)
     }
@@ -343,7 +357,8 @@ pub enum ProofMode {
 }
 
 impl ProofMode {
-    /// Parses a CLI proof-mode label.
+
+    // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
             "simulated" => Ok(Self::Simulated),
@@ -353,7 +368,7 @@ impl ProofMode {
         }
     }
 
-    /// Returns true when the mode uses real FAEST or RISC0 proof paths.
+    // Implements uses real proofs.
     fn uses_real_proofs(self) -> bool {
         matches!(self, Self::RealTpm | Self::Real128s)
     }
@@ -367,7 +382,8 @@ struct ParamSpec {
 }
 
 impl ParamSpec {
-    /// Returns the FAEST variant suffix used in benchmark labels.
+
+    // Implements faest suffix.
     fn faest_suffix(self) -> &'static str {
         match (self.lambda, self.fast) {
             (128, false) => "128s",
@@ -406,7 +422,8 @@ pub struct RevocationState {
 }
 
 impl RevocationState {
-    /// Creates empty key and link revocation lists.
+
+    // Implements empty.
     pub fn empty() -> Self {
         Self {
             key_rl: Vec::new(),
@@ -425,7 +442,7 @@ pub struct TpmState {
 pub struct HostState {
     pub member_id: u64,
     pub credential: Credential,
-    /// Entry token on which the issuer credential was issued during Join.
+
     pub credential_et: Bytes,
 }
 
@@ -444,7 +461,6 @@ pub struct ProofArtifact {
     pub seal_bytes: Option<usize>,
 }
 
-/// Public Setup material for extracting the issuer's credential-capable seed.
 #[derive(Debug, Clone)]
 pub struct IssuerAnchorOutput {
     pub certificate: Bytes,
@@ -455,12 +471,13 @@ pub struct IssuerAnchorOutput {
 }
 
 impl ProofArtifact {
-    /// Returns the serialized proof size in bytes.
+
+    // Implements size bytes.
     pub fn size_bytes(&self) -> usize {
         self.proof_bytes.len()
     }
 
-    /// Returns the RISC0 cryptographic seal size when available.
+    // Implements seal size bytes.
     pub fn seal_size_bytes(&self) -> Option<usize> {
         self.seal_bytes
     }
@@ -471,7 +488,7 @@ pub struct DaaSignature {
     pub rho: Bytes,
     pub slt: Bytes,
     pub hk: Bytes,
-    /// Public only for CDENW'23--Ours-5F; empty for Ours-3F and legacy AES.
+
     pub cet: Bytes,
     pub pi_tpm: ProofArtifact,
     pub pi_host: ProofArtifact,
@@ -517,7 +534,8 @@ pub struct BenchmarkTrace {
 }
 
 impl BenchmarkTrace {
-    /// Creates an empty benchmark trace.
+
+    // Creates the operation result.
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
@@ -525,7 +543,7 @@ impl BenchmarkTrace {
         }
     }
 
-    /// Appends a duration-based benchmark entry.
+    // Adds the operation result.
     pub fn add(&mut self, name: impl Into<String>, duration: Duration) {
         self.entries.push(BenchmarkEntry {
             name: name.into(),
@@ -533,7 +551,7 @@ impl BenchmarkTrace {
         });
     }
 
-    /// Appends a millisecond-based benchmark entry from an external runner.
+    // Adds millis.
     pub fn add_millis(&mut self, name: impl Into<String>, millis: u128) {
         self.entries.push(BenchmarkEntry {
             name: name.into(),
@@ -541,7 +559,7 @@ impl BenchmarkTrace {
         });
     }
 
-    /// Appends a byte-size benchmark entry.
+    // Adds size.
     pub fn add_size(&mut self, name: impl Into<String>, bytes: usize) {
         self.sizes.push(BenchmarkSizeEntry {
             name: name.into(),
@@ -549,7 +567,7 @@ impl BenchmarkTrace {
         });
     }
 
-    /// Measures a closure and appends its duration under the given name.
+    // Implements scoped.
     pub fn scoped<T>(&mut self, name: impl Into<String>, f: impl FnOnce() -> T) -> T {
         let name = name.into();
         let start = Instant::now();
@@ -558,17 +576,17 @@ impl BenchmarkTrace {
         out
     }
 
-    /// Returns all recorded benchmark entries.
+    // Implements entries.
     pub fn entries(&self) -> &[BenchmarkEntry] {
         &self.entries
     }
 
-    /// Returns all recorded size entries.
+    // Implements sizes.
     pub fn sizes(&self) -> &[BenchmarkSizeEntry] {
         &self.sizes
     }
 
-    /// Sums exact and nested benchmark entries for a prefix.
+    // Implements total micros.
     pub fn total_micros(&self, prefix: &str) -> u128 {
         self.entries
             .iter()
@@ -577,7 +595,7 @@ impl BenchmarkTrace {
             .sum()
     }
 
-    /// Sums step entries added after a trace index for synthetic totals.
+    // Implements step sum micros since.
     fn step_sum_micros_since(&self, start: usize, prefix: &str) -> u128 {
         self.entries[start..]
             .iter()
@@ -586,7 +604,7 @@ impl BenchmarkTrace {
             .sum()
     }
 
-    /// Serializes the benchmark trace to a small JSON object.
+    // Implements to json.
     pub fn to_json(&self) -> String {
         let mut out = String::from("{\n  \"entries\": [\n");
         for (idx, entry) in self.entries.iter().enumerate() {
@@ -619,7 +637,8 @@ impl BenchmarkTrace {
 }
 
 impl Default for BenchmarkTrace {
-    /// Creates the default empty benchmark trace.
+
+    // Implements default.
     fn default() -> Self {
         Self::new()
     }
@@ -637,7 +656,6 @@ pub struct BenchmarkSizeEntry {
     pub bytes: usize,
 }
 
-/// Circuit-size metadata returned by the TPM-SHA backend.
 #[derive(Debug, Clone, Copy)]
 pub struct TpmShaCircuitStats {
     pub private_input_bits: usize,
@@ -648,7 +666,6 @@ pub struct TpmShaCircuitStats {
     pub total_nodes: usize,
 }
 
-/// One warm-circuit benchmark sample for Join and joint TPM signing.
 #[derive(Debug, Clone)]
 pub struct TpmShaBenchmark {
     pub security: SecurityLevel,
@@ -667,7 +684,6 @@ pub struct TpmShaBenchmark {
     pub sign_stats: TpmShaCircuitStats,
 }
 
-/// One Setup issuer-anchor benchmark sample.
 #[derive(Debug, Clone)]
 pub struct IssuerAnchorBenchmark {
     pub mode: IssuerAnchorMode,
@@ -709,7 +725,8 @@ pub enum DaaError {
 }
 
 impl fmt::Display for DaaError {
-    /// Formats DAA errors by their enum variant name.
+
+    // Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self:?}")
     }
@@ -719,7 +736,7 @@ impl std::error::Error for DaaError {}
 
 pub type DaaResult<T> = Result<T, DaaError>;
 
-/// Benchmarks prepared TPM-SHA Join and signing circuits without SPHINCS+/RISC0 work.
+// Benchmarks tpm sha.
 pub fn benchmark_tpm_sha(
     security: SecurityLevel,
     profile: TpmShaProfile,
@@ -796,7 +813,7 @@ pub fn benchmark_tpm_sha(
     })
 }
 
-/// Benchmarks the real deterministic issuer anchor and its VOLEith pi_I.
+// Benchmarks issuer anchor.
 pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchorBenchmark> {
     config.ensure_real_supported()?;
     if !config.proof_mode.uses_real_proofs() {
@@ -865,8 +882,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     if verify_issuer_anchor_real(&config, &native, &context, &malformed_proof) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    // Check every selected output and address, including through the native
-    // verifier so rejection cannot be caused only by the Rust statement hash.
+
     let anchors = 2;
     for node in 0..anchors {
         for mutate_address in [false, true] {
@@ -925,7 +941,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     if verify_issuer_anchor_real(&wrong_profile, &native, &context, &pi_i) {
         return Err(DaaError::InvalidIssuerAnchor);
     }
-    // A proof with a changed endpoint must not be constructible with the original seed.
+
     let mut wrong_output = native.clone();
     let second_output = wrong_output.anchor_value.len() / 2;
     wrong_output.anchor_value[second_output] ^= 1;
@@ -960,7 +976,7 @@ pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchor
     })
 }
 
-/// Converts the stable C ABI statistics structure into the public Rust type.
+// Implements sha stats.
 fn tpm_sha_stats(
     security: SecurityLevel,
     profile: TpmShaProfile,
@@ -987,7 +1003,7 @@ fn tpm_sha_stats(
     })
 }
 
-/// Reads the prepared issuer-anchor circuit statistics through the C ABI.
+// Implements issuer anchor stats.
 fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats> {
     let mut raw = DaaTpmShaStats::default();
     let ret = unsafe {
@@ -1011,7 +1027,7 @@ fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats>
     })
 }
 
-/// Runs issuer setup and initializes the protocol state.
+// Implements setup.
 pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput {
     let mut rng = DeterministicRng::new(config.deterministic_seed);
     if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
@@ -1124,7 +1140,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
                     &native,
                     &measured.proof
                 ));
-                // Use the in-process cryptographic timings, not Cargo/IPC wall time.
+
                 trace.add("setup.pi_i.prove", measured.prove);
                 trace.add("setup.pi_i.verify", measured.verify);
                 measured.proof
@@ -1172,7 +1188,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
     }
 }
 
-/// Runs the join protocol between host, TPM, and issuer.
+// Implements join.
 pub fn join(
     setup: &mut SetupOutput,
     member_id: u64,
@@ -1282,7 +1298,7 @@ pub fn join(
     })
 }
 
-/// Runs a full DAA signing operation with TPM and host proofs.
+// Signs the operation result.
 pub fn sign(
     setup: &SetupOutput,
     tpm: &TpmState,
@@ -1295,7 +1311,7 @@ pub fn sign(
     sign_internal(setup, tpm, host, msg, bsn, trace, true)
 }
 
-/// Runs signing with optional host proving for internal link-test signatures.
+// Signs internal.
 fn sign_internal(
     setup: &SetupOutput,
     tpm: &TpmState,
@@ -1454,7 +1470,7 @@ fn sign_internal(
     })
 }
 
-/// Verifies a DAA signature against revocation state and both proofs.
+// Verifies the operation result.
 pub fn verify(
     setup: &SetupOutput,
     revocation: &RevocationState,
@@ -1553,7 +1569,7 @@ pub fn verify(
     Ok(true)
 }
 
-/// Links two signatures by comparing their basename-specific link tokens.
+// Implements link.
 pub fn link(
     signature_a: &DaaSignature,
     signature_b: &DaaSignature,
@@ -1565,7 +1581,7 @@ pub fn link(
     linked
 }
 
-/// Returns an empty revocation state while recording the update step.
+// Implements revoke empty.
 pub fn revoke_empty(trace: &mut BenchmarkTrace) -> RevocationState {
     let total = Instant::now();
     let state = trace.scoped("revoke.update_state", RevocationState::empty);
@@ -1573,7 +1589,7 @@ pub fn revoke_empty(trace: &mut BenchmarkTrace) -> RevocationState {
     state
 }
 
-/// Runs setup, join, sign, verify, link, and empty revocation once.
+// Runs full.
 pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
     config.ensure_real_supported()?;
     let mut trace = BenchmarkTrace::new();
@@ -1635,7 +1651,7 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
     })
 }
 
-/// Records proof, credential, and signature sizes for benchmark output.
+// Implements record size metrics.
 fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &SignOutput) {
     let credential_sigma = join.host_state.credential.sigma.len();
     let credential_nonce = join.host_state.credential.issuer_nonce.len();
@@ -1683,7 +1699,7 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
     trace.add_size("size.signature.total", signature_total);
 }
 
-/// Derives the group identifier from the issuer public key.
+// Implements group id.
 pub fn group_id(config: &ProtocolConfig, mpk: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => hash_many(16, &[b"gid", mpk, config.sphincs_params.as_bytes()]),
@@ -1694,7 +1710,7 @@ pub fn group_id(config: &ProtocolConfig, mpk: &[u8]) -> Bytes {
     }
 }
 
-/// Derives the basename-specific link identifier.
+// Implements link id.
 pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => hash_many(16, &[b"lid", bsn, config.sphincs_params.as_bytes()]),
@@ -1705,7 +1721,7 @@ pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
     }
 }
 
-/// Derives the randomized message bound to TPM proofs.
+// Implements message prime.
 pub fn message_prime(config: &ProtocolConfig, msg: &[u8], rho: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"msg-prime", msg, rho]),
@@ -1713,7 +1729,7 @@ pub fn message_prime(config: &ProtocolConfig, msg: &[u8], rho: &[u8]) -> Bytes {
     }
 }
 
-/// Builds the issuer credential message as et || issuer_nonce.
+// Implements credential message.
 pub fn credential_message(et: &[u8], issuer_nonce: &[u8]) -> Bytes {
     let mut out = Vec::with_capacity(et.len() + issuer_nonce.len());
     out.extend_from_slice(et);
@@ -1721,12 +1737,12 @@ pub fn credential_message(et: &[u8], issuer_nonce: &[u8]) -> Bytes {
     out
 }
 
-/// Normalizes accepted CLI parameter names to the short DAA label.
+// Implements normalize param name.
 fn normalize_param_name(name: &str) -> String {
     name.strip_prefix("sphincs-").unwrap_or(name).to_string()
 }
 
-/// Maps a short DAA parameter label to SPHINCS+ and FAEST settings.
+// Implements param spec.
 fn param_spec(name: &str) -> Option<ParamSpec> {
     match normalize_param_name(name).as_str() {
         "sha2-128s" => Some(ParamSpec {
@@ -1763,17 +1779,17 @@ fn param_spec(name: &str) -> Option<ParamSpec> {
     }
 }
 
-/// Signs an issuer credential with the deterministic simulated signer.
+// Implements issuer sign simulated.
 fn issuer_sign_simulated(keys: &IssuerKeypair, msg: &[u8]) -> Bytes {
     hash_many(64, &[b"issuer-sig", &keys.msk, &keys.mpk, msg])
 }
 
-/// Verifies an issuer credential with the deterministic simulated signer.
+// Implements issuer verify simulated.
 fn issuer_verify_simulated(keys: &IssuerKeypair, msg: &[u8], sig: &[u8]) -> bool {
     issuer_sign_simulated(keys, msg) == sig
 }
 
-/// Computes the TPM entry token for the selected primitive.
+// Implements et.
 fn tpm_et(config: &ProtocolConfig, sk: &[u8], gid: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => aes_prf(config, sk, gid),
@@ -1781,17 +1797,16 @@ fn tpm_et(config: &ProtocolConfig, sk: &[u8], gid: &[u8]) -> Bytes {
     }
 }
 
-/// Values shared by the TPM proof, issuer credential, and RISC0 host proof.
 struct TpmSignValues {
     et: Bytes,
     slt: Bytes,
     hk: Bytes,
     cet: Bytes,
-    /// `s` for Ours-3F and `sst` for CDENW'23--Ours-5F.
+
     hook_secret: Bytes,
 }
 
-/// Computes the TPM signing outputs while keeping et and hook secrets private.
+// Signs values.
 fn tpm_sign_values(
     config: &ProtocolConfig,
     sk: &[u8],
@@ -1842,7 +1857,7 @@ fn tpm_sign_values(
     }
 }
 
-/// Computes the host-side hook for the selected primitive.
+// Implements hk.
 fn tpm_hk(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => aes_hook(config, s, et),
@@ -1850,7 +1865,7 @@ fn tpm_hk(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     }
 }
 
-/// Recomputes exactly the public hook outputs checked by the host guest.
+// Implements host hook outputs.
 fn host_hook_outputs(config: &ProtocolConfig, hook_secret: &[u8], et: &[u8]) -> (Bytes, Bytes) {
     if config.tpm_backend == TpmBackend::Sha2
         && config.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F
@@ -1864,7 +1879,7 @@ fn host_hook_outputs(config: &ProtocolConfig, hook_secret: &[u8], et: &[u8]) -> 
     }
 }
 
-/// Hashes a fixed-format transcript with the SHA-2 member of the security level.
+// Implements sha2 hash.
 fn sha2_hash(level: SecurityLevel, parts: &[&[u8]]) -> Bytes {
     match level {
         SecurityLevel::L128 => {
@@ -1891,7 +1906,7 @@ fn sha2_hash(level: SecurityLevel, parts: &[&[u8]]) -> Bytes {
     }
 }
 
-/// Evaluates the TPM AES PRF or its simulated replacement.
+// Implements aes prf.
 fn aes_prf(config: &ProtocolConfig, key: &[u8], input: &[u8]) -> Bytes {
     if config.proof_mode.uses_real_proofs() {
         return aes_owf_real(config, key, input);
@@ -1899,7 +1914,7 @@ fn aes_prf(config: &ProtocolConfig, key: &[u8], input: &[u8]) -> Bytes {
     hash_many(config.security.token_bytes(), &[b"aes-prf", key, input])
 }
 
-/// Evaluates the host AES hook or its simulated replacement.
+// Implements aes hook.
 fn aes_hook(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     if config.proof_mode.uses_real_proofs() {
         return aes_hook_real(config, s, et);
@@ -1915,7 +1930,7 @@ fn aes_hook(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     out
 }
 
-/// Builds the message bound to the join FAEST proof.
+// Implements join proof message.
 fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => hash_many(32, &[b"daa-join-faest", gid, et]),
@@ -1923,7 +1938,7 @@ fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
     }
 }
 
-/// Computes the Join commitment while preserving the legacy AES transcript exactly.
+// Implements join commitment.
 fn join_commitment(config: &ProtocolConfig, et: &[u8], r: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"join-com", et, r]),
@@ -1931,14 +1946,14 @@ fn join_commitment(config: &ProtocolConfig, et: &[u8], r: &[u8]) -> Bytes {
     }
 }
 
-/// Clears the first witness bit to satisfy FAEST key restrictions.
+// Implements normalize faest key.
 fn normalize_faest_key(key: &mut [u8]) {
     if let Some(first) = key.first_mut() {
         *first &= !1;
     }
 }
 
-/// Computes the real TPM AES OWF through the C implementation.
+// Implements aes owf real.
 fn aes_owf_real(config: &ProtocolConfig, key: &[u8], input: &[u8]) -> Bytes {
     let spec = config.param_spec().expect("supported real parameter set");
     let mut out = vec![0u8; config.security.token_bytes()];
@@ -1946,7 +1961,7 @@ fn aes_owf_real(config: &ProtocolConfig, key: &[u8], input: &[u8]) -> Bytes {
     out
 }
 
-/// Computes the real TPM AES hook through the C implementation.
+// Implements aes hook real.
 fn aes_hook_real(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     let spec = config.param_spec().expect("supported real parameter set");
     let mut out = vec![0u8; config.security.token_bytes()];
@@ -1954,7 +1969,7 @@ fn aes_hook_real(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     out
 }
 
-/// Produces a real Join proof with the selected TPM backend.
+// Proves join real.
 fn prove_join_real(
     config: &ProtocolConfig,
     sk: &[u8],
@@ -1968,7 +1983,7 @@ fn prove_join_real(
     }
 }
 
-/// Verifies a real Join proof with the selected TPM backend.
+// Verifies join real.
 fn verify_join_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -1982,8 +1997,9 @@ fn verify_join_real(
     }
 }
 
-/// Produces a real TPM signing proof with the selected backend.
 #[allow(clippy::too_many_arguments)]
+
+// Proves tpm real.
 fn prove_tpm_real(
     config: &ProtocolConfig,
     lid: &[u8],
@@ -2034,7 +2050,7 @@ fn prove_tpm_real(
     }
 }
 
-/// Verifies a real TPM signing proof with the selected backend.
+// Verifies tpm real.
 fn verify_tpm_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2056,7 +2072,7 @@ fn verify_tpm_real(
     }
 }
 
-/// Returns the SHA-2 name used in proof backend labels.
+// Implements sha2 name.
 fn sha2_name(level: SecurityLevel) -> &'static str {
     match level {
         SecurityLevel::L128 => "sha256",
@@ -2065,14 +2081,14 @@ fn sha2_name(level: SecurityLevel) -> &'static str {
     }
 }
 
-/// Fills the prover's explicit 256-bit randomness buffer.
+// Implements fresh prover randomness.
 fn fresh_prover_randomness() -> DaaResult<[u8; 32]> {
     let mut randomness = [0u8; 32];
     getrandom::getrandom(&mut randomness).map_err(|_| DaaError::InvalidTpmProof)?;
     Ok(randomness)
 }
 
-/// Produces the joint VOLEith proof et = H(02 || sk || gid).
+// Proves join sha real.
 fn prove_join_sha_real(
     config: &ProtocolConfig,
     sk: &[u8],
@@ -2124,7 +2140,7 @@ fn prove_join_sha_real(
     })
 }
 
-/// Verifies the public Join relation without receiving sk.
+// Verifies join sha real.
 fn verify_join_sha_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2148,8 +2164,9 @@ fn verify_join_sha_real(
     }
 }
 
-/// Produces one joint proof of the three domain-separated SHA relations.
 #[allow(clippy::too_many_arguments)]
+
+// Proves tpm sha real.
 fn prove_tpm_sha_real(
     config: &ProtocolConfig,
     lid: &[u8],
@@ -2214,7 +2231,7 @@ fn prove_tpm_sha_real(
     })
 }
 
-/// Verifies the joint three-SHA public statement.
+// Verifies tpm sha real.
 fn verify_tpm_sha_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2244,8 +2261,9 @@ fn verify_tpm_sha_real(
     }
 }
 
-/// Produces the CDENW'23--Ours-5F proof and checks all shared values first.
 #[allow(clippy::too_many_arguments)]
+
+// Proves tpm sha chen23 real.
 fn prove_tpm_sha_chen23_real(
     config: &ProtocolConfig,
     lid: &[u8],
@@ -2352,8 +2370,9 @@ fn prove_tpm_sha_chen23_real(
     })
 }
 
-/// Verifies the public CDENW'23--Ours-5F statement, including the shared cet.
 #[allow(clippy::too_many_arguments)]
+
+// Verifies tpm sha chen23 real.
 fn verify_tpm_sha_chen23_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2388,7 +2407,7 @@ fn verify_tpm_sha_chen23_real(
     }
 }
 
-/// Produces the real FAEST single-AES join proof.
+// Proves join aes real.
 fn prove_join_aes_real(
     config: &ProtocolConfig,
     sk: &[u8],
@@ -2425,7 +2444,7 @@ fn prove_join_aes_real(
     })
 }
 
-/// Verifies the real FAEST single-AES join proof.
+// Verifies join aes real.
 fn verify_join_aes_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2450,7 +2469,7 @@ fn verify_join_aes_real(
     }
 }
 
-/// Produces the real FAEST TPM signing proof.
+// Proves tpm aes real.
 fn prove_tpm_aes_real(
     config: &ProtocolConfig,
     lid: &[u8],
@@ -2499,7 +2518,7 @@ fn prove_tpm_aes_real(
     })
 }
 
-/// Verifies the real FAEST TPM signing proof.
+// Verifies tpm aes real.
 fn verify_tpm_aes_real(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2528,7 +2547,7 @@ fn verify_tpm_aes_real(
     }
 }
 
-/// Runs the RISC0 SHA-256-backend host prover.
+// Proves host risc0 128s.
 fn prove_host_risc0_128s(
     config: &ProtocolConfig,
     issuer_pk: &[u8],
@@ -2551,7 +2570,7 @@ fn prove_host_risc0_128s(
     run_host_proof_command(config, "prove-protocol", &input, None)
 }
 
-/// Runs the RISC0 SHA-256-backend host verifier.
+// Verifies host risc0 128s.
 fn verify_host_risc0_128s(
     config: &ProtocolConfig,
     proof: &ProofArtifact,
@@ -2606,7 +2625,6 @@ struct IssuerSignResult {
     sign_millis: u128,
 }
 
-/// Native certificate material exported by the credential implementation.
 #[derive(Debug, Clone)]
 struct IssuerAnchorNative {
     certificate: Bytes,
@@ -2618,7 +2636,6 @@ struct IssuerAnchorNative {
     certificate_verify: Duration,
 }
 
-/// Combined external issuer key-generation and anchor-construction result.
 #[derive(Debug, Clone)]
 struct IssuerSetupAnchorExternal {
     pk: Bytes,
@@ -2627,7 +2644,7 @@ struct IssuerSetupAnchorExternal {
     anchor: IssuerAnchorNative,
 }
 
-/// Maps the selected credential scheme to the stable issuer-anchor ABI tag.
+// Implements issuer anchor kind.
 fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     match config.credential_scheme {
         CredentialScheme::SphincsPlus => 1,
@@ -2635,7 +2652,7 @@ fn issuer_anchor_kind(config: &ProtocolConfig) -> u32 {
     }
 }
 
-/// Domain-separates and binds pi_I to one issuer key and public certificate.
+// Implements issuer anchor context.
 fn issuer_anchor_context(config: &ProtocolConfig, pk: &[u8], certificate: &[u8]) -> Bytes {
     let mut hash = Sha256::new();
     hash.update(b"DAA-ISSUER-ANCHOR-PI-v1");
@@ -2649,7 +2666,7 @@ fn issuer_anchor_context(config: &ProtocolConfig, pk: &[u8], certificate: &[u8])
     hash.finalize().to_vec()
 }
 
-/// Generates the real VOLEith pi_I for the native seed-anchor statement.
+// Proves issuer anchor real.
 fn prove_issuer_anchor_real(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -2718,7 +2735,7 @@ fn prove_issuer_anchor_real(
     })
 }
 
-/// Binds root-proof public fields to the certificate already authenticated natively.
+// Implements anchor fields match.
 fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNative) -> bool {
     if config.credential_scheme != CredentialScheme::FSphincsPlus {
         return true;
@@ -2776,7 +2793,7 @@ fn fsphincs_anchor_fields_match(config: &ProtocolConfig, native: &IssuerAnchorNa
     true
 }
 
-/// Verifies pi_I and its Rust-side statement/certificate binding.
+// Verifies issuer anchor real.
 fn verify_issuer_anchor_real(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -2818,7 +2835,7 @@ fn verify_issuer_anchor_real(
         }
 }
 
-/// Runs native issuer key generation and deterministic anchor construction.
+// Implements issuer setup anchor external.
 fn issuer_setup_anchor_external(config: &ProtocolConfig) -> DaaResult<IssuerSetupAnchorExternal> {
     let files = issuer_wots::PrivateFiles::new()?;
     let output_path = files.dir.join("input");
@@ -2860,7 +2877,7 @@ fn issuer_setup_anchor_external(config: &ProtocolConfig) -> DaaResult<IssuerSetu
     })
 }
 
-/// Runs SPHINCS+ issuer credential signing in the parameterized host fork.
+// Implements issuer sign external.
 fn issuer_sign_external(
     config: &ProtocolConfig,
     sk: &[u8],
@@ -2893,7 +2910,7 @@ fn issuer_sign_external(
     })
 }
 
-/// Launches the external RISC0 host proof binary with benchmark-compatible settings.
+// Runs host proof command.
 fn run_host_proof_command(
     config: &ProtocolConfig,
     mode: &str,
@@ -2942,11 +2959,11 @@ fn run_host_proof_command(
     }
 }
 
-/// Builds the external host-fork cargo command with shared cache settings.
+// Implements host cargo command.
 fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
     let manifest = daa_full_root().join("host_proof/host/Cargo.toml");
     let mut cmd = Command::new("cargo");
-    // Do not leak the parent cargo-run package metadata into nested build-script fingerprints.
+
     for (name, _) in std::env::vars_os() {
         let key = name.to_string_lossy();
         if key.starts_with("CARGO_PKG_")
@@ -2962,10 +2979,11 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .arg("--quiet")
         .arg("--manifest-path")
         .arg(manifest)
-        .arg("--release")
-        .arg("--features")
-        .arg("cuda")
-        .arg("--bin")
+        .arg("--release");
+    if std::env::var("DAA_HOST_CUDA").as_deref() != Ok("0") {
+        cmd.arg("--features").arg("cuda");
+    }
+    cmd.arg("--bin")
         .arg("daa_sha256_backend_host")
         .arg("--")
         .env("RISC0_PROVER", "local")
@@ -2991,7 +3009,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         cmd.env("RISC0_SEGMENT_LIMIT_PO2", segment_limit_po2.to_string());
     }
     if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
-        // A Setup proof must embed the actual guest even when the caller skips ordinary host proofs.
+
         cmd.env_remove("RISC0_SKIP_BUILD");
     }
     if std::env::var_os("CARGO_TARGET_DIR").is_none() {
@@ -3004,7 +3022,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
     Ok(cmd)
 }
 
-/// Combines stdout and stderr from an external command.
+// Implements command text.
 fn command_text(output: &std::process::Output) -> String {
     format!(
         "{}\n{}",
@@ -3021,7 +3039,7 @@ struct HostMetrics {
     seal_bytes: Option<usize>,
 }
 
-/// Parses key-value metrics emitted by the RISC0 host proof runner.
+// Parses host metrics.
 fn parse_host_metrics(output: &str) -> HostMetrics {
     HostMetrics {
         accepted: parse_metric_bool(output, "accepted").unwrap_or_else(|| output.contains("ok")),
@@ -3031,12 +3049,12 @@ fn parse_host_metrics(output: &str) -> HostMetrics {
     }
 }
 
-/// Parses an unsigned integer metric from external runner output.
+// Parses metric u128.
 fn parse_metric_u128(output: &str, key: &str) -> Option<u128> {
     parse_metric_value(output, key).and_then(|value| value.parse().ok())
 }
 
-/// Parses a boolean metric from external runner output.
+// Parses metric bool.
 fn parse_metric_bool(output: &str, key: &str) -> Option<bool> {
     parse_metric_value(output, key).and_then(|value| match value {
         "1" | "true" | "ok" => Some(true),
@@ -3045,7 +3063,7 @@ fn parse_metric_bool(output: &str, key: &str) -> Option<bool> {
     })
 }
 
-/// Parses a raw key-value metric from external runner output.
+// Parses metric value.
 fn parse_metric_value<'a>(output: &'a str, key: &str) -> Option<&'a str> {
     let prefix = format!("{key}=");
     output
@@ -3053,7 +3071,7 @@ fn parse_metric_value<'a>(output: &'a str, key: &str) -> Option<&'a str> {
         .find_map(|line| line.trim().strip_prefix(&prefix).map(str::trim))
 }
 
-/// Writes a length-prefixed binary input file for the RISC0 host runner.
+// Writes host input.
 fn write_host_input(
     config: &ProtocolConfig,
     path: &PathBuf,
@@ -3087,7 +3105,7 @@ fn write_host_input(
     }
 }
 
-/// Writes a length-prefixed sequence of byte strings.
+// Writes length prefixed parts.
 fn write_length_prefixed_parts(path: &PathBuf, parts: &[&[u8]]) -> std::io::Result<()> {
     let mut file = std::fs::File::create(path)?;
     for part in parts {
@@ -3097,7 +3115,7 @@ fn write_length_prefixed_parts(path: &PathBuf, parts: &[&[u8]]) -> std::io::Resu
     Ok(())
 }
 
-/// Reads a length-prefixed sequence of byte strings.
+// Reads length prefixed parts.
 fn read_length_prefixed_parts(path: &PathBuf) -> std::io::Result<Vec<Bytes>> {
     let bytes = std::fs::read(path)?;
     let mut pos = 0usize;
@@ -3119,7 +3137,7 @@ fn read_length_prefixed_parts(path: &PathBuf) -> std::io::Result<Vec<Bytes>> {
     Ok(parts)
 }
 
-/// Returns the standalone DAA_FULL project root.
+// Implements full root.
 fn daa_full_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -3142,8 +3160,9 @@ struct DaaTpmShaStats {
     proof_bytes: usize,
 }
 
-/// Provides deterministic randombytes for linked C code in local benchmarks.
 #[no_mangle]
+
+// Implements randombytes.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     static SEED: AtomicU64 = AtomicU64::new(0x5eed_daa5_2026_0705);
     let mut rng = DeterministicRng::new(SEED.fetch_add(0x9e37_79b9_7f4a_7c15, Ordering::Relaxed));
@@ -3154,10 +3173,20 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
 }
 
 extern "C" {
+
+    // Implements aes owf.
     fn daa_aes_owf(lambda: u32, key: *const u8, input: *const u8, output: *mut u8);
+
+    // Implements aes hook.
     fn daa_aes_hook(lambda: u32, key: *const u8, input: *const u8, output: *mut u8);
+
+    // Implements join sig bytes.
     fn daa_join_sig_bytes(lambda: u32, fast: i32) -> usize;
+
+    // Implements tpm sig bytes.
     fn daa_tpm_sig_bytes(lambda: u32, fast: i32) -> usize;
+
+    // Implements join prove.
     fn daa_join_prove(
         lambda: u32,
         fast: i32,
@@ -3169,6 +3198,8 @@ extern "C" {
         sig: *mut u8,
         sig_len: *mut usize,
     ) -> i32;
+
+    // Implements join verify.
     fn daa_join_verify(
         lambda: u32,
         fast: i32,
@@ -3179,6 +3210,8 @@ extern "C" {
         sig: *const u8,
         sig_len: usize,
     ) -> i32;
+
+    // Implements tpm prove.
     fn daa_tpm_prove(
         lambda: u32,
         fast: i32,
@@ -3194,6 +3227,8 @@ extern "C" {
         sig: *mut u8,
         sig_len: *mut usize,
     ) -> i32;
+
+    // Implements tpm verify.
     fn daa_tpm_verify(
         lambda: u32,
         fast: i32,
@@ -3206,11 +3241,23 @@ extern "C" {
         sig: *const u8,
         sig_len: usize,
     ) -> i32;
+
+    // Implements tpm sha prepare.
     fn daa_tpm_sha_prepare(level: u32, profile: u32) -> i32;
+
+    // Implements tpm sha join stats.
     fn daa_tpm_sha_join_stats(level: u32, profile: u32, stats: *mut DaaTpmShaStats) -> i32;
+
+    // Implements tpm sha sign stats.
     fn daa_tpm_sha_sign_stats(level: u32, profile: u32, stats: *mut DaaTpmShaStats) -> i32;
+
+    // Implements tpm sha join proof bytes.
     fn daa_tpm_sha_join_proof_bytes(level: u32, profile: u32) -> usize;
+
+    // Implements tpm sha sign proof bytes.
     fn daa_tpm_sha_sign_proof_bytes(level: u32, profile: u32) -> usize;
+
+    // Implements tpm sha join prove.
     fn daa_tpm_sha_join_prove(
         level: u32,
         profile: u32,
@@ -3227,6 +3274,8 @@ extern "C" {
         proof_out: *mut u8,
         proof_len: *mut usize,
     ) -> i32;
+
+    // Implements tpm sha join verify.
     fn daa_tpm_sha_join_verify(
         level: u32,
         profile: u32,
@@ -3239,6 +3288,8 @@ extern "C" {
         proof: *const u8,
         proof_len: usize,
     ) -> i32;
+
+    // Implements tpm sha sign prove.
     fn daa_tpm_sha_sign_prove(
         level: u32,
         profile: u32,
@@ -3261,6 +3312,8 @@ extern "C" {
         proof_out: *mut u8,
         proof_len: *mut usize,
     ) -> i32;
+
+    // Implements tpm sha sign verify.
     fn daa_tpm_sha_sign_verify(
         level: u32,
         profile: u32,
@@ -3277,14 +3330,22 @@ extern "C" {
         proof: *const u8,
         proof_len: usize,
     ) -> i32;
+
+    // Implements issuer anchor prepare.
     fn daa_issuer_anchor_prepare(level: u32, profile: u32, kind: u32) -> i32;
+
+    // Implements issuer anchor stats.
     fn daa_issuer_anchor_stats(
         level: u32,
         profile: u32,
         kind: u32,
         stats: *mut DaaTpmShaStats,
     ) -> i32;
+
+    // Implements issuer anchor proof bytes.
     fn daa_issuer_anchor_proof_bytes(level: u32, profile: u32, kind: u32) -> usize;
+
+    // Implements issuer anchor prove.
     fn daa_issuer_anchor_prove(
         level: u32,
         profile: u32,
@@ -3304,6 +3365,8 @@ extern "C" {
         proof_out: *mut u8,
         proof_len: *mut usize,
     ) -> i32;
+
+    // Implements issuer anchor verify.
     fn daa_issuer_anchor_verify(
         level: u32,
         profile: u32,
@@ -3319,8 +3382,14 @@ extern "C" {
         proof: *const u8,
         proof_len: usize,
     ) -> i32;
+
+    // Implements tpm sha chen23 prepare.
     fn daa_tpm_sha_chen23_prepare(level: u32, profile: u32) -> i32;
+
+    // Implements tpm sha chen23 sign proof bytes.
     fn daa_tpm_sha_chen23_sign_proof_bytes(level: u32, profile: u32) -> usize;
+
+    // Implements tpm sha chen23 evaluate sign.
     fn daa_tpm_sha_chen23_evaluate_sign(
         level: u32,
         sk: *const u8,
@@ -3342,6 +3411,8 @@ extern "C" {
         cet_out: *mut u8,
         cet_len: usize,
     ) -> i32;
+
+    // Implements tpm sha chen23 sign prove.
     fn daa_tpm_sha_chen23_sign_prove(
         level: u32,
         profile: u32,
@@ -3366,6 +3437,8 @@ extern "C" {
         proof_out: *mut u8,
         proof_len: *mut usize,
     ) -> i32;
+
+    // Implements tpm sha chen23 sign verify.
     fn daa_tpm_sha_chen23_sign_verify(
         level: u32,
         profile: u32,
@@ -3388,7 +3461,7 @@ extern "C" {
     ) -> i32;
 }
 
-/// Builds a deterministic simulated proof artifact for fast protocol tests.
+// Implements simulated proof.
 fn simulated_proof(
     kind: &str,
     backend: &str,
@@ -3416,7 +3489,7 @@ fn simulated_proof(
     }
 }
 
-/// Verifies a simulated proof when witnesses are still locally available.
+// Verifies simulated proof.
 fn verify_simulated_proof(
     proof: &ProofArtifact,
     statement_parts: &[&[u8]],
@@ -3432,12 +3505,12 @@ fn verify_simulated_proof(
     proof.statement_hash == expected.statement_hash && proof.proof_bytes == expected.proof_bytes
 }
 
-/// Verifies only the public statement hash of a proof artifact.
+// Verifies statement only.
 fn verify_statement_only(proof: &ProofArtifact, statement_parts: &[&[u8]]) -> bool {
     proof.statement_hash == hash_many(32, statement_parts)
 }
 
-/// Expands a stable hash transcript to an arbitrary byte length.
+// Hashes many.
 fn hash_many(out_len: usize, parts: &[&[u8]]) -> Bytes {
     let mut out = Vec::with_capacity(out_len);
     let mut counter = 0u64;
@@ -3455,19 +3528,19 @@ fn hash_many(out_len: usize, parts: &[&[u8]]) -> Bytes {
     out
 }
 
-/// Hashes a byte slice into a stable u64 value.
+// Implements stable u64.
 fn stable_u64(bytes: &[u8]) -> u64 {
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
     hasher.finish()
 }
 
-/// Converts a boolean into a one-byte witness marker.
+// Implements bool byte.
 fn bool_byte(value: bool) -> [u8; 1] {
     [u8::from(value)]
 }
 
-/// Escapes a string for the small handwritten JSON output.
+// Implements json escape.
 fn json_escape(input: &str) -> String {
     input.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -3477,12 +3550,13 @@ struct DeterministicRng {
 }
 
 impl DeterministicRng {
-    /// Creates a deterministic xorshift RNG from a seed.
+
+    // Creates the operation result.
     fn new(seed: u64) -> Self {
         Self { state: seed }
     }
 
-    /// Produces the next deterministic u64.
+    // Implements next u64.
     fn next_u64(&mut self) -> u64 {
         let mut x = self.state;
         x ^= x << 13;
@@ -3492,12 +3566,12 @@ impl DeterministicRng {
         x
     }
 
-    /// Produces the next deterministic byte.
+    // Implements next u8.
     fn next_u8(&mut self) -> u8 {
         self.next_u64() as u8
     }
 
-    /// Produces a deterministic byte vector of the requested length.
+    // Implements bytes.
     fn bytes(&mut self, len: usize) -> Bytes {
         let mut out = Vec::with_capacity(len);
         while out.len() < len {
@@ -3512,8 +3586,9 @@ impl DeterministicRng {
 mod tests {
     use super::*;
 
-    /// Compact leaf relations keep a 256-bit witness and reject former ABI kinds.
     #[test]
+
+    // Implements compact anchor circuit lengths.
     fn fsphincs_compact_anchor_circuit_lengths() {
         for level in [128, 192, 256] {
             for old_kind in [2, 3, 4] {
@@ -3530,8 +3605,9 @@ mod tests {
         }
     }
 
-    /// Real VOLE proofs bind both truncated outputs to the same seed for all six profiles.
     #[test]
+
+    // Implements dual anchor shared witness.
     fn fsphincs_dual_anchor_shared_witness() {
         for parameter in ["128s", "128f", "192s", "192f", "256s", "256f"] {
             let config = ProtocolConfig::default()
@@ -3556,7 +3632,7 @@ mod tests {
                 native.anchor_value.extend_from_slice(&hash.finalize()[..width]);
             }
             let context = b"dual-anchor-shared-witness-regression";
-            // Test the VOLE relation directly, independently of certificate prechecks.
+
             let accepts = |value: &IssuerAnchorNative, proof: &ProofArtifact| unsafe {
                 daa_issuer_anchor_verify(
                     config.security.bits(), config.tpm_sha_profile.code(),
@@ -3584,8 +3660,9 @@ mod tests {
         }
     }
 
-    /// The six credential labels pair with six VOLEith profiles, never a cross product.
     #[test]
+
+    // Implements profiles are paired.
     fn fsphincs_profiles_are_paired() {
         for parameter in [
             "sha2-128s",
@@ -3606,8 +3683,9 @@ mod tests {
         }
     }
 
-    /// Rejects proofs rebound to addresses or outputs outside their public certificate.
     #[test]
+
+    // Implements anchor fields cannot be rebound.
     fn fsphincs_anchor_fields_cannot_be_rebound() {
         for (name, security, fast, d, k) in [
             ("128s", 128usize, 0, 16usize, 22usize),
@@ -3625,7 +3703,7 @@ mod tests {
             let length = 16
                 + count * (node_bytes + d * node_bytes)
                 + node_bytes * (k.next_power_of_two().trailing_zeros() as usize - (count - 1));
-            // This fixture tests field linkage only; the C tests authenticate actual roots.
+
             let mut native = IssuerAnchorNative {
                 certificate: vec![0; length],
                 witness: vec![],
@@ -3671,8 +3749,9 @@ mod tests {
         }
     }
 
-    /// Checks Setup-mode selection without altering existing proof/credential defaults.
     #[test]
+
+    // Implements issuer anchor modes are scheme specific.
     fn issuer_anchor_modes_are_scheme_specific() {
         let config = ProtocolConfig::default();
         assert_eq!(config.issuer_anchor_mode, IssuerAnchorMode::SeedAnchor);
@@ -3691,6 +3770,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements legacy aes lengths and identifiers are unchanged.
     fn legacy_aes_lengths_and_identifiers_are_unchanged() {
         let config = ProtocolConfig::default().with_params("sha2-192s");
         assert_eq!(config.tpm_backend, TpmBackend::Aes);
@@ -3707,6 +3788,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements sha backend uses full digest lengths and domain separation.
     fn sha_backend_uses_full_digest_lengths_and_domain_separation() {
         for (params, key_len, digest_len) in [
             ("sha2-128s", 16, 32),
@@ -3746,6 +3829,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements legacy aes real proofs still round trip.
     fn legacy_aes_real_proofs_still_round_trip() {
         let config = ProtocolConfig::default()
             .with_params("sha2-128s")
@@ -3794,6 +3879,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements cdenw23 values bind join et and both host hooks.
     fn cdenw23_values_bind_join_et_and_both_host_hooks() {
         let config = ProtocolConfig::default()
             .with_tpm_backend(TpmBackend::Sha2)

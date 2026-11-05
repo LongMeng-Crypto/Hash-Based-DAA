@@ -39,8 +39,6 @@ Please refer to LowLevel.build for the exact list of other files it must be comb
 typedef __m128i V128;
 typedef __m256i V256;
 
-//#define UseGatherScatter
-
 #define laneIndex(instanceIndex, lanePosition) ((lanePosition)*4 + instanceIndex)
 
 #if defined(KeccakP1600times4_useAVX2)
@@ -87,12 +85,14 @@ static const uint64_t rho56[4] = {0x0007060504030201, 0x080F0E0D0C0B0A09, 0x1017
 
 #define SnP_laneLengthInBytes 8
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 initialize all.
 void KeccakP1600times4_InitializeAll(void *states)
 {
     memset(states, 0, KeccakP1600times4_statesSizeInBytes);
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 add bytes.
 void KeccakP1600times4_AddBytes(void *states, unsigned int instanceIndex, const unsigned char *data, unsigned int offset, unsigned int length)
 {
     unsigned int sizeLeft = length;
@@ -129,6 +129,7 @@ void KeccakP1600times4_AddBytes(void *states, unsigned int instanceIndex, const 
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 add lanes all.
 void KeccakP1600times4_AddLanesAll(void *states, const unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     V256 *stateAsLanes = (V256 *)states;
@@ -175,6 +176,7 @@ void KeccakP1600times4_AddLanesAll(void *states, const unsigned char *data, unsi
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 overwrite bytes.
 void KeccakP1600times4_OverwriteBytes(void *states, unsigned int instanceIndex, const unsigned char *data, unsigned int offset, unsigned int length)
 {
     unsigned int sizeLeft = length;
@@ -207,6 +209,7 @@ void KeccakP1600times4_OverwriteBytes(void *states, unsigned int instanceIndex, 
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 overwrite lanes all.
 void KeccakP1600times4_OverwriteLanesAll(void *states, const unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     V256 *stateAsLanes = (V256 *)states;
@@ -253,6 +256,7 @@ void KeccakP1600times4_OverwriteLanesAll(void *states, const unsigned char *data
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 overwrite with zeroes.
 void KeccakP1600times4_OverwriteWithZeroes(void *states, unsigned int instanceIndex, unsigned int byteCount)
 {
     unsigned int sizeLeft = byteCount;
@@ -271,6 +275,7 @@ void KeccakP1600times4_OverwriteWithZeroes(void *states, unsigned int instanceIn
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 extract bytes.
 void KeccakP1600times4_ExtractBytes(const void *states, unsigned int instanceIndex, unsigned char *data, unsigned int offset, unsigned int length)
 {
     unsigned int sizeLeft = length;
@@ -302,6 +307,7 @@ void KeccakP1600times4_ExtractBytes(const void *states, unsigned int instanceInd
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 extract lanes all.
 void KeccakP1600times4_ExtractLanesAll(const void *states, unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     uint64_t *curData0 = (uint64_t *)data;
@@ -353,6 +359,7 @@ void KeccakP1600times4_ExtractLanesAll(const void *states, unsigned char *data, 
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 extract and add bytes.
 void KeccakP1600times4_ExtractAndAddBytes(const void *states, unsigned int instanceIndex, const unsigned char *input, unsigned char *output, unsigned int offset, unsigned int length)
 {
     unsigned int sizeLeft = length;
@@ -393,6 +400,7 @@ void KeccakP1600times4_ExtractAndAddBytes(const void *states, unsigned int insta
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 extract and add lanes all.
 void KeccakP1600times4_ExtractAndAddLanesAll(const void *states, const unsigned char *input, unsigned char *output, unsigned int laneCount, unsigned int laneOffset)
 {
     const uint64_t *curInput0 = (uint64_t *)input;
@@ -484,8 +492,6 @@ void KeccakP1600times4_ExtractAndAddLanesAll(const void *states, const unsigned 
     Co = XOR256(Abo, XOR256(Ago, XOR256(Ako, XOR256(Amo, Aso)))); \
     Cu = XOR256(Abu, XOR256(Agu, XOR256(Aku, XOR256(Amu, Asu)))); \
 
-/* --- Theta Rho Pi Chi Iota Prepare-theta */
-/* --- 64-bit lanes mapped to 64-bit words */
 #define thetaRhoPiChiIotaPrepareTheta(i, A, E) \
     ROL64in256(Ce1, Ce, 1); \
     Da = XOR256(Cu, Ce1); \
@@ -605,8 +611,6 @@ void KeccakP1600times4_ExtractAndAddLanesAll(const void *states, const unsigned 
     XOReq256(Cu, E##su); \
 \
 
-/* --- Theta Rho Pi Chi Iota */
-/* --- 64-bit lanes mapped to 64-bit words */
 #define thetaRhoPiChiIota(i, A, E) \
     ROL64in256(Ce1, Ce, 1); \
     Da = XOR256(Cu, Ce1); \
@@ -816,6 +820,7 @@ static ALIGN(KeccakP1600times4_statesAlignment) const uint64_t KeccakF1600RoundC
 #include "KeccakP-1600-unrolling.macros"
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 permute all 24rounds.
 void KeccakP1600times4_PermuteAll_24rounds(void *states)
 {
     V256 *statesAsLanes = (V256 *)states;
@@ -830,6 +835,7 @@ void KeccakP1600times4_PermuteAll_24rounds(void *states)
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 permute all 12rounds.
 void KeccakP1600times4_PermuteAll_12rounds(void *states)
 {
     V256 *statesAsLanes = (V256 *)states;
@@ -844,6 +850,7 @@ void KeccakP1600times4_PermuteAll_12rounds(void *states)
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 permute all 6rounds.
 void KeccakP1600times4_PermuteAll_6rounds(void *states)
 {
     V256 *statesAsLanes = (V256 *)states;
@@ -858,6 +865,7 @@ void KeccakP1600times4_PermuteAll_6rounds(void *states)
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 permute all 4rounds.
 void KeccakP1600times4_PermuteAll_4rounds(void *states)
 {
     V256 *statesAsLanes = (V256 *)states;
@@ -872,6 +880,7 @@ void KeccakP1600times4_PermuteAll_4rounds(void *states)
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak f1600times4 fast loop absorb.
 size_t KeccakF1600times4_FastLoop_Absorb(void *states, unsigned int laneCount, unsigned int laneOffsetParallel, unsigned int laneOffsetSerial, const unsigned char *data, size_t dataByteLen)
 {
     if (laneCount == 21) {
@@ -973,6 +982,7 @@ size_t KeccakF1600times4_FastLoop_Absorb(void *states, unsigned int laneCount, u
 }
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 12rounds fast loop absorb.
 size_t KeccakP1600times4_12rounds_FastLoop_Absorb(void *states, unsigned int laneCount, unsigned int laneOffsetParallel, unsigned int laneOffsetSerial, const unsigned char *data, size_t dataByteLen)
 {
     if (laneCount == 21) {
@@ -1073,8 +1083,6 @@ size_t KeccakP1600times4_12rounds_FastLoop_Absorb(void *states, unsigned int lan
     }
 }
 
-/* ------------------------------------------------------------------------- */
-
 #define UNINTLEAVEa(lanes0, lanes1, lanes2, lanes3)                                         \
                                     lanesL01 = UNPACKL( lanes0, lanes1 ),                   \
                                     lanesH01 = UNPACKH( lanes0, lanes1 ),                   \
@@ -1095,10 +1103,7 @@ size_t KeccakP1600times4_12rounds_FastLoop_Absorb(void *states, unsigned int lan
                                     lanes2 = SHUFFLE64( lanesL23, lanesH23, 0x00 ),         \
                                     lanes3 = SHUFFLE64( lanesL23, lanesH23, 0x0F )
 
-
 #define LoadXOReq256( lanes, inp, argIndex)    XOReq256( lanes, LOAD4_64(inp[3*25+argIndex], inp[2*25+argIndex], inp[1*25+argIndex], inp[0*25+argIndex]) )
-
-/* ------------------------------------------------------------------------- */
 
 #if defined(UseGatherScatter)
 
@@ -1156,6 +1161,7 @@ size_t KeccakP1600times4_12rounds_FastLoop_Absorb(void *states, unsigned int lan
     x0x1x2x3 = Asu
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 kravatte compress.
 size_t KeccakP1600times4_KravatteCompress(uint64_t *xAccu, uint64_t *kRoll, const unsigned char *input, size_t inputByteLen)
 {
     uint64_t *in64 = (uint64_t *)input;
@@ -1206,8 +1212,6 @@ size_t KeccakP1600times4_KravatteCompress(uint64_t *xAccu, uint64_t *kRoll, cons
 #undef ExtrAccu
 #undef ExtrAccu4
 
-/* ------------------------------------------------------------------------- */
-
 #define ExtrAddKey( lanes, p, argIndex )                                                    \
                                     XOReq256(lanes, CONST256_64(kRoll[argIndex])),          \
                                     p[argIndex+0*25] = _mm256_extract_epi64(lanes, 0),      \
@@ -1215,7 +1219,7 @@ size_t KeccakP1600times4_KravatteCompress(uint64_t *xAccu, uint64_t *kRoll, cons
                                     p[argIndex+2*25] = _mm256_extract_epi64(lanes, 2),      \
                                     p[argIndex+3*25] = _mm256_extract_epi64(lanes, 3)
 
-#if 0//defined(UseGatherScatter)
+#if 0
 
 #define ExtrAddKey4( lanes0, lanes1, lanes2, lanes3, p, argIndex )                                      \
                                     XOReq256(lanes0, CONST256_64(kRoll[argIndex+0])),                   \
@@ -1243,6 +1247,7 @@ size_t KeccakP1600times4_KravatteCompress(uint64_t *xAccu, uint64_t *kRoll, cons
 #endif
 
 ATTRIBUTE_TARGET_AVX2
+// Implements keccak p1600times4 kravatte expand.
 size_t KeccakP1600times4_KravatteExpand(uint64_t *yAccu, const uint64_t *kRoll, unsigned char *output, size_t outputByteLen)
 {
     uint64_t *out64 = (uint64_t *)output;

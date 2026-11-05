@@ -5,12 +5,12 @@
 #include "params.h"
 #include "issuer_wots.h"
 
-/* Supplies deterministic test-only randomness to otherwise unused signing entry points. */
+// Implements randombytes.
 void randombytes(unsigned char *out, unsigned long long len) {
     for (unsigned long long i=0; i<len; ++i) out[i]=(unsigned char)i;
 }
 
-/* Differential-tests full-chain reconstruction against reference keygen for each compiled parameter. */
+// Implements main.
 int main(void) {
     unsigned char pk[SPX_PK_BYTES], sk[SPX_SK_BYTES], seed[3*SPX_N];
     for (unsigned int i=0; i<sizeof(seed); ++i) seed[i]=(unsigned char)(i+7);
@@ -29,7 +29,7 @@ int main(void) {
     }
     if (!sphincs_issuer_wots_verify(cert,clen-1,pk)) return 6;
     if (!sphincs_issuer_wots_relation(cert,clen,pk,witness,wlen-1)) return 7;
-    /* The relation only proves the leaf; the mandatory public check rejects a wrong path. */
+
     cert[clen-1]^=1;
     if (sphincs_issuer_wots_relation(cert,clen,pk,witness,wlen) != 0
         || sphincs_issuer_wots_verify(cert,clen,pk) == 0) return 9;

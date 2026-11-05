@@ -38,10 +38,9 @@ UnpackedWitness unpack_witness(const faest::sha256_circuit::Circuit& circuit,
 bool transport_padding_is_zero(const faest::sha256_circuit::Circuit& circuit,
                                const PackedWitness& packed);
 
-// Checks packing, every committed multiplication output, and the public digest.
 bool verify_witness(const faest::sha256_circuit::Circuit& circuit, const PackedWitness& packed,
                     const faest::sha256_circuit::Digest& public_digest);
 
-} // namespace vole_sha256
+}
 
 #endif

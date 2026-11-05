@@ -19,8 +19,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #define KECCAK_SUCCESS SUCCESS
 #endif
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash initializetimes4.
 HashReturn Keccak_HashInitializetimes4(Keccak_HashInstancetimes4 *instance, unsigned int rate, unsigned int capacity, unsigned int hashbitlen, unsigned char delimitedSuffix)
 {
     HashReturn result;
@@ -35,8 +34,7 @@ HashReturn Keccak_HashInitializetimes4(Keccak_HashInstancetimes4 *instance, unsi
     return KECCAK_SUCCESS;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash updatetimes4.
 HashReturn Keccak_HashUpdatetimes4(Keccak_HashInstancetimes4 *instance, const BitSequence **data, BitLength databitlen)
 {
     if ((databitlen % 8) != 0)
@@ -44,8 +42,7 @@ HashReturn Keccak_HashUpdatetimes4(Keccak_HashInstancetimes4 *instance, const Bi
     return (HashReturn)KeccakWidth1600times4_SpongeAbsorb(&instance->sponge, data, databitlen/8);
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash finaltimes4.
 HashReturn Keccak_HashFinaltimes4(Keccak_HashInstancetimes4 *instance, BitSequence **hashval)
 {
     HashReturn ret = (HashReturn)KeccakWidth1600times4_SpongeAbsorbLastFewBits(&instance->sponge, instance->delimitedSuffix);
@@ -55,8 +52,7 @@ HashReturn Keccak_HashFinaltimes4(Keccak_HashInstancetimes4 *instance, BitSequen
         return ret;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash squeezetimes4.
 HashReturn Keccak_HashSqueezetimes4(Keccak_HashInstancetimes4 *instance, BitSequence **data, BitLength databitlen)
 {
     if ((databitlen % 8) != 0)

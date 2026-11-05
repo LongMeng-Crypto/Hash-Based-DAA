@@ -17,8 +17,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #include <string.h>
 #include "KeccakHash.h"
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash initialize.
 HashReturn Keccak_HashInitialize(Keccak_HashInstance *instance, unsigned int rate, unsigned int capacity, unsigned int hashbitlen, unsigned char delimitedSuffix)
 {
     HashReturn result;
@@ -33,8 +32,7 @@ HashReturn Keccak_HashInitialize(Keccak_HashInstance *instance, unsigned int rat
     return KECCAK_SUCCESS;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash update.
 HashReturn Keccak_HashUpdate(Keccak_HashInstance *instance, const BitSequence *data, BitLength databitlen)
 {
     if ((databitlen % 8) == 0)
@@ -42,9 +40,9 @@ HashReturn Keccak_HashUpdate(Keccak_HashInstance *instance, const BitSequence *d
     else {
         HashReturn ret = (HashReturn)KeccakWidth1600_SpongeAbsorb(&instance->sponge, data, databitlen/8);
         if (ret == KECCAK_SUCCESS) {
-            /* The last partial byte is assumed to be aligned on the least significant bits */
+
             unsigned char lastByte = data[databitlen/8];
-            /* Concatenate the last few bits provided here with those of the suffix */
+
             unsigned short delimitedLastBytes = (unsigned short)((unsigned short)(lastByte & ((1 << (databitlen % 8)) - 1)) | ((unsigned short)instance->delimitedSuffix << (databitlen % 8)));
             if ((delimitedLastBytes & 0xFF00) == 0x0000) {
                 instance->delimitedSuffix = delimitedLastBytes & 0xFF;
@@ -60,8 +58,7 @@ HashReturn Keccak_HashUpdate(Keccak_HashInstance *instance, const BitSequence *d
     }
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash final.
 HashReturn Keccak_HashFinal(Keccak_HashInstance *instance, BitSequence *hashval)
 {
     HashReturn ret = (HashReturn)KeccakWidth1600_SpongeAbsorbLastFewBits(&instance->sponge, instance->delimitedSuffix);
@@ -71,8 +68,7 @@ HashReturn Keccak_HashFinal(Keccak_HashInstance *instance, BitSequence *hashval)
         return ret;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements keccak hash squeeze.
 HashReturn Keccak_HashSqueeze(Keccak_HashInstance *instance, BitSequence *data, BitLength databitlen)
 {
     if ((databitlen % 8) != 0)

@@ -23,6 +23,7 @@ extern "C" {
 
 namespace {
   template <typename Iterator>
+  // Implements print hex.
   void print_hex(std::ostream& os, Iterator begin, Iterator end) {
     std::ios_base::fmtflags flags{os.flags()};
     os << std::uppercase << std::hex << std::setfill('0');
@@ -32,8 +33,9 @@ namespace {
 
   constexpr size_t num_tvs = 100;
   typedef std::array<uint8_t, 48> seed_t;
-} // namespace
+}
 
+// Implements main.
 int main() {
   constexpr std::string_view fn_req = "PQCsignKAT_" CRYPTO_ALGNAME ".req";
   constexpr std::string_view fn_rsp = "PQCsignKAT_" CRYPTO_ALGNAME ".rsp";
@@ -105,7 +107,6 @@ int main() {
     std::array<uint8_t, CRYPTO_PUBLICKEYBYTES> pk;
     std::array<uint8_t, CRYPTO_SECRETKEYBYTES> sk;
 
-    // Generate the public/private keypair
     auto ret = crypto_sign_keypair(pk.data(), sk.data());
     if (ret != 0) {
       std::cout << "crypto_sign_keypair returned <" << ret << ">" << std::endl;

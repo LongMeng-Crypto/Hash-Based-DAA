@@ -1,6 +1,4 @@
-/*
- * daa_faest_opt.c — optimized wrappers for DAA original-FAEST proofs.
- */
+
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -17,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Implements select params.
 static const faest_paramset_t* select_params(unsigned int lambda, int fast) {
   switch (lambda) {
   case 192: return faest_get_paramset(fast ? DAA_FAEST_192F : DAA_FAEST_192S);
@@ -25,11 +24,13 @@ static const faest_paramset_t* select_params(unsigned int lambda, int fast) {
   }
 }
 
+// Implements witness bytes for.
 static size_t witness_bytes_for(unsigned int lambda, int fast) {
   const faest_paramset_t* params = select_params(lambda, fast);
   return params ? (size_t)params->l / 8 : 0;
 }
 
+// Implements faest scratch init.
 int daa_faest_scratch_init(daa_faest_scratch_t* scratch, unsigned int lambda, int fast) {
   if (!scratch) return -1;
   scratch->witness = NULL;
@@ -42,6 +43,7 @@ int daa_faest_scratch_init(daa_faest_scratch_t* scratch, unsigned int lambda, in
   return 0;
 }
 
+// Implements faest scratch clear.
 void daa_faest_scratch_clear(daa_faest_scratch_t* scratch) {
   if (!scratch) return;
   if (scratch->witness) {
@@ -52,6 +54,7 @@ void daa_faest_scratch_clear(daa_faest_scratch_t* scratch) {
   scratch->witness_bytes = 0;
 }
 
+// Implements faest sign with scratch.
 int daa_faest_sign_with_scratch(unsigned int lambda, int fast,
                                 const uint8_t* sk_u, const uint8_t* gid,
                                 const uint8_t* et_u,
@@ -70,6 +73,7 @@ int daa_faest_sign_with_scratch(unsigned int lambda, int fast,
   return 0;
 }
 
+// Implements faest sign fused.
 int daa_faest_sign_fused(unsigned int lambda, int fast,
                          const uint8_t* sk_u, const uint8_t* gid,
                          uint8_t* et_u_out,

@@ -16,12 +16,14 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+// Implements require.
 void require(int status) {
   if (status != DAA_TPM_SHA_OK)
     throw std::runtime_error(daa_tpm_sha_last_error());
 }
 
 template <typename Function>
+// Implements average ms.
 double average_ms(std::size_t iterations, Function&& function) {
   const auto begin = Clock::now();
   for (std::size_t i = 0; i != iterations; ++i) function(i);
@@ -30,6 +32,7 @@ double average_ms(std::size_t iterations, Function&& function) {
          static_cast<double>(iterations);
 }
 
+// Benchmarks ours.
 void benchmark_ours(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
                     std::size_t iterations) {
   const auto key_bytes = daa_tpm_sha_key_bytes(level);
@@ -67,7 +70,6 @@ void benchmark_ours(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
   std::vector<std::uint8_t> join_proof(join_stats.proof_bytes);
   std::vector<std::uint8_t> sign_proof(sign_stats.proof_bytes);
 
-  // Warm both prover paths before measurement.
   auto join_len = join_proof.size();
   require(daa_tpm_sha_join_prove(
       level, profile, sk.data(), sk.size(), gid.data(), gid.size(), et.data(), et.size(),
@@ -130,6 +132,7 @@ void benchmark_ours(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
             << " proof_bytes=" << sign_stats.proof_bytes << '\n';
 }
 
+// Benchmarks chen23.
 void benchmark_chen23(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
                       std::size_t iterations) {
   const auto key_bytes = daa_tpm_sha_key_bytes(level);
@@ -204,8 +207,9 @@ void benchmark_chen23(daa_tpm_sha_level level, daa_tpm_sha_profile profile,
             << " proof_bytes=" << stats.proof_bytes << '\n';
 }
 
-} // namespace
+}
 
+// Implements main.
 int main(int argc, char** argv) {
   try {
     std::size_t iterations = 10;

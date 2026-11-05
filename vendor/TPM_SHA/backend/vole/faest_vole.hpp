@@ -68,8 +68,6 @@ public:
   bool open(const std::array<std::uint8_t, lambda_bytes>& challenge,
             std::vector<std::uint8_t>& decomposition);
 
-  // Deterministically searches for a decodable/openable challenge for tests
-  // and the next transcript-integration stage.
   ReconstructedVole open_and_reconstruct();
 
 private:
@@ -119,7 +117,9 @@ public:
   ParameterizedFaestVoleCommitment(const ParameterizedFaestVoleCommitment&) = delete;
   ParameterizedFaestVoleCommitment& operator=(const ParameterizedFaestVoleCommitment&) = delete;
 
+  // Implements security.
   SecurityLevel security() const { return security_; }
+  // Implements profile.
   VoleProfile profile() const { return profile_; }
   const faest_paramset_t& parameters() const { return parameters_; }
   const std::vector<std::uint8_t>& u() const { return u_; }
@@ -154,6 +154,6 @@ bool reconstruct_vole(SecurityLevel security,
 bool check_vole_correlation(ParameterizedFaestVoleCommitment& commitment,
                             ParameterizedReconstructedVole& reconstructed);
 
-} // namespace vole_backend
+}
 
 #endif

@@ -14,6 +14,7 @@
 #define SPX_ADDR_TYPE_WOTS 0
 #define SPX_ADDR_TYPE_WOTSPK 1
 
+// Implements base w.
 static void base_w(unsigned int *output, const int out_len,
                    const unsigned char *input) {
     int in = 0;
@@ -31,6 +32,7 @@ static void base_w(unsigned int *output, const int out_len,
     }
 }
 
+// Implements ull to bytes.
 static void ull_to_bytes(unsigned char *out, unsigned int outlen,
                          unsigned long long in) {
     for (int i = (int)outlen - 1; i >= 0; i--) {
@@ -39,6 +41,7 @@ static void ull_to_bytes(unsigned char *out, unsigned int outlen,
     }
 }
 
+// Implements chain lengths diag.
 static void chain_lengths_diag(unsigned int *lengths, const unsigned char *msg) {
     unsigned int csum = 0;
     unsigned char csum_bytes[(SPX_WOTS_LEN2 * SPX_WOTS_LOGW + 7) / 8];
@@ -52,12 +55,7 @@ static void chain_lengths_diag(unsigned int *lengths, const unsigned char *msg) 
     base_w(lengths + SPX_WOTS_LEN1, SPX_WOTS_LEN2, csum_bytes);
 }
 
-// Diagnostic-only WOTS workload runner.
-// mode=0: root bytes are 0xff, giving the minimum WOTS verify chain work.
-// mode=1: root bytes are 0x00, giving the maximum WOTS verify chain work.
-// It runs SPX_D WOTS verifications plus the fixed WOTS-pk compression thash per
-// layer, matching the WOTS-related work shape of SPHINCS+ verification. It does
-// not verify a valid SPHINCS+ signature and must not be used as a protocol proof.
+// Implements wots extreme.
 uint64_t sphincs_wots_extreme(uint32_t mode) {
     spx_ctx ctx;
     memset(&ctx, 0, sizeof(ctx));
@@ -99,9 +97,6 @@ uint64_t sphincs_wots_extreme(uint32_t mode) {
         thash(leaf, wots_pk, SPX_WOTS_LEN, &ctx, addr);
         memcpy(root, leaf, SPX_N);
 
-        // Keep subsequent layers pinned to the selected extreme root. This
-        // measures the theoretical per-layer min/max envelope rather than a
-        // hash-evolved valid SPHINCS+ path.
         memset(root, mode ? 0x00 : 0xff, sizeof(root));
     }
 

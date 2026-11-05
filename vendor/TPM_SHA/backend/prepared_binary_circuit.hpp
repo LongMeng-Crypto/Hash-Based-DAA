@@ -20,15 +20,12 @@ struct PreparedTraversalNode {
   Wire lhs;
   Wire rhs;
   bool constant;
-  // Private/public input position or multiplication-witness position,
-  // according to op. Constants and XOR nodes use no_index.
+
   std::size_t value_index;
 
   static constexpr std::size_t no_index = std::numeric_limits<std::size_t>::max();
 };
 
-// Immutable metadata prepared from one canonical BinaryCircuit. The source
-// circuit must not be mutated during this object's lifetime.
 class PreparedBinaryCircuit {
 public:
   explicit PreparedBinaryCircuit(const BinaryCircuit& circuit);
@@ -57,6 +54,6 @@ private:
   std::array<std::vector<std::uint8_t>, 6> identifiers_;
 };
 
-} // namespace vole_backend
+}
 
 #endif

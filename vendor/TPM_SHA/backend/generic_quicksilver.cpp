@@ -15,7 +15,6 @@ extern "C" {
 namespace vole_backend {
 namespace {
 
-
 std::vector<bf128_t> columns_to_rows(const std::vector<std::uint8_t*>& columns,
                                     std::size_t rows_count) {
   if (columns.size() != lambda_bits) throw std::invalid_argument("wrong VOLE column count");
@@ -33,12 +32,14 @@ std::vector<bf128_t> columns_to_rows(const std::vector<std::uint8_t*>& columns,
   return rows;
 }
 
+// Adds the operation result.
 bf128_t add(const bf128_t& lhs, const bf128_t& rhs) {
   bf128_t result;
   bf128_add(&result, &lhs, &rhs);
   return result;
 }
 
+// Implements multiply.
 bf128_t multiply(const bf128_t& lhs, const bf128_t& rhs) {
   bf128_t result;
   bf128_mul(&result, &lhs, &rhs);
@@ -48,6 +49,7 @@ bf128_t multiply(const bf128_t& lhs, const bf128_t& rhs) {
 struct ProverWire { bool value = false; bf128_t tag = bf128_zero(); };
 struct VerifierWire { bf128_t key = bf128_zero(); };
 
+// Checks statement sizes.
 void check_statement_sizes(const BinaryCircuit& circuit,
                            std::span<const std::uint8_t> public_inputs,
                            std::span<const std::uint8_t> expected_outputs) {
@@ -63,6 +65,7 @@ void check_statement_sizes(const BinaryCircuit& circuit,
   }
 }
 
+// Checks statement sizes.
 void check_statement_sizes(const PreparedBinaryCircuit& circuit,
                            std::span<const std::uint8_t> public_inputs,
                            std::span<const std::uint8_t> expected_outputs) {
@@ -77,6 +80,7 @@ void check_statement_sizes(const PreparedBinaryCircuit& circuit,
   }
 }
 
+// Implements prover constraints.
 void prover_constraints(const BinaryCircuit& circuit, const UnpackedWitness& witness,
                         std::span<const std::uint8_t> public_inputs,
                         const std::vector<bf128_t>& tags, zk_hash_128_3_ctx* hasher) {
@@ -117,6 +121,7 @@ void prover_constraints(const BinaryCircuit& circuit, const UnpackedWitness& wit
   }
 }
 
+// Implements verifier constraints.
 void verifier_constraints(const BinaryCircuit& circuit, std::span<const std::uint8_t> public_inputs,
                           std::span<const std::uint8_t> expected_outputs,
                           const std::vector<bf128_t>& keys, const bf128_t& delta,
@@ -152,8 +157,9 @@ void verifier_constraints(const BinaryCircuit& circuit, std::span<const std::uin
   }
 }
 
-} // namespace
+}
 
+// Implements quicksilver prove.
 QuicksilverProof quicksilver_prove(
     const BinaryCircuit& circuit, const PackedWitness& packed,
     std::span<const std::uint8_t> public_inputs,
@@ -205,9 +211,7 @@ std::array<std::uint8_t, lambda_bytes> quicksilver_verify(
   zk_hash_128_init(&hasher, challenge_2.data());
   verifier_constraints(circuit, public_inputs, expected_outputs, keys, delta, delta_squared, &hasher);
   std::array<std::uint8_t, lambda_bytes> q_tilde{};
-  // Lift every degree-2 constraint by X before the degree-3 FAEST check.
-  // The universal hash is field-linear, so two multiplications after
-  // aggregation replace one extra multiplication at every constraint.
+
   bf128_mul_inplace(&hasher.h0, &delta);
   bf128_mul_inplace(&hasher.h1, &delta);
   zk_hash_128_finalize(q_tilde.data(), &hasher, &q_star);
@@ -312,6 +316,7 @@ template<class Ops> struct ParameterizedVerifierWire {
 };
 
 template<class Ops>
+// Implements parameterized prover constraints.
 void parameterized_prover_constraints(
     const PreparedBinaryCircuit& prepared, const UnpackedWitness& witness,
     std::span<const std::uint8_t> public_inputs,
@@ -356,6 +361,7 @@ void parameterized_prover_constraints(
 }
 
 template<class Ops>
+// Implements parameterized verifier constraints.
 void parameterized_verifier_constraints(
     const PreparedBinaryCircuit& prepared, std::span<const std::uint8_t> public_inputs,
     std::span<const std::uint8_t> expected_outputs,
@@ -398,6 +404,7 @@ void parameterized_verifier_constraints(
 }
 
 template<class Ops>
+// Implements parameterized quicksilver prove impl.
 ParameterizedQuicksilverProof parameterized_quicksilver_prove_impl(
     const PreparedBinaryCircuit& circuit, const PackedWitness& packed,
     std::span<const std::uint8_t> public_inputs,
@@ -455,8 +462,7 @@ std::vector<std::uint8_t> parameterized_quicksilver_verify_impl(
   tmp = field_multiply<Ops>(tmp, delta);
   Ops::add_inplace(&q_star, &tmp);
   for (std::size_t i = 0; i != layout.vole_bits; ++i) {
-    /* The masked witness is public proof data at verification time. Skipping
-     * zero bits avoids constructing and XORing an all-zero field element. */
+
     if (ptr_get_bit(masked.data(), i)) Ops::add_inplace(&keys[i], &delta);
   }
   typename Ops::VerifierHash hasher;
@@ -480,8 +486,9 @@ std::vector<std::uint8_t> parameterized_quicksilver_verify_impl(
   return a0;
 }
 
-} // namespace
+}
 
+// Implements quicksilver prove.
 ParameterizedQuicksilverProof quicksilver_prove(
     SecurityLevel security, const PreparedBinaryCircuit& circuit,
     const PackedWitness& witness, std::span<const std::uint8_t> public_inputs,
@@ -506,6 +513,7 @@ ParameterizedQuicksilverProof quicksilver_prove(
   throw std::invalid_argument("unsupported QuickSilver security level");
 }
 
+// Implements quicksilver prove.
 ParameterizedQuicksilverProof quicksilver_prove(
     SecurityLevel security, const BinaryCircuit& circuit,
     const PackedWitness& witness, std::span<const std::uint8_t> public_inputs,
@@ -560,4 +568,4 @@ std::vector<std::uint8_t> quicksilver_verify(
                             proof);
 }
 
-} // namespace vole_backend
+}

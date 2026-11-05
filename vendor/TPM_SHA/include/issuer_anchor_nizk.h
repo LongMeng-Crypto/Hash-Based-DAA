@@ -16,28 +16,19 @@ typedef enum daa_issuer_anchor_kind {
   DAA_ISSUER_ANCHOR_FSPHINCS = 5,
 } daa_issuer_anchor_kind;
 
-/* Prepares and caches the requested issuer-anchor circuit. */
 int daa_issuer_anchor_prepare(daa_tpm_sha_level level,
                               daa_tpm_sha_profile profile,
                               daa_issuer_anchor_kind kind);
-/* Returns circuit and proof-size statistics for one profile. */
+
 int daa_issuer_anchor_stats(daa_tpm_sha_level level,
                             daa_tpm_sha_profile profile,
                             daa_issuer_anchor_kind kind,
                             daa_tpm_sha_stats* stats_out);
-/* Returns the exact serialized proof size, or zero on error. */
+
 size_t daa_issuer_anchor_proof_bytes(daa_tpm_sha_level level,
                                      daa_tpm_sha_profile profile,
                                      daa_issuer_anchor_kind kind);
 
-/* public_a/public_b are:
- *   SPHINCS+: 32-byte seeded SHA state and two distinct 22-byte FORS PRF addresses;
- *   F-SPHINCS+: empty public_a and two distinct 16-byte root leaf addresses.
- * F-SPHINCS+ kind 5 proves S_root with compact addresses; kinds 2/3/4 are rejected.
- * The root seed is the shared 32-byte private witness; addresses and two
- * truncated 16/24/32-byte outputs are public (v7, ABI kind 5).
- */
-/* Generates a context-bound proof for the supplied public anchor statement. */
 int daa_issuer_anchor_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind,
@@ -49,7 +40,6 @@ int daa_issuer_anchor_prove(
     const uint8_t* randomness, size_t randomness_len,
     uint8_t* proof_out, size_t* proof_len);
 
-/* Verifies a context-bound proof against its public anchor statement. */
 int daa_issuer_anchor_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     daa_issuer_anchor_kind kind,
@@ -59,7 +49,6 @@ int daa_issuer_anchor_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
-/* Returns the thread-local diagnostic for the most recent API call. */
 const char* daa_issuer_anchor_last_error(void);
 
 #ifdef __cplusplus

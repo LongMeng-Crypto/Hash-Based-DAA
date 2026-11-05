@@ -43,6 +43,7 @@ void fprintBstr(FILE* fp, char* S, unsigned char* A, unsigned long long L);
 
 char AlgName[] = "My Alg Name";
 
+// Implements main.
 int main() {
   char fn_req[32], fn_rsp[32];
   FILE *fp_req, *fp_rsp;
@@ -56,7 +57,6 @@ int main() {
   unsigned char pk[CRYPTO_PUBLICKEYBYTES], sk[CRYPTO_SECRETKEYBYTES];
   int ret_val;
 
-  // Create the REQUEST file
   sprintf(fn_req, "PQCsignKAT_%s.req", CRYPTO_ALGNAME);
   if ((fp_req = fopen(fn_req, "w")) == NULL) {
     printf("Couldn't open <%s> for write\n", fn_req);
@@ -87,7 +87,6 @@ int main() {
   }
   fclose(fp_req);
 
-  // Create the RESPONSE file based on what's in the REQUEST file
   if ((fp_req = fopen(fn_req, "r")) == NULL) {
     printf("Couldn't open <%s> for read\n", fn_req);
     return KAT_FILE_OPEN_ERROR;
@@ -130,7 +129,6 @@ int main() {
     }
     fprintBstr(fp_rsp, "msg = ", m, mlen);
 
-    // Generate the public/private keypair
     if ((ret_val = crypto_sign_keypair(pk, sk)) != 0) {
       printf("crypto_sign_keypair returned <%d>\n", ret_val);
       return KAT_CRYPTO_FAILURE;
@@ -173,9 +171,7 @@ int main() {
   return KAT_SUCCESS;
 }
 
-//
-// ALLOW TO READ HEXADECIMAL ENTRY (KEYS, DATA, TEXT, etc.)
-//
+// Implements find marker.
 int FindMarker(FILE* infile, const char* marker) {
   char line[MAX_MARKER_LEN];
   int i, len;
@@ -206,13 +202,10 @@ int FindMarker(FILE* infile, const char* marker) {
     line[len] = '\0';
   }
 
-  // shouldn't get here
   return 0;
 }
 
-//
-// ALLOW TO READ HEXADECIMAL ENTRY (KEYS, DATA, TEXT, etc.)
-//
+// Reads hex.
 int ReadHex(FILE* infile, unsigned char* A, int Length, char* str) {
   int i, ch, started;
   unsigned char ich;
@@ -241,7 +234,7 @@ int ReadHex(FILE* infile, unsigned char* A, int Length, char* str) {
         ich = ch - 'A' + 10;
       else if ((ch >= 'a') && (ch <= 'f'))
         ich = ch - 'a' + 10;
-      else // shouldn't ever get here
+      else
         ich = 0;
 
       for (i = 0; i < Length - 1; i++)
@@ -254,6 +247,7 @@ int ReadHex(FILE* infile, unsigned char* A, int Length, char* str) {
   return 1;
 }
 
+// Implements fprint bstr.
 void fprintBstr(FILE* fp, char* S, unsigned char* A, unsigned long long L) {
   unsigned long long i;
 

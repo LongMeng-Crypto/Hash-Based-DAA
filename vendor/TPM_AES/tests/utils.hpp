@@ -11,6 +11,7 @@
 #include "../hash_shake.h"
 
 template <class T>
+// Implements print array.
 void print_array(const T* data, size_t len) {
   boost::io::ios_flags_saver ifs{std::cout};
   std::cout << "{";
@@ -22,16 +23,19 @@ void print_array(const T* data, size_t len) {
 }
 
 template <class T>
+// Implements print array.
 void print_array(const std::vector<T>& data) {
   print_array(data.data(), data.size());
 }
 
 template <class T, size_t S>
+// Implements print array.
 void print_array(const std::array<T, S>& data) {
   print_array(data.data(), data.size());
 }
 
 template <class T>
+// Implements print named array.
 void print_named_array(const char* name, const char* type_name, const T* data, size_t len) {
   boost::io::ios_flags_saver ifs{std::cout};
   std::cout << "constexpr std::array<" << type_name << ", " << len << "> " << name << "{";
@@ -43,11 +47,13 @@ void print_named_array(const char* name, const char* type_name, const T* data, s
 }
 
 template <class T>
+// Implements print named array.
 void print_named_array(const char* name, const char* type_name, const std::vector<T>& data) {
   print_named_array(name, type_name, data.data(), data.size());
 }
 
 template <class T, size_t S>
+// Implements print named array.
 void print_named_array(const char* name, const char* type_name, const std::array<T, S>& data) {
   print_named_array(name, type_name, data.data(), data.size());
 }

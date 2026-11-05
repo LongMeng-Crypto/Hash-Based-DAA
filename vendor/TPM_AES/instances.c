@@ -11,6 +11,7 @@
 #include "daa_params.h"
 #include "daa_rijndael_dm_params.h"
 
+// Implements faest get param name.
 const char* faest_get_param_name(faest_paramid_t paramid) {
   switch (paramid) {
   case PARAMETER_SET_INVALID:
@@ -105,7 +106,6 @@ const char* faest_get_param_name(faest_paramid_t paramid) {
 #define FAEST_EM_256S_PARAMS PARAMS(FAEST_EM_256S)
 #define FAEST_EM_256F_PARAMS PARAMS(FAEST_EM_256F)
 
-/* DAA original-FAEST parameter sets */
 #define DAA_FAEST_128S_PARAMS PARAMS(DAA_FAEST_128S)
 #define DAA_FAEST_128F_PARAMS PARAMS(DAA_FAEST_128F)
 #define DAA_FAEST_192S_PARAMS PARAMS(DAA_FAEST_192S)
@@ -123,6 +123,7 @@ const char* faest_get_param_name(faest_paramid_t paramid) {
     return &params;                                                                                \
   }
 
+// Implements faest get paramset.
 const faest_paramset_t* faest_get_paramset(faest_paramid_t paramid) {
   switch (paramid) {
     CASE_PARAM(FAEST_128S)

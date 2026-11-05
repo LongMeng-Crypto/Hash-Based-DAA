@@ -8,6 +8,7 @@
 #include "address.h"
 #include "sphincs_profile.h"
 
+// Implements fors sk to leaf.
 static void fors_sk_to_leaf(unsigned char *leaf, const unsigned char *sk,
                             const spx_ctx *ctx,
                             uint32_t fors_leaf_addr[8])
@@ -15,6 +16,7 @@ static void fors_sk_to_leaf(unsigned char *leaf, const unsigned char *sk,
     thash(leaf, sk, 1, ctx, fors_leaf_addr);
 }
 
+// Implements message to indices.
 static void message_to_indices(uint32_t *indices, const unsigned char *m)
 {
     unsigned int i, j;
@@ -29,6 +31,7 @@ static void message_to_indices(uint32_t *indices, const unsigned char *m)
     }
 }
 
+// Implements fors pk from sig.
 void fors_pk_from_sig(unsigned char *pk,
                       const unsigned char *sig, const unsigned char *m,
                       const spx_ctx* ctx,

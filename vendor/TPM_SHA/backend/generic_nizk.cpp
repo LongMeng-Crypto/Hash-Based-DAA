@@ -22,7 +22,6 @@ extern "C" {
 namespace vole_backend {
 namespace {
 
-
 constexpr std::array<std::uint8_t, 8> proof_magic = {'V', 'Q', 'R', 'Z', 'K', constraint_encoding_version, 0, 0};
 constexpr char domain[] = "VOLE-RELATION-NIZK-v4";
 constexpr std::size_t utilde_bytes = lambda_bytes + 2;
@@ -40,6 +39,7 @@ struct Fields {
   std::uint32_t counter = 0;
 };
 
+// Implements valid statement.
 bool valid_statement(const QuicksilverRelation& relation, const PublicStatement& statement) {
   const auto valid_bit = [](std::uint8_t bit) { return bit <= 1; };
   return statement.public_inputs.size() == relation.public_input_bits() &&
@@ -48,6 +48,7 @@ bool valid_statement(const QuicksilverRelation& relation, const PublicStatement&
          std::all_of(statement.expected_outputs.begin(), statement.expected_outputs.end(), valid_bit);
 }
 
+// Implements domain update.
 void domain_update(H2_context_t* hash) {
   H2_update(hash, reinterpret_cast<const std::uint8_t*>(domain), sizeof(domain) - 1);
 }
@@ -73,6 +74,7 @@ std::array<std::uint8_t, 2 * lambda_bytes> statement_hash(
   return mu;
 }
 
+// Derives seed.
 void derive_seed(const PackedWitness& witness,
                  const std::array<std::uint8_t, 2 * lambda_bytes>& mu,
                  const ProverRandomness& randomness,
@@ -104,6 +106,7 @@ std::array<std::uint8_t, challenge_1_bytes> challenge_1(
   return out;
 }
 
+// Implements challenge 2 prefix.
 H2_context_t challenge_2_prefix(const std::array<std::uint8_t, challenge_1_bytes>& c1,
                                 const std::array<std::uint8_t, utilde_bytes>& u_tilde) {
   H2_context_t hash;
@@ -113,6 +116,7 @@ H2_context_t challenge_2_prefix(const std::array<std::uint8_t, challenge_1_bytes
   return hash;
 }
 
+// Implements finish challenge 2.
 QuicksilverChallenge finish_challenge_2(H2_context_t* hash, const PackedWitness& d) {
   if (!d.empty()) H2_update(hash, d.data(), d.size());
   QuicksilverChallenge out{};
@@ -120,6 +124,7 @@ QuicksilverChallenge finish_challenge_2(H2_context_t* hash, const PackedWitness&
   return out;
 }
 
+// Implements challenge 3 prefix.
 H2_context_t challenge_3_prefix(const QuicksilverChallenge& c2,
                                 const std::array<std::uint8_t, lambda_bytes>& a0,
                                 const std::array<std::uint8_t, lambda_bytes>& a1,
@@ -143,6 +148,7 @@ std::array<std::uint8_t, lambda_bytes> finish_challenge_3(const H2_context_t& pr
   return out;
 }
 
+// Implements grinding.
 bool grinding(const std::array<std::uint8_t, lambda_bytes>& challenge) {
   const auto parameters = faest_vole_parameters();
   for (std::size_t bit = lambda_bits - parameters.w_grind; bit != lambda_bits; ++bit) {
@@ -162,6 +168,7 @@ std::vector<std::uint8_t> serialize(const QuicksilverRelation& relation, const F
   return out;
 }
 
+// Deserializes the operation result.
 bool deserialize(const QuicksilverRelation& relation, std::span<const std::uint8_t> input, Fields& f) {
   const auto witness_bits = relation.witness_bits();
   const auto witness_bytes = (witness_bits + 7) / 8;
@@ -183,7 +190,7 @@ bool deserialize(const QuicksilverRelation& relation, std::span<const std::uint8
   return offset == input.size();
 }
 
-} // namespace
+}
 
 std::size_t serialized_proof_bytes(const QuicksilverRelation& relation) {
   const auto witness_bits = relation.witness_bits();
@@ -234,6 +241,7 @@ std::vector<std::uint8_t> prove(const QuicksilverRelation& relation,
   return serialize(relation, f);
 }
 
+// Verifies the operation result.
 bool verify(const QuicksilverRelation& relation, const PublicStatement& statement,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> proof) {
@@ -291,6 +299,7 @@ std::array<std::uint8_t, 8> magic(SecurityLevel security,
           vole_profile_code(profile)};
 }
 
+// Implements valid statement.
 bool valid_statement(const PreparedBinaryCircuit& circuit, const PublicStatement& statement) {
   const auto& stats = circuit.statistics();
   const auto valid_bit = [](std::uint8_t bit) { return bit <= 1; };
@@ -300,6 +309,7 @@ bool valid_statement(const PreparedBinaryCircuit& circuit, const PublicStatement
          std::all_of(statement.expected_outputs.begin(), statement.expected_outputs.end(), valid_bit);
 }
 
+// Implements domain update.
 void domain_update(H2_context_t* hash, SecurityLevel security,
                    VoleProfile profile) {
   H2_update(hash, reinterpret_cast<const std::uint8_t*>(parameterized_domain),
@@ -336,6 +346,7 @@ std::vector<std::uint8_t> statement_hash(
   return mu;
 }
 
+// Derives seed.
 void derive_seed(std::span<const std::uint8_t> witness,
                  std::span<const std::uint8_t> mu,
                  const ProverRandomness& randomness,
@@ -377,6 +388,7 @@ std::vector<std::uint8_t> challenge_1(
   return out;
 }
 
+// Implements challenge 2 prefix.
 H2_context_t challenge_2_prefix(SecurityLevel security,
                                 std::span<const std::uint8_t> c1,
                                 std::span<const std::uint8_t> u_tilde) {
@@ -397,6 +409,7 @@ std::vector<std::uint8_t> finish_challenge_2(SecurityLevel security,
   return out;
 }
 
+// Implements challenge 3 prefix.
 H2_context_t challenge_3_prefix(SecurityLevel security,
                                 std::span<const std::uint8_t> c2,
                                 std::span<const std::uint8_t> a0,
@@ -422,6 +435,7 @@ std::vector<std::uint8_t> finish_challenge_3(SecurityLevel security,
   return out;
 }
 
+// Implements grinding.
 bool grinding(SecurityLevel security, VoleProfile profile,
               std::span<const std::uint8_t> challenge) {
   const auto& level = security_parameters(security, profile);
@@ -469,6 +483,7 @@ std::vector<std::uint8_t> serialize(const PreparedBinaryCircuit& circuit,
   return out;
 }
 
+// Deserializes the operation result.
 bool deserialize(const PreparedBinaryCircuit& circuit, SecurityLevel security,
                  VoleProfile profile, std::span<const std::uint8_t> input,
                  Fields& fields) {
@@ -505,7 +520,7 @@ bool deserialize(const PreparedBinaryCircuit& circuit, SecurityLevel security,
   return offset == input.size();
 }
 
-} // namespace
+}
 
 std::size_t serialized_proof_bytes(const PreparedBinaryCircuit& circuit,
                                    SecurityLevel security,
@@ -571,6 +586,7 @@ std::vector<std::uint8_t> prove(const PreparedBinaryCircuit& circuit,
   return serialize(circuit, security, profile, fields);
 }
 
+// Verifies the operation result.
 bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
             VoleProfile profile, const PublicStatement& statement,
             std::span<const std::uint8_t> context,
@@ -621,7 +637,7 @@ bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
   }
 }
 
-} // namespace parameterized_nizk
+}
 
 std::size_t serialized_proof_bytes(const BinaryCircuit& circuit,
                                    SecurityLevel security) {
@@ -684,6 +700,7 @@ std::vector<std::uint8_t> prove(const BinaryCircuit& circuit,
                context, randomness);
 }
 
+// Verifies the operation result.
 bool verify(const BinaryCircuit& circuit, SecurityLevel security,
             const PublicStatement& statement,
             std::span<const std::uint8_t> context,
@@ -692,6 +709,7 @@ bool verify(const BinaryCircuit& circuit, SecurityLevel security,
   return verify(prepared, security, statement, context, proof);
 }
 
+// Verifies the operation result.
 bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
             const PublicStatement& statement,
             std::span<const std::uint8_t> context,
@@ -699,6 +717,7 @@ bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
   return verify(circuit, security, VoleProfile::Small, statement, context, proof);
 }
 
+// Verifies the operation result.
 bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
             VoleProfile profile, const PublicStatement& statement,
             std::span<const std::uint8_t> context,
@@ -707,10 +726,11 @@ bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
                                     context, proof);
 }
 
+// Verifies the operation result.
 bool verify(const BinaryCircuit& circuit, const PublicStatement& statement,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> proof) {
   return verify(circuit, SecurityLevel::Bits128, statement, context, proof);
 }
 
-} // namespace vole_backend
+}

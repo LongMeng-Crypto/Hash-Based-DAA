@@ -26,17 +26,13 @@
 #define mgf1_X mgf1_256
 #endif
 
-
-/* For SHA, there is no immediate reason to initialize at the start,
-   so this function is an empty operation. */
+// Implements initialize hash function.
 void initialize_hash_function(spx_ctx *ctx)
 {
     seed_state(ctx);
 }
 
-/*
- * Computes PRF(pk_seed, sk_seed, addr).
- */
+// Implements prf addr.
 void prf_addr(unsigned char *out, const spx_ctx *ctx,
               const uint32_t addr[8])
 {
@@ -44,10 +40,8 @@ void prf_addr(unsigned char *out, const spx_ctx *ctx,
     unsigned char buf[SPX_SHA256_ADDR_BYTES + SPX_N];
     unsigned char outbuf[SPX_SHA256_OUTPUT_BYTES];
 
-    /* Retrieve precomputed state containing pub_seed */
     memcpy(sha2_state, ctx->state_seeded, 40 * sizeof(uint8_t));
 
-    /* Remainder: ADDR^c ‖ SK.seed */
     memcpy(buf, addr, SPX_SHA256_ADDR_BYTES);
     memcpy(buf + SPX_SHA256_ADDR_BYTES, ctx->sk_seed, SPX_N);
 
@@ -56,14 +50,7 @@ void prf_addr(unsigned char *out, const spx_ctx *ctx,
     memcpy(out, outbuf, SPX_N);
 }
 
-/**
- * Computes the message-dependent randomness R, using a secret seed as a key
- * for HMAC, and an optional randomization value prefixed to the message.
- * This requires m to have at least SPX_SHAX_BLOCK_BYTES + SPX_N space
- * available in front of the pointer, i.e. before the message to use for the
- * prefix. This is necessary to prevent having to move the message around (and
- * allocate memory for it).
- */
+// Implements gen message random.
 void gen_message_random(unsigned char *R, const unsigned char *sk_prf,
                         const unsigned char *optrand,
                         const unsigned char *m, unsigned long long mlen,
@@ -79,7 +66,6 @@ void gen_message_random(unsigned char *R, const unsigned char *sk_prf,
     #error "Currently only supports SPX_N of at most SPX_SHAX_BLOCK_BYTES"
 #endif
 
-    /* This implements HMAC-SHA */
     for (i = 0; i < SPX_N; i++) {
         buf[i] = 0x36 ^ sk_prf[i];
     }
@@ -90,13 +76,12 @@ void gen_message_random(unsigned char *R, const unsigned char *sk_prf,
 
     memcpy(buf, optrand, SPX_N);
 
-    /* If optrand + message cannot fill up an entire block */
     if (SPX_N + mlen < SPX_SHAX_BLOCK_BYTES) {
         memcpy(buf + SPX_N, m, mlen);
         shaX_inc_finalize(buf + SPX_SHAX_BLOCK_BYTES, state,
                             buf, mlen + SPX_N);
     }
-    /* Otherwise first fill a block, so that finalize only uses the message */
+
     else {
         memcpy(buf + SPX_N, m, SPX_SHAX_BLOCK_BYTES - SPX_N);
         shaX_inc_blocks(state, buf, 1);
@@ -115,11 +100,7 @@ void gen_message_random(unsigned char *R, const unsigned char *sk_prf,
     memcpy(R, buf, SPX_N);
 }
 
-/**
- * Computes the message hash using R, the public key, and the message.
- * Outputs the message digest and the index of the leaf. The index is split in
- * the tree index and the leaf index, for convenient copying to an address.
- */
+// Hashes message.
 void hash_message(unsigned char *digest, uint64_t *tree, uint32_t *leaf_idx,
                   const unsigned char *R, const unsigned char *pk,
                   const unsigned char *m, unsigned long long mlen,
@@ -136,7 +117,6 @@ void hash_message(unsigned char *digest, uint64_t *tree, uint32_t *leaf_idx,
 
     unsigned char seed[2*SPX_N + SPX_SHAX_OUTPUT_BYTES];
 
-    /* Round to nearest multiple of SPX_SHAX_BLOCK_BYTES */
 #if (SPX_SHAX_BLOCK_BYTES & (SPX_SHAX_BLOCK_BYTES-1)) != 0
     #error "Assumes that SPX_SHAX_BLOCK_BYTES is a power of 2"
 #endif
@@ -150,16 +130,14 @@ void hash_message(unsigned char *digest, uint64_t *tree, uint32_t *leaf_idx,
 
     shaX_inc_init(state);
 
-    // seed: SHA-X(R ‖ PK.seed ‖ PK.root ‖ M)
     memcpy(inbuf, R, SPX_N);
     memcpy(inbuf + SPX_N, pk, SPX_PK_BYTES);
 
-    /* If R + pk + message cannot fill up an entire block */
     if (SPX_N + SPX_PK_BYTES + mlen < SPX_INBLOCKS * SPX_SHAX_BLOCK_BYTES) {
         memcpy(inbuf + SPX_N + SPX_PK_BYTES, m, mlen);
         shaX_inc_finalize(seed + 2*SPX_N, state, inbuf, SPX_N + SPX_PK_BYTES + mlen);
     }
-    /* Otherwise first fill a block, so that finalize only uses the message */
+
     else {
         memcpy(inbuf + SPX_N + SPX_PK_BYTES, m,
                SPX_INBLOCKS * SPX_SHAX_BLOCK_BYTES - SPX_N - SPX_PK_BYTES);
@@ -170,12 +148,9 @@ void hash_message(unsigned char *digest, uint64_t *tree, uint32_t *leaf_idx,
         shaX_inc_finalize(seed + 2*SPX_N, state, m, mlen);
     }
 
-    // H_msg: MGF1-SHA-X(R ‖ PK.seed ‖ seed)
     memcpy(seed, R, SPX_N);
     memcpy(seed + SPX_N, pk, SPX_N);
 
-    /* By doing this in two steps, we prevent hashing the message twice;
-       otherwise each iteration in MGF1 would hash the message again. */
     mgf1_X(bufp, SPX_DGST_BYTES, seed, 2*SPX_N + SPX_SHAX_OUTPUT_BYTES);
 
     memcpy(digest, bufp, SPX_FORS_MSG_BYTES);

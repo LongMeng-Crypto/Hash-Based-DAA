@@ -1,19 +1,19 @@
 #![allow(dead_code)]
 
-//! Native counterparts of the SHA-2 relations checked by the RISC0 guest.
-
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
 const OURS_HOOK_DOMAIN: u8 = 0x03;
 const CDENW23_HK_DOMAIN: u8 = 0x05;
 const CDENW23_CET_DOMAIN: u8 = 0x06;
 
+// Implements finish.
 fn finish<const N: usize>(digest: impl AsRef<[u8]>) -> [u8; N] {
     let mut out = [0u8; N];
     out.copy_from_slice(digest.as_ref());
     out
 }
 
+// Implements sha256 hook.
 pub fn sha256_hook(s: &[u8; 16], et: &[u8; 32]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update([OURS_HOOK_DOMAIN]);
@@ -22,6 +22,7 @@ pub fn sha256_hook(s: &[u8; 16], et: &[u8; 32]) -> [u8; 32] {
     finish(hasher.finalize())
 }
 
+// Implements sha384 hook.
 pub fn sha384_hook(s: &[u8; 24], et: &[u8; 48]) -> [u8; 48] {
     let mut hasher = Sha384::new();
     hasher.update([OURS_HOOK_DOMAIN]);
@@ -30,6 +31,7 @@ pub fn sha384_hook(s: &[u8; 24], et: &[u8; 48]) -> [u8; 48] {
     finish(hasher.finalize())
 }
 
+// Implements sha512 hook.
 pub fn sha512_hook(s: &[u8; 32], et: &[u8; 64]) -> [u8; 64] {
     let mut hasher = Sha512::new();
     hasher.update([OURS_HOOK_DOMAIN]);
@@ -38,6 +40,7 @@ pub fn sha512_hook(s: &[u8; 32], et: &[u8; 64]) -> [u8; 64] {
     finish(hasher.finalize())
 }
 
+// Implements sha256 cdenw23 hooks.
 pub fn sha256_cdenw23_hooks(sst: &[u8; 32], et: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     let mut hk_hasher = Sha256::new();
     hk_hasher.update([CDENW23_HK_DOMAIN]);
@@ -49,6 +52,7 @@ pub fn sha256_cdenw23_hooks(sst: &[u8; 32], et: &[u8; 32]) -> ([u8; 32], [u8; 32
     (finish(hk_hasher.finalize()), finish(cet_hasher.finalize()))
 }
 
+// Implements sha384 cdenw23 hooks.
 pub fn sha384_cdenw23_hooks(sst: &[u8; 48], et: &[u8; 48]) -> ([u8; 48], [u8; 48]) {
     let mut hk_hasher = Sha384::new();
     hk_hasher.update([CDENW23_HK_DOMAIN]);
@@ -60,6 +64,7 @@ pub fn sha384_cdenw23_hooks(sst: &[u8; 48], et: &[u8; 48]) -> ([u8; 48], [u8; 48
     (finish(hk_hasher.finalize()), finish(cet_hasher.finalize()))
 }
 
+// Implements sha512 cdenw23 hooks.
 pub fn sha512_cdenw23_hooks(sst: &[u8; 64], et: &[u8; 64]) -> ([u8; 64], [u8; 64]) {
     let mut hk_hasher = Sha512::new();
     hk_hasher.update([CDENW23_HK_DOMAIN]);
@@ -76,6 +81,8 @@ mod tests {
     use super::*;
 
     #[test]
+
+    // Implements output sizes match security level.
     fn output_sizes_match_security_level() {
         assert_eq!(sha256_hook(&[7; 16], &[9; 32]).len(), 32);
         assert_eq!(sha384_hook(&[7; 24], &[9; 48]).len(), 48);
@@ -83,6 +90,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements domain byte is bound.
     fn domain_byte_is_bound() {
         let s = [7u8; 16];
         let et = [9u8; 32];
@@ -92,6 +101,8 @@ mod tests {
     }
 
     #[test]
+
+    // Implements cdenw23 hooks bind both public outputs.
     fn cdenw23_hooks_bind_both_public_outputs() {
         let sst = [7u8; 32];
         let et = [9u8; 32];

@@ -23,12 +23,13 @@ std::array<std::uint8_t, 16> pack128(std::span<const std::uint8_t> bits) {
   return out;
 }
 
+// Checks statement.
 void check_statement(const vole_backend::PublicStatement& statement) {
   if (statement.public_inputs.size() != 128 || statement.expected_outputs.size() != 128)
     throw std::invalid_argument("AES-128 statement has wrong size");
 }
 
-} // namespace
+}
 
 Aes128FaestRelation::Aes128FaestRelation() {
   ir_.private_input_bits = key_bits;
@@ -99,4 +100,4 @@ Aes128FaestRelation::verify_constraints(
   return a0;
 }
 
-} // namespace vole_circuits::aes
+}

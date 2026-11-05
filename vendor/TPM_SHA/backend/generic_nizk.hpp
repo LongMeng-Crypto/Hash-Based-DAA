@@ -77,6 +77,6 @@ bool verify(const PreparedBinaryCircuit& circuit, SecurityLevel security,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> serialized_proof);
 
-} // namespace vole_backend
+}
 
 #endif

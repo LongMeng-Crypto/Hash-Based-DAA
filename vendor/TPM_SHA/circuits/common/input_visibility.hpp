@@ -20,15 +20,11 @@ struct VisibilityRange {
 };
 
 struct PartitionedInput {
-  // Bits are ordered exactly as the corresponding PrivateInput/PublicInput
-  // nodes occur in a generated BinaryCircuit.
+
   std::vector<std::uint8_t> private_bits;
   std::vector<std::uint8_t> public_bits;
 };
 
-// A complete, ordered partition of a message bit string into secret and
-// public ranges. Range indices use the SHA/FIPS convention: message bit zero
-// is the most-significant bit of the first byte.
 class InputVisibilityLayout {
 public:
   static InputVisibilityLayout all_secret(std::size_t message_bits);
@@ -44,9 +40,6 @@ public:
   const std::vector<VisibilityRange>& ranges() const { return ranges_; }
   std::string canonical_specification() const;
 
-  // BinaryCircuit input bytes use least-significant-bit-first packing. This
-  // helper translates from the SHA/FIPS range convention to that input-node
-  // order, including non-byte-aligned visibility ranges.
   PartitionedInput partition(std::span<const std::uint8_t> message) const;
 
 private:
@@ -58,6 +51,6 @@ private:
 
 std::vector<std::uint8_t> pack_input_bits(std::span<const std::uint8_t> bits);
 
-} // namespace vole_circuits
+}
 
 #endif

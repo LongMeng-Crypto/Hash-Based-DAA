@@ -36,18 +36,21 @@ std::array<std::uint8_t, lambda_bytes> candidate_challenge(std::uint64_t counter
   return challenge;
 }
 
-} // namespace
+}
 
+// Implements vole layout.
 VoleLayout vole_layout(std::size_t witness_bits) {
   const auto ell_hat_bits = witness_bits + vole_extra_bits;
   const auto ell_hat_bytes = (ell_hat_bits + 7) / 8;
   return {witness_bits, ell_hat_bits, ell_hat_bytes, 10 * ell_hat_bytes};
 }
 
+// Implements vole layout.
 VoleLayout vole_layout(std::size_t witness_bits, SecurityLevel level) {
   return vole_layout(witness_bits, level, VoleProfile::Small);
 }
 
+// Implements vole layout.
 VoleLayout vole_layout(std::size_t witness_bits, SecurityLevel level,
                        VoleProfile profile) {
   const auto& security = security_parameters(level, profile);
@@ -69,14 +72,17 @@ std::size_t vole_opening_size(SecurityLevel level, VoleProfile profile) {
          (3 * static_cast<std::size_t>(parameters.tau) + parameters.T_open);
 }
 
+// Implements faest vole parameters.
 faest_paramset_t faest_vole_parameters() {
   return faest_vole_parameters(SecurityLevel::Bits128);
 }
 
+// Implements faest vole parameters.
 faest_paramset_t faest_vole_parameters(SecurityLevel level) {
   return faest_vole_parameters(level, VoleProfile::Small);
 }
 
+// Implements faest vole parameters.
 faest_paramset_t faest_vole_parameters(SecurityLevel level,
                                       VoleProfile profile) {
   const auto& security = security_parameters(level, profile);
@@ -84,9 +90,7 @@ faest_paramset_t faest_vole_parameters(SecurityLevel level,
   if (source == nullptr || source->lambda != security.lambda_bits)
     throw std::logic_error("invalid FAEST VOLE parameter mapping");
   auto parameters = *source;
-  // `l` is uint16_t in the FAEST parameter ABI.  The VOLE routines used by
-  // this adapter take ell_hat explicitly and do not consult `l`; keep the
-  // base parameter value instead of truncating the larger generic witness.
+
   return parameters;
 }
 
@@ -161,6 +165,7 @@ ReconstructedVole FaestVoleCommitment::open_and_reconstruct() {
   throw std::runtime_error("could not find an openable FAEST VOLE challenge");
 }
 
+// Implements reconstruct vole.
 bool reconstruct_vole(const std::array<std::uint8_t, 16>& iv,
                       const std::array<std::uint8_t, lambda_bytes>& challenge,
                       const std::vector<std::uint8_t>& decomposition,
@@ -189,6 +194,7 @@ std::vector<std::uint8_t> mask_witness(const std::vector<std::uint8_t>& witness,
   return masked;
 }
 
+// Checks vole correlation.
 bool check_vole_correlation(FaestVoleCommitment& commitment,
                             ReconstructedVole& reconstructed) {
   auto v = commitment.v_columns();
@@ -255,6 +261,7 @@ bool ParameterizedFaestVoleCommitment::open(
   return bavc_open(decomposition.data(), &bavc_, decoded.data(), &parameters_);
 }
 
+// Implements reconstruct vole.
 bool reconstruct_vole(SecurityLevel security_level,
                       VoleProfile profile,
                       const std::array<std::uint8_t, 16>& iv,
@@ -283,6 +290,7 @@ bool reconstruct_vole(SecurityLevel security_level,
                           layout.ell_hat_bits, &parameters);
 }
 
+// Checks vole correlation.
 bool check_vole_correlation(ParameterizedFaestVoleCommitment& commitment,
                             ParameterizedReconstructedVole& reconstructed) {
   if (commitment.security() != reconstructed.security ||
@@ -303,4 +311,4 @@ bool check_vole_correlation(ParameterizedFaestVoleCommitment& commitment,
   return true;
 }
 
-} // namespace vole_backend
+}

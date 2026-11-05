@@ -41,8 +41,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
     Cu = Abu^Agu^Aku^Amu^Asu; \
 
 #ifdef UseBebigokimisa
-/* --- Code for round, with prepare-theta (lane complementing pattern 'bebigokimisa') */
-/* --- 64-bit lanes mapped to 64-bit words */
+
 #define thetaRhoPiChiIotaPrepareTheta(i, A, E) \
     Da = Cu^ROL64(Ce, 1); \
     De = Ca^ROL64(Ci, 1); \
@@ -157,8 +156,6 @@ http://creativecommons.org/publicdomain/zero/1.0/
     Cu ^= E##su; \
 \
 
-/* --- Code for round (lane complementing pattern 'bebigokimisa') */
-/* --- 64-bit lanes mapped to 64-bit words */
 #define thetaRhoPiChiIota(i, A, E) \
     Da = Cu^ROL64(Ce, 1); \
     De = Ca^ROL64(Ci, 1); \
@@ -248,9 +245,8 @@ http://creativecommons.org/publicdomain/zero/1.0/
     E##su =   Bsu ^(  Bsa &  Bse ); \
 \
 
-#else /* UseBebigokimisa */
-/* --- Code for round, with prepare-theta */
-/* --- 64-bit lanes mapped to 64-bit words */
+#else
+
 #define thetaRhoPiChiIotaPrepareTheta(i, A, E) \
     Da = Cu^ROL64(Ce, 1); \
     De = Ca^ROL64(Ci, 1); \
@@ -365,8 +361,6 @@ http://creativecommons.org/publicdomain/zero/1.0/
     Cu ^= E##su; \
 \
 
-/* --- Code for round */
-/* --- 64-bit lanes mapped to 64-bit words */
 #define thetaRhoPiChiIota(i, A, E) \
     Da = Cu^ROL64(Ce, 1); \
     De = Ca^ROL64(Ci, 1); \
@@ -456,7 +450,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
     E##su =   Bsu ^((~Bsa)&  Bse ); \
 \
 
-#endif /* UseBebigokimisa */
+#endif
 
 #define copyFromState(X, state) \
     X##ba = state[ 0]; \

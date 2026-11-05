@@ -1,4 +1,4 @@
-/* Benchmark Rijndael-256 Davies--Meyer Join and TPM-signing VOLE proofs. */
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -15,20 +15,20 @@
 #include <string.h>
 #include <time.h>
 
-/* Return a monotonic timestamp in microseconds. */
+// Implements now us.
 static double now_us(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (double)ts.tv_sec * 1e6 + (double)ts.tv_nsec * 1e-3;
 }
 
-/* Abort immediately when a relation or proof check fails. */
+// Implements die step.
 static void die_step(const char* variant, const char* step, int ret) {
   fprintf(stderr, "[%s] %s failed: %d\n", variant, step, ret);
   abort();
 }
 
-/* Parse an optional positive iteration count. */
+// Reads iters.
 static unsigned int read_iters(int argc, char** argv) {
   if (argc < 2) return 20;
   char* end = NULL;
@@ -36,7 +36,7 @@ static unsigned int read_iters(int argc, char** argv) {
   return end && *end == '\0' && value > 0 ? (unsigned int)value : 20;
 }
 
-/* Check the upstream Rijndael-256 vector and full-width DM feed-forward. */
+// Checks native kat.
 static void check_native_kat(void) {
   static const uint8_t expected[DAA_RDM_BYTES] = {
       0xe6, 0x2a, 0xbc, 0xe0, 0x69, 0x83, 0x7b, 0x65,
@@ -53,7 +53,7 @@ static void check_native_kat(void) {
   }
 }
 
-/* Benchmark one Join profile and reject a one-byte proof mutation. */
+// Benchmarks join.
 static void bench_join(const char* name, int fast, unsigned int iterations) {
   uint8_t sk[DAA_RDM_BYTES];
   uint8_t gid[DAA_RDM_BYTES];
@@ -99,7 +99,7 @@ static void bench_join(const char* name, int fast, unsigned int iterations) {
   free(proof);
 }
 
-/* Benchmark one three-function signing profile with a hidden shared et. */
+// Benchmarks sign.
 static void bench_sign(const char* name, int fast, unsigned int iterations) {
   uint8_t sk[DAA_RDM_BYTES];
   uint8_t s[DAA_RDM_BYTES];
@@ -152,7 +152,7 @@ static void bench_sign(const char* name, int fast, unsigned int iterations) {
   free(proof);
 }
 
-/* Run the complete, independent 128s/128f Rijndael-256 DM benchmark line. */
+// Implements main.
 int main(int argc, char** argv) {
   const unsigned int iterations = read_iters(argc, argv);
   check_native_kat();

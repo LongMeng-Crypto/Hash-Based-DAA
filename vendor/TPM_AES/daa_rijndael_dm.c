@@ -1,4 +1,4 @@
-/* Rijndael-256 Davies--Meyer TPM relations over the optimized 128-bit VOLE backend. */
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -14,17 +14,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Select the dedicated Join profile. */
+// Implements join params.
 static const faest_paramset_t* join_params(int fast) {
   return faest_get_paramset(fast ? DAA_RDM_JOIN_128F : DAA_RDM_JOIN_128S);
 }
 
-/* Select the dedicated TPM-signing profile. */
+// Signs params.
 static const faest_paramset_t* sign_params(int fast) {
   return faest_get_paramset(fast ? DAA_RDM_SIGN_128F : DAA_RDM_SIGN_128S);
 }
 
-/* Evaluate the full-width Davies--Meyer construction. */
+// Implements rdm eval.
 void daa_rdm_eval(const uint8_t key[DAA_RDM_BYTES], const uint8_t input[DAA_RDM_BYTES],
                   uint8_t output[DAA_RDM_BYTES]) {
   aes_round_keys_t round_keys;
@@ -35,17 +35,17 @@ void daa_rdm_eval(const uint8_t key[DAA_RDM_BYTES], const uint8_t input[DAA_RDM_
   }
 }
 
-/* Return the serialized Join proof size. */
+// Implements rdm join proof size.
 size_t daa_rdm_join_proof_size(int fast) {
   return join_params(fast)->sig_size;
 }
 
-/* Return the serialized signing proof size. */
+// Implements rdm sign proof size.
 size_t daa_rdm_sign_proof_size(int fast) {
   return sign_params(fast)->sig_size;
 }
 
-/* Create a randomized VOLE proof for the Join relation. */
+// Implements rdm join prove.
 int daa_rdm_join_prove(int fast, const uint8_t sk[DAA_RDM_BYTES],
                        const uint8_t gid[DAA_RDM_BYTES], const uint8_t et[DAA_RDM_BYTES],
                        const uint8_t* msg, size_t msg_len, uint8_t* proof, size_t* proof_len) {
@@ -68,7 +68,7 @@ int daa_rdm_join_prove(int fast, const uint8_t sk[DAA_RDM_BYTES],
   return 0;
 }
 
-/* Verify a Join proof against its public gid and et. */
+// Implements rdm join verify.
 int daa_rdm_join_verify(int fast, const uint8_t gid[DAA_RDM_BYTES],
                         const uint8_t et[DAA_RDM_BYTES], const uint8_t* msg, size_t msg_len,
                         const uint8_t* proof, size_t proof_len) {
@@ -77,7 +77,7 @@ int daa_rdm_join_verify(int fast, const uint8_t gid[DAA_RDM_BYTES],
   return faest_verify(msg, msg_len, proof, gid, et, params);
 }
 
-/* Create a randomized proof for all three linked TPM-signing DM calls. */
+// Implements rdm sign prove.
 int daa_rdm_sign_prove(int fast, const uint8_t sk[DAA_RDM_BYTES],
                        const uint8_t s[DAA_RDM_BYTES], const uint8_t lid[DAA_RDM_BYTES],
                        const uint8_t gid[DAA_RDM_BYTES], const uint8_t slt[DAA_RDM_BYTES],
@@ -116,7 +116,7 @@ int daa_rdm_sign_prove(int fast, const uint8_t sk[DAA_RDM_BYTES],
   return 0;
 }
 
-/* Verify the public slt and hk while et remains hidden inside the proof. */
+// Implements rdm sign verify.
 int daa_rdm_sign_verify(int fast, const uint8_t lid[DAA_RDM_BYTES],
                         const uint8_t gid[DAA_RDM_BYTES], const uint8_t slt[DAA_RDM_BYTES],
                         const uint8_t hk[DAA_RDM_BYTES], const uint8_t* msg, size_t msg_len,

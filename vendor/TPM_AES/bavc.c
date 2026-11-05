@@ -19,16 +19,18 @@
 
 #define NODE(nodes, node, lambda_bytes) (&nodes[(node) * (lambda_bytes)])
 
+// Implements expand seeds.
 static void expand_seeds(uint8_t* nodes, const uint8_t* iv, const faest_paramset_t* params) {
   const unsigned int lambda_bytes = params->lambda / 8;
 
   for (unsigned int alpha = 0; alpha < params->L - 1; ++alpha) {
-    // the nodes are located in memory consecutively
+
     prg_2_lambda(NODE(nodes, alpha, lambda_bytes), iv, alpha,
                  NODE(nodes, 2 * alpha + 1, lambda_bytes), params->lambda);
   }
 }
 
+// Generates seeds.
 static uint8_t* generate_seeds(const uint8_t* root_seed, const uint8_t* iv,
                                const faest_paramset_t* params) {
   unsigned int lambda_bytes = params->lambda / 8;
@@ -41,7 +43,7 @@ static uint8_t* generate_seeds(const uint8_t* root_seed, const uint8_t* iv,
   return nodes;
 }
 
-// FAEST.LeafCommit
+// Implements faest leaf commit 128.
 static inline void faest_leaf_commit_128(uint8_t* sd, uint8_t* com, const uint8_t* key,
                                          const uint8_t* iv, uint32_t tweak, const uint8_t* uhash) {
   uint8_t buffer[FAEST_128_LAMBDA / 8 * 4];
@@ -50,6 +52,7 @@ static inline void faest_leaf_commit_128(uint8_t* sd, uint8_t* com, const uint8_
   memcpy(sd, buffer, FAEST_128_LAMBDA / 8);
 }
 
+// Implements faest leaf commit 192.
 static inline void faest_leaf_commit_192(uint8_t* sd, uint8_t* com, const uint8_t* key,
                                          const uint8_t* iv, uint32_t tweak, const uint8_t* uhash) {
   uint8_t buffer[FAEST_192_LAMBDA / 8 * 4];
@@ -58,6 +61,7 @@ static inline void faest_leaf_commit_192(uint8_t* sd, uint8_t* com, const uint8_
   memcpy(sd, buffer, FAEST_192_LAMBDA / 8);
 }
 
+// Implements faest leaf commit 256.
 static inline void faest_leaf_commit_256(uint8_t* sd, uint8_t* com, const uint8_t* key,
                                          const uint8_t* iv, uint32_t tweak, const uint8_t* uhash) {
   uint8_t buffer[FAEST_256_LAMBDA / 8 * 4];
@@ -66,7 +70,7 @@ static inline void faest_leaf_commit_256(uint8_t* sd, uint8_t* com, const uint8_
   memcpy(sd, buffer, FAEST_256_LAMBDA / 8);
 }
 
-// FAEST-EM.LeafCommit
+// Implements faest em leaf commit.
 static inline void faest_em_leaf_commit(uint8_t* sd, uint8_t* com, const uint8_t* key,
                                         const uint8_t* iv, uint32_t tweak, unsigned int lambda) {
   const unsigned int lambda_bytes = lambda / 8;
@@ -76,6 +80,7 @@ static inline void faest_em_leaf_commit(uint8_t* sd, uint8_t* com, const uint8_t
 }
 
 #if defined(FAEST_TESTS)
+// Implements leaf commit.
 void leaf_commit(uint8_t* sd, uint8_t* com, const uint8_t* key, const uint8_t* iv, uint32_t tweak,
                  const uint8_t* uhash, const faest_paramset_t* params) {
   if (faest_is_em(params)) {
@@ -99,27 +104,26 @@ void leaf_commit(uint8_t* sd, uint8_t* com, const uint8_t* key, const uint8_t* i
 }
 #endif
 
-// BAVC.PosInTree
+// Implements pos in tree.
 ATTR_PURE static inline unsigned int pos_in_tree(unsigned int i, unsigned int j,
                                                  const faest_paramset_t* params) {
   const unsigned int tmp = 1 << (params->k - 1);
   if (j < tmp) {
     return params->L - 1 + params->tau * j + i;
   }
-  // mod 2^(k-1) is the same as & 2^(k-1)-1
+
   const unsigned int mask = tmp - 1;
   return params->L - 1 + params->tau * tmp + params->tau1 * (j & mask) + i;
 }
 
+// Implements bavc commit faest 128 loop.
 static void bavc_commit_faest_128_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
                                        H1_context_t* h1_com_ctx, const uint8_t* nodes,
                                        const uint8_t* iv, const faest_paramset_t* params) {
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = FAEST_128_LAMBDA / 8;
-  const unsigned int com_size     = lambda_bytes * 3; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 3;
 
-  // Step: 4..5
-  // compute commitments for remaining instances
   for (unsigned int i = 0, offset = 0; i < params->tau; ++i) {
     uint8_t uhash[FAEST_128_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -136,22 +140,21 @@ static void bavc_commit_faest_128_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
     }
 
     uint8_t hi[FAEST_128_LAMBDA / 8 * 2];
-    // Step 11
+
     H1_final(&h1_ctx, hi, sizeof(hi));
-    // Step 12
+
     H1_update(h1_com_ctx, hi, sizeof(hi));
   }
 }
 
+// Implements bavc commit faest 192 loop.
 static void bavc_commit_faest_192_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
                                        H1_context_t* h1_com_ctx, const uint8_t* nodes,
                                        const uint8_t* iv, const faest_paramset_t* params) {
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = FAEST_192_LAMBDA / 8;
-  const unsigned int com_size     = lambda_bytes * 3; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 3;
 
-  // Step: 4..5
-  // compute commitments for remaining instances
   for (unsigned int i = 0, offset = 0; i < params->tau; ++i) {
     uint8_t uhash[FAEST_192_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -168,22 +171,21 @@ static void bavc_commit_faest_192_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
     }
 
     uint8_t hi[FAEST_192_LAMBDA / 8 * 2];
-    // Step 11
+
     H1_final(&h1_ctx, hi, sizeof(hi));
-    // Step 12
+
     H1_update(h1_com_ctx, hi, sizeof(hi));
   }
 }
 
+// Implements bavc commit faest 256 loop.
 static void bavc_commit_faest_256_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
                                        H1_context_t* h1_com_ctx, const uint8_t* nodes,
                                        const uint8_t* iv, const faest_paramset_t* params) {
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = FAEST_256_LAMBDA / 8;
-  const unsigned int com_size     = lambda_bytes * 3; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 3;
 
-  // Step: 4..5
-  // compute commitments for remaining instances
   for (unsigned int i = 0, offset = 0; i < params->tau; ++i) {
     uint8_t uhash[FAEST_256_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -200,20 +202,20 @@ static void bavc_commit_faest_256_loop(bavc_t* bavc, H0_context_t* uhash_ctx,
     }
 
     uint8_t hi[FAEST_256_LAMBDA / 8 * 2];
-    // Step 11
+
     H1_final(&h1_ctx, hi, sizeof(hi));
-    // Step 12
+
     H1_update(h1_com_ctx, hi, sizeof(hi));
   }
 }
 
-// BAVC.Commit for FAEST
+// Implements bavc commit faest.
 static void bavc_commit_faest(bavc_t* bavc, const uint8_t* root_key, const uint8_t* iv,
                               const faest_paramset_t* params) {
   const unsigned int lambda       = params->lambda;
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = lambda / 8;
-  const unsigned int com_size     = lambda_bytes * 3; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 3;
 
   H0_context_t uhash_ctx;
   H0_init(&uhash_ctx, lambda);
@@ -223,16 +225,13 @@ static void bavc_commit_faest(bavc_t* bavc, const uint8_t* root_key, const uint8
   H1_context_t h1_com_ctx;
   H1_init(&h1_com_ctx, lambda);
 
-  // Generating the tree (k)
   uint8_t* nodes = generate_seeds(root_key, iv, params);
 
-  // Initialzing stuff
   bavc->h   = malloc(lambda_bytes * 2);
   bavc->com = malloc(L * com_size);
   bavc->sd  = malloc(L * lambda_bytes);
   assert(bavc->h && bavc->com && bavc->sd);
 
-  // Step: 1..3
   bavc->k = NODE(nodes, 0, lambda_bytes);
 
   assert(bavc->h);
@@ -240,8 +239,6 @@ static void bavc_commit_faest(bavc_t* bavc, const uint8_t* root_key, const uint8
   assert(bavc->sd);
   assert(bavc->k);
 
-  // Step: 4..5
-  // compute commitments for remaining instances
   switch (lambda) {
   case 256: {
     bavc_commit_faest_256_loop(bavc, &uhash_ctx, &h1_com_ctx, nodes, iv, params);
@@ -258,31 +255,27 @@ static void bavc_commit_faest(bavc_t* bavc, const uint8_t* root_key, const uint8
   }
   H0_clear(&uhash_ctx);
 
-  // Step 12
   H1_final(&h1_com_ctx, bavc->h, lambda_bytes * 2);
 }
 
-// BAVC.Commit for FAEST-EM
+// Implements bavc commit faest em.
 static void bavc_commit_faest_em(bavc_t* bavc, const uint8_t* rootKey, const uint8_t* iv,
                                  const faest_paramset_t* params) {
   const unsigned int lambda       = params->lambda;
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = lambda / 8;
-  const unsigned int com_size     = lambda_bytes * 2; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 2;
 
   H1_context_t h1_com_ctx;
   H1_init(&h1_com_ctx, lambda);
 
-  // Generating the tree
   uint8_t* nodes = generate_seeds(rootKey, iv, params);
 
-  // Initialzing stuff
   bavc->h   = malloc(lambda_bytes * 2);
   bavc->com = malloc(L * com_size);
   bavc->sd  = malloc(L * lambda_bytes);
   assert(bavc->h && bavc->com && bavc->sd);
 
-  // Step: 1..3
   bavc->k = NODE(nodes, 0, lambda_bytes);
 
   assert(bavc->h);
@@ -290,8 +283,6 @@ static void bavc_commit_faest_em(bavc_t* bavc, const uint8_t* rootKey, const uin
   assert(bavc->sd);
   assert(bavc->k);
 
-  // Step: 4..5
-  // compute commitments for remaining instances
   for (unsigned int i = 0, offset = 0; i < params->tau; ++i) {
     H1_context_t h1_ctx;
     H1_init(&h1_ctx, lambda);
@@ -305,16 +296,16 @@ static void bavc_commit_faest_em(bavc_t* bavc, const uint8_t* rootKey, const uin
     }
 
     uint8_t hi[MAX_LAMBDA_BYTES * 2];
-    // Step 11
+
     H1_final(&h1_ctx, hi, lambda_bytes * 2);
-    // Step 12
+
     H1_update(&h1_com_ctx, hi, lambda_bytes * 2);
   }
 
-  // Step 12
   H1_final(&h1_com_ctx, bavc->h, lambda_bytes * 2);
 }
 
+// Implements bavc commit.
 void bavc_commit(bavc_t* bavc, const uint8_t* root_key, const uint8_t* iv,
                  const faest_paramset_t* params) {
   if (faest_is_em(params)) {
@@ -324,6 +315,7 @@ void bavc_commit(bavc_t* bavc, const uint8_t* root_key, const uint8_t* iv,
   }
 }
 
+// Implements bavc open.
 bool bavc_open(uint8_t* decom_i, const bavc_t* vc, const uint16_t* i_delta,
                const faest_paramset_t* params) {
   const unsigned int lambda       = params->lambda;
@@ -336,13 +328,11 @@ bool bavc_open(uint8_t* decom_i, const bavc_t* vc, const uint16_t* i_delta,
 
   uint8_t* decom_i_end = decom_i + com_size * tau + params->T_open * lambda_bytes;
 
-  // Step 5
   uint8_t* s = calloc((2 * L - 1 + 7) / 8, 1);
   assert(s);
-  // Step 6
+
   unsigned int nh = 0;
 
-  // Step 7..15
   for (unsigned int i = 0; i < tau; ++i) {
     unsigned int alpha = pos_in_tree(i, i_delta[i], params);
     ptr_set_bit(s, alpha, 1);
@@ -355,13 +345,11 @@ bool bavc_open(uint8_t* decom_i, const bavc_t* vc, const uint16_t* i_delta,
     }
   }
 
-  // Step 16..17
   if (nh - 2 * tau + 1 > params->T_open) {
     free(s);
     return false;
   }
 
-  // Step 3
   const uint8_t* com = vc->com;
   for (unsigned int i = 0; i < tau; ++i) {
     memcpy(decom_i, com + i_delta[i] * com_size, com_size);
@@ -369,7 +357,6 @@ bool bavc_open(uint8_t* decom_i, const bavc_t* vc, const uint16_t* i_delta,
     com += bavc_max_node_index(i, tau_1, k) * com_size;
   }
 
-  // Step 19..25
   for (int i = L - 2; i >= 0; --i) {
     ptr_set_bit(s, i, ptr_get_bit(s, 2 * i + 1) | ptr_get_bit(s, 2 * i + 2));
     if ((ptr_get_bit(s, 2 * i + 1) ^ ptr_get_bit(s, 2 * i + 2)) == 1) {
@@ -385,6 +372,7 @@ bool bavc_open(uint8_t* decom_i, const bavc_t* vc, const uint16_t* i_delta,
   return true;
 }
 
+// Implements reconstruct keys.
 static bool reconstruct_keys(uint8_t* s, uint8_t* keys, const uint8_t* decom_i,
                              const uint16_t* i_delta, const uint8_t* iv,
                              const faest_paramset_t* params) {
@@ -396,13 +384,11 @@ static bool reconstruct_keys(uint8_t* s, uint8_t* keys, const uint8_t* decom_i,
   const uint8_t* nodes = decom_i + (faest_is_em(params) ? 2 : 3) * tau * lambda_bytes;
   const uint8_t* end   = nodes + params->T_open * lambda_bytes;
 
-  // Step 7..10
   for (unsigned int i = 0; i < tau; ++i) {
     unsigned int alpha = pos_in_tree(i, i_delta[i], params);
     ptr_set_bit(s, alpha, 1);
   }
 
-  // Step 12.12
   for (int i = L - 2; i >= 0; --i) {
     ptr_set_bit(s, i, ptr_get_bit(s, 2 * i + 1) | ptr_get_bit(s, 2 * i + 2));
     if ((ptr_get_bit(s, 2 * i + 1) ^ ptr_get_bit(s, 2 * i + 2)) == 1) {
@@ -431,17 +417,17 @@ static bool reconstruct_keys(uint8_t* s, uint8_t* keys, const uint8_t* decom_i,
   return true;
 }
 
+// Implements bavc reconstruct faest 128 loop.
 static void bavc_reconstruct_faest_128_loop(bavc_rec_t* bavc_rec, H0_context_t* uhash_ctx,
                                             H1_context_t* h1_com_ctx, const uint8_t* s,
                                             const uint8_t* keys, const uint8_t* decom_i,
                                             const uint8_t* iv, const faest_paramset_t* params) {
-  // Initializing
+
   const unsigned int L     = params->L;
   const unsigned int k     = params->k;
   const unsigned int tau   = params->tau;
   const unsigned int tau_1 = params->tau1;
 
-  // Step 6
   for (unsigned int i = 0, offset = 0; i != tau; ++i) {
     uint8_t uhash[FAEST_128_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -469,17 +455,17 @@ static void bavc_reconstruct_faest_128_loop(bavc_rec_t* bavc_rec, H0_context_t* 
   }
 }
 
+// Implements bavc reconstruct faest 192 loop.
 static void bavc_reconstruct_faest_192_loop(bavc_rec_t* bavc_rec, H0_context_t* uhash_ctx,
                                             H1_context_t* h1_com_ctx, const uint8_t* s,
                                             const uint8_t* keys, const uint8_t* decom_i,
                                             const uint8_t* iv, const faest_paramset_t* params) {
-  // Initializing
+
   const unsigned int L     = params->L;
   const unsigned int k     = params->k;
   const unsigned int tau   = params->tau;
   const unsigned int tau_1 = params->tau1;
 
-  // Step 6
   for (unsigned int i = 0, offset = 0; i != tau; ++i) {
     uint8_t uhash[FAEST_192_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -507,17 +493,17 @@ static void bavc_reconstruct_faest_192_loop(bavc_rec_t* bavc_rec, H0_context_t* 
   }
 }
 
+// Implements bavc reconstruct faest 256 loop.
 static void bavc_reconstruct_faest_256_loop(bavc_rec_t* bavc_rec, H0_context_t* uhash_ctx,
                                             H1_context_t* h1_com_ctx, const uint8_t* s,
                                             const uint8_t* keys, const uint8_t* decom_i,
                                             const uint8_t* iv, const faest_paramset_t* params) {
-  // Initializing
+
   const unsigned int L     = params->L;
   const unsigned int k     = params->k;
   const unsigned int tau   = params->tau;
   const unsigned int tau_1 = params->tau1;
 
-  // Step 6
   for (unsigned int i = 0, offset = 0; i != tau; ++i) {
     uint8_t uhash[FAEST_256_LAMBDA / 8 * 3];
     H0_squeeze(uhash_ctx, uhash, sizeof(uhash));
@@ -545,15 +531,15 @@ static void bavc_reconstruct_faest_256_loop(bavc_rec_t* bavc_rec, H0_context_t* 
   }
 }
 
+// Implements bavc reconstruct faest.
 static bool bavc_reconstruct_faest(bavc_rec_t* bavc_rec, const uint8_t* decom_i,
                                    const uint16_t* i_delta, const uint8_t* iv,
                                    const faest_paramset_t* params) {
-  // Initializing
+
   const unsigned int lambda       = params->lambda;
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = lambda / 8;
 
-  // Step 6
   uint8_t* s = calloc((2 * L - 1 + 7) / 8, 1);
   assert(s);
   uint8_t* keys = calloc(2 * params->L - 1, lambda_bytes);
@@ -599,25 +585,24 @@ static bool bavc_reconstruct_faest(bavc_rec_t* bavc_rec, const uint8_t* decom_i,
   return true;
 }
 
+// Implements bavc reconstruct faest em.
 static bool bavc_reconstruct_faest_em(bavc_rec_t* bavc_rec, const uint8_t* decom_i,
                                       const uint16_t* i_delta, const uint8_t* iv,
                                       const faest_paramset_t* params) {
-  // Initializing
+
   const unsigned int lambda       = params->lambda;
   const unsigned int L            = params->L;
   const unsigned int lambda_bytes = lambda / 8;
   const unsigned int k            = params->k;
   const unsigned int tau          = params->tau;
   const unsigned int tau_1        = params->tau1;
-  const unsigned int com_size     = lambda_bytes * 2; // size of com_ij
+  const unsigned int com_size     = lambda_bytes * 2;
 
-  // Step 6
   uint8_t* s = calloc((2 * L - 1 + 7) / 8, 1);
   assert(s);
   uint8_t* keys = calloc(2 * params->L - 1, lambda_bytes);
   assert(keys);
 
-  // Step 7..10
   if (!reconstruct_keys(s, keys, decom_i, i_delta, iv, params)) {
     free(keys);
     free(s);
@@ -657,12 +642,14 @@ static bool bavc_reconstruct_faest_em(bavc_rec_t* bavc_rec, const uint8_t* decom
   return true;
 }
 
+// Implements bavc reconstruct.
 bool bavc_reconstruct(bavc_rec_t* bavc_rec, const uint8_t* decom_i, const uint16_t* i_delta,
                       const uint8_t* iv, const faest_paramset_t* params) {
   return faest_is_em(params) ? bavc_reconstruct_faest_em(bavc_rec, decom_i, i_delta, iv, params)
                              : bavc_reconstruct_faest(bavc_rec, decom_i, i_delta, iv, params);
 }
 
+// Implements bavc clear.
 void bavc_clear(bavc_t* com) {
   free(com->sd);
   free(com->com);

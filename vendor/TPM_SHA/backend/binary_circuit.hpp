@@ -60,10 +60,11 @@ public:
   const std::vector<Wire>& outputs() const { return outputs_; }
   CircuitStatistics statistics() const;
 
+  // Implements zero.
   static constexpr Wire zero() { return 0; }
+  // Implements one.
   static constexpr Wire one() { return 1; }
 
-  // Used by canonical circuit decoders; rejects malformed/non-canonical IR.
   static BinaryCircuit from_canonical(std::vector<Node> nodes, std::vector<Wire> outputs);
 
 private:
@@ -73,20 +74,28 @@ private:
 
 class CircuitBuilder {
 public:
+  // Implements circuit builder.
   explicit CircuitBuilder(BinaryCircuit& circuit) : circuit_(circuit) {}
 
+  // Implements zero.
   Wire zero() const { return BinaryCircuit::zero(); }
+  // Implements one.
   Wire one() const { return BinaryCircuit::one(); }
+  // Implements private input.
   Wire private_input() { return circuit_.private_input(); }
+  // Implements public input.
   Wire public_input() { return circuit_.public_input(); }
+  // Implements xor wire.
   Wire xor_wire(Wire lhs, Wire rhs) { return circuit_.xor_wire(lhs, rhs); }
+  // Implements and wire.
   Wire and_wire(Wire lhs, Wire rhs) { return circuit_.and_wire(lhs, rhs); }
+  // Implements output.
   void output(Wire wire) { circuit_.add_output(wire); }
 
 private:
   BinaryCircuit& circuit_;
 };
 
-} // namespace vole_backend
+}
 
 #endif

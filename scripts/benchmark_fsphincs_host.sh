@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Benchmarks six F-SPHINCS+ credentials, each with the Ours-3F one-SHA hook.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
@@ -11,11 +10,11 @@ params_list="${FSPHINCS_PARAMS_LIST:-128s 128f 192s 192f 256s 256f}"
 segments="${SEGMENT_PO2_LIST:-22}"
 receipts="${RECEIPT_LIST:-composite succinct}"
 iterations="${ITERATIONS:-1}"
-log_dir="${project_dir}/benchmarks/fsphincs_leaf_prf_v7"
+log_dir="${project_dir}/benchmarks/fsphincs"
 mkdir -p "$log_dir"
 log="${LOG_FILE:-${log_dir}/host_$(date +%Y%m%d_%H%M%S).log}"
 {
-  echo "suite=fsphincs-leaf-prf-v7-host H1_nodes=16/24/32B leaf_bytes=16/24/32 anchors=2 H1_address=16B padded_pubseed=64B leaf_prf_version=7 hook=ours-one-SHA backend=sha-256 identity=0"
+  echo "suite=fsphincs-host H1_nodes=16/24/32B leaf_bytes=16/24/32 anchors=2 H1_address=16B padded_pubseed=64B leaf_prf_version=7 hook=ours-one-SHA backend=sha-256 identity=0"
   echo "execution_only=${FSPHINCS_EXECUTE_ONLY:-0}"
   echo "shared_cache=$CARGO_TARGET_DIR date=$(date --iso-8601=seconds)"
   for parameter in $params_list; do

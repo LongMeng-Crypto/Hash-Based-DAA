@@ -27,6 +27,7 @@ public:
   Relation(vole_backend::SecurityLevel level, RelationKind kind);
 
   vole_backend::SecurityLevel level() const { return level_; }
+  // Implements kind.
   RelationKind kind() const { return kind_; }
   std::size_t key_bytes() const;
   std::size_t digest_bytes() const;
@@ -55,6 +56,6 @@ private:
   std::vector<vole_backend::Wire> et_wires_;
 };
 
-} // namespace daa::tpm_sha
+}
 
 #endif

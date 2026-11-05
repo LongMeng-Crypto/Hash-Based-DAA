@@ -14,6 +14,7 @@ namespace {
 constexpr std::array<std::uint8_t, 8> magic = {'V', 'O', 'L', 'E', 'V', 'B', 'C', 1};
 constexpr std::size_t node_record_bytes = 10;
 
+// Appends u32.
 void append_u32(std::vector<std::uint8_t>& out, std::uint32_t value) {
   for (unsigned int shift = 0; shift != 32; shift += 8) {
     out.push_back(static_cast<std::uint8_t>(value >> shift));
@@ -38,6 +39,7 @@ std::uint8_t opcode(Op op) {
   throw std::invalid_argument("unknown circuit operation");
 }
 
+// Decodes opcode.
 Op decode_opcode(std::uint8_t value) {
   switch (value) {
   case 0: return Op::Constant;
@@ -49,7 +51,7 @@ Op decode_opcode(std::uint8_t value) {
   }
 }
 
-} // namespace
+}
 
 std::vector<std::uint8_t> serialize_vbc(const BinaryCircuit& circuit) {
   std::string error;
@@ -74,6 +76,7 @@ std::vector<std::uint8_t> serialize_vbc(const BinaryCircuit& circuit) {
   return out;
 }
 
+// Deserializes vbc.
 BinaryCircuit deserialize_vbc(std::span<const std::uint8_t> bytes) {
   if (bytes.size() < magic.size() + 8 || !std::equal(magic.begin(), magic.end(), bytes.begin())) {
     throw std::invalid_argument("invalid VBC magic/version");
@@ -105,6 +108,7 @@ BinaryCircuit deserialize_vbc(std::span<const std::uint8_t> bytes) {
   return circuit;
 }
 
+// Implements circuit hash.
 CircuitHash circuit_hash(std::span<const std::uint8_t> canonical_vbc) {
   CircuitHash digest{};
   unsigned int size = 0;
@@ -115,6 +119,7 @@ CircuitHash circuit_hash(std::span<const std::uint8_t> canonical_vbc) {
   return digest;
 }
 
+// Implements circuit hash.
 CircuitHash circuit_hash(const BinaryCircuit& circuit) { return circuit_hash(serialize_vbc(circuit)); }
 
-} // namespace vole_backend
+}

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Benchmark the independent Rijndael-256 DM line without altering AES/SHA results.
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "${script_dir}/.." && pwd)"
 source_dir="${project_dir}/vendor/TPM_AES"
@@ -46,7 +45,6 @@ raw_output="$("${build_dir}/daa_rijndael_dm_profile" "${iterations}")"
   printf 'construction=F(K,D)=Rijndael256_K(D) xor D (256-bit output, no truncation)\n'
   printf 'vole_security=128\n'
   printf 'date=%s\n' "$(date --iso-8601=seconds)"
-  printf 'commit=%s\n' "$(git -C "${project_dir}" rev-parse --short HEAD 2>/dev/null || printf unknown)"
   printf 'iterations=%s\n' "${iterations}"
   printf 'phases=%s\n' "${phases}"
   printf 'parameters=%s\n' "${parameters}"

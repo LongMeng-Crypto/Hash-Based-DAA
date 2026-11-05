@@ -51,6 +51,7 @@ static const uint64_t haraka512_rc64[10][8] = {
     {0x83497348628d84de, 0x2e9387d51f22a754, 0xb000068da2f852d6, 0x378c9e1190fd6fe5, 0x870027c316de7293, 0xe51a9d4462e047bb, 0x90ecf7f8c6251195, 0x655953bfbed90a9c},
 };
 
+// Implements br dec32le.
 static inline uint32_t br_dec32le(const unsigned char *src)
 {
     return (uint32_t)src[0]
@@ -59,6 +60,7 @@ static inline uint32_t br_dec32le(const unsigned char *src)
            | ((uint32_t)src[3] << 24);
 }
 
+// Implements br range dec32le.
 static void br_range_dec32le(uint32_t *v, size_t num, const unsigned char *src)
 {
     while (num-- > 0) {
@@ -67,6 +69,7 @@ static void br_range_dec32le(uint32_t *v, size_t num, const unsigned char *src)
     }
 }
 
+// Implements br enc32le.
 static inline void br_enc32le(unsigned char *dst, uint32_t x)
 {
     dst[0] = (unsigned char)x;
@@ -75,7 +78,7 @@ static inline void br_enc32le(unsigned char *dst, uint32_t x)
     dst[3] = (unsigned char)(x >> 24);
 }
 
-
+// Implements br range enc32le.
 static void br_range_enc32le(unsigned char *dst, const uint32_t *v, size_t num)
 {
     while (num-- > 0) {
@@ -84,16 +87,8 @@ static void br_range_enc32le(unsigned char *dst, const uint32_t *v, size_t num)
     }
 }
 
+// Implements br aes ct64 bitslice sbox.
 static void br_aes_ct64_bitslice_Sbox(uint64_t *q) {
-    /*
-     * This S-box implementation is a straightforward translation of
-     * the circuit described by Boyar and Peralta in "A new
-     * combinational logic minimization technique with applications
-     * to cryptology" (https://eprint.iacr.org/2009/191.pdf).
-     *
-     * Note that variables x* (input) and s* (output) are numbered
-     * in "reverse" order (x0 is the high bit, x7 is the low bit).
-     */
 
     uint64_t x0, x1, x2, x3, x4, x5, x6, x7;
     uint64_t y1, y2, y3, y4, y5, y6, y7, y8, y9;
@@ -119,9 +114,6 @@ static void br_aes_ct64_bitslice_Sbox(uint64_t *q) {
     x6 = q[1];
     x7 = q[0];
 
-    /*
-     * Top linear transformation.
-     */
     y14 = x3 ^ x5;
     y13 = x0 ^ x6;
     y9 = x0 ^ x3;
@@ -146,9 +138,6 @@ static void br_aes_ct64_bitslice_Sbox(uint64_t *q) {
     y21 = y13 ^ y16;
     y18 = x0 ^ y16;
 
-    /*
-     * Non-linear section.
-     */
     t2 = y12 & y15;
     t3 = y3 & y6;
     t4 = t3 ^ t2;
@@ -214,9 +203,6 @@ static void br_aes_ct64_bitslice_Sbox(uint64_t *q) {
     z16 = t45 & y14;
     z17 = t41 & y8;
 
-    /*
-     * Bottom linear transformation.
-     */
     t46 = z15 ^ z16;
     t47 = z10 ^ z11;
     t48 = z5 ^ z13;
@@ -258,17 +244,9 @@ static void br_aes_ct64_bitslice_Sbox(uint64_t *q) {
     q[0] = s7;
 }
 
+// Implements br aes ct bitslice sbox.
 static void br_aes_ct_bitslice_Sbox(uint32_t *q)
 {
-    /*
-     * This S-box implementation is a straightforward translation of
-     * the circuit described by Boyar and Peralta in "A new
-     * combinational logic minimization technique with applications
-     * to cryptology" (https://eprint.iacr.org/2009/191.pdf).
-     *
-     * Note that variables x* (input) and s* (output) are numbered
-     * in "reverse" order (x0 is the high bit, x7 is the low bit).
-     */
 
     uint32_t x0, x1, x2, x3, x4, x5, x6, x7;
     uint32_t y1, y2, y3, y4, y5, y6, y7, y8, y9;
@@ -294,9 +272,6 @@ static void br_aes_ct_bitslice_Sbox(uint32_t *q)
     x6 = q[1];
     x7 = q[0];
 
-    /*
-     * Top linear transformation.
-     */
     y14 = x3 ^ x5;
     y13 = x0 ^ x6;
     y9 = x0 ^ x3;
@@ -321,9 +296,6 @@ static void br_aes_ct_bitslice_Sbox(uint32_t *q)
     y21 = y13 ^ y16;
     y18 = x0 ^ y16;
 
-    /*
-     * Non-linear section.
-     */
     t2 = y12 & y15;
     t3 = y3 & y6;
     t4 = t3 ^ t2;
@@ -389,9 +361,6 @@ static void br_aes_ct_bitslice_Sbox(uint32_t *q)
     z16 = t45 & y14;
     z17 = t41 & y8;
 
-    /*
-     * Bottom linear transformation.
-     */
     t46 = z15 ^ z16;
     t47 = z10 ^ z11;
     t48 = z5 ^ z13;
@@ -433,6 +402,7 @@ static void br_aes_ct_bitslice_Sbox(uint32_t *q)
     q[0] = s7;
 }
 
+// Implements br aes ct ortho.
 static void br_aes_ct_ortho(uint32_t *q)
 {
 #define SWAPN_32(cl, ch, s, x, y)   do { \
@@ -463,6 +433,7 @@ static void br_aes_ct_ortho(uint32_t *q)
     SWAP8_32(q[3], q[7]);
 }
 
+// Adds round key32.
 static inline void add_round_key32(uint32_t *q, const uint32_t *sk)
 {
     q[0] ^= sk[0];
@@ -475,6 +446,7 @@ static inline void add_round_key32(uint32_t *q, const uint32_t *sk)
     q[7] ^= sk[7];
 }
 
+// Implements shift rows32.
 static inline void shift_rows32(uint32_t *q)
 {
     int i;
@@ -490,11 +462,13 @@ static inline void shift_rows32(uint32_t *q)
     }
 }
 
+// Implements rotr16.
 static inline uint32_t rotr16(uint32_t x)
 {
     return (x << 16) | (x >> 16);
 }
 
+// Implements mix columns32.
 static inline void mix_columns32(uint32_t *q)
 {
     uint32_t q0, q1, q2, q3, q4, q5, q6, q7;
@@ -527,6 +501,7 @@ static inline void mix_columns32(uint32_t *q)
     q[7] = q6 ^ r6 ^ r7 ^ rotr16(q7 ^ r7);
 }
 
+// Implements br aes ct64 ortho.
 static void br_aes_ct64_ortho(uint64_t *q)
 {
 #define SWAPN(cl, ch, s, x, y)   do { \
@@ -557,7 +532,7 @@ static void br_aes_ct64_ortho(uint64_t *q)
     SWAP8(q[3], q[7]);
 }
 
-
+// Implements br aes ct64 interleave in.
 static void br_aes_ct64_interleave_in(uint64_t *q0, uint64_t *q1, const uint32_t *w)
 {
     uint64_t x0, x1, x2, x3;
@@ -586,7 +561,7 @@ static void br_aes_ct64_interleave_in(uint64_t *q0, uint64_t *q1, const uint32_t
     *q1 = x1 | (x3 << 8);
 }
 
-
+// Implements br aes ct64 interleave out.
 static void br_aes_ct64_interleave_out(uint32_t *w, uint64_t q0, uint64_t q1)
 {
     uint64_t x0, x1, x2, x3;
@@ -609,6 +584,7 @@ static void br_aes_ct64_interleave_out(uint32_t *w, uint64_t q0, uint64_t q1)
     w[3] = (uint32_t)x3 | (uint32_t)(x3 >> 16);
 }
 
+// Adds round key.
 static inline void add_round_key(uint64_t *q, const uint64_t *sk)
 {
     q[0] ^= sk[0];
@@ -621,6 +597,7 @@ static inline void add_round_key(uint64_t *q, const uint64_t *sk)
     q[7] ^= sk[7];
 }
 
+// Implements shift rows.
 static inline void shift_rows(uint64_t *q)
 {
     int i;
@@ -639,11 +616,13 @@ static inline void shift_rows(uint64_t *q)
     }
 }
 
+// Implements rotr32.
 static inline uint64_t rotr32(uint64_t x)
 {
     return (x << 32) | (x >> 32);
 }
 
+// Implements mix columns.
 static inline void mix_columns(uint64_t *q)
 {
     uint64_t q0, q1, q2, q3, q4, q5, q6, q7;
@@ -676,6 +655,7 @@ static inline void mix_columns(uint64_t *q)
     q[7] = q6 ^ r6 ^ r7 ^ rotr32(q7 ^ r7);
 }
 
+// Implements interleave constant.
 static void interleave_constant(uint64_t *out, const unsigned char *in)
 {
     uint32_t tmp_32_constant[16];
@@ -688,6 +668,7 @@ static void interleave_constant(uint64_t *out, const unsigned char *in)
     br_aes_ct64_ortho(out);
 }
 
+// Implements interleave constant32.
 static void interleave_constant32(uint32_t *out, const unsigned char *in)
 {
     int i;
@@ -698,15 +679,14 @@ static void interleave_constant32(uint32_t *out, const unsigned char *in)
     br_aes_ct_ortho(out);
 }
 
+// Implements tweak constants.
 void tweak_constants(spx_ctx *ctx)
 {
     unsigned char buf[40*16];
     int i;
 
-    /* Use the standard constants to generate tweaked ones. */
     memcpy((uint8_t *)ctx->tweaked512_rc64, (uint8_t *)haraka512_rc64, 40*16);
 
-    /* Constants for pk.seed */
     haraka_S(buf, 40*16, ctx->pub_seed, SPX_N, ctx);
     for (i = 0; i < 10; i++) {
         interleave_constant32(ctx->tweaked256_rc32[i], buf + 32*i);
@@ -714,6 +694,7 @@ void tweak_constants(spx_ctx *ctx)
     }
 }
 
+// Implements haraka s absorb.
 static void haraka_S_absorb(unsigned char *s, unsigned int r,
                             const unsigned char *m, unsigned long long mlen,
                             unsigned char p, const spx_ctx *ctx)
@@ -722,7 +703,7 @@ static void haraka_S_absorb(unsigned char *s, unsigned int r,
     SPX_VLA(uint8_t, t, r);
 
     while (mlen >= r) {
-        /* XOR block to state */
+
         for (i = 0; i < r; ++i) {
             s[i] ^= m[i];
         }
@@ -744,6 +725,7 @@ static void haraka_S_absorb(unsigned char *s, unsigned int r,
     }
 }
 
+// Implements haraka s squeezeblocks.
 static void haraka_S_squeezeblocks(unsigned char *h, unsigned long long nblocks,
                                    unsigned char *s, unsigned int r,
                                    const spx_ctx *ctx)
@@ -756,6 +738,7 @@ static void haraka_S_squeezeblocks(unsigned char *h, unsigned long long nblocks,
     }
 }
 
+// Implements haraka s inc init.
 void haraka_S_inc_init(uint8_t *s_inc)
 {
     size_t i;
@@ -766,16 +749,15 @@ void haraka_S_inc_init(uint8_t *s_inc)
     s_inc[64] = 0;
 }
 
+// Implements haraka s inc absorb.
 void haraka_S_inc_absorb(uint8_t *s_inc, const uint8_t *m, size_t mlen,
         const spx_ctx *ctx)
 {
     size_t i;
 
-    /* Recall that s_inc[64] is the non-absorbed bytes xored into the state */
     while (mlen + s_inc[64] >= HARAKAS_RATE) {
         for (i = 0; i < (size_t)(HARAKAS_RATE - s_inc[64]); i++) {
-            /* Take the i'th byte from message
-               xor with the s_inc[64] + i'th byte of the state */
+
             s_inc[s_inc[64] + i] ^= m[i];
         }
         mlen -= (size_t)(HARAKAS_RATE - s_inc[64]);
@@ -791,31 +773,29 @@ void haraka_S_inc_absorb(uint8_t *s_inc, const uint8_t *m, size_t mlen,
     s_inc[64] += (uint8_t)mlen;
 }
 
+// Implements haraka s inc finalize.
 void haraka_S_inc_finalize(uint8_t *s_inc)
 {
-    /* After haraka_S_inc_absorb, we are guaranteed that s_inc[64] < HARAKAS_RATE,
-       so we can always use one more byte for p in the current state. */
+
     s_inc[s_inc[64]] ^= 0x1F;
     s_inc[HARAKAS_RATE - 1] ^= 128;
     s_inc[64] = 0;
 }
 
+// Implements haraka s inc squeeze.
 void haraka_S_inc_squeeze(uint8_t *out, size_t outlen, uint8_t *s_inc,
         const spx_ctx *ctx)
 {
     size_t i;
 
-    /* First consume any bytes we still have sitting around */
     for (i = 0; i < outlen && i < s_inc[64]; i++) {
-        /* There are s_inc[64] bytes left, so r - s_inc[64] is the first
-           available byte. We consume from there, i.e., up to r. */
+
         out[i] = (uint8_t)s_inc[(HARAKAS_RATE - s_inc[64] + i)];
     }
     out += i;
     outlen -= i;
     s_inc[64] -= (uint8_t)i;
 
-    /* Then squeeze the remaining necessary blocks */
     while (outlen > 0) {
         haraka512_perm(s_inc, s_inc, ctx);
 
@@ -828,6 +808,7 @@ void haraka_S_inc_squeeze(uint8_t *out, size_t outlen, uint8_t *s_inc,
     }
 }
 
+// Implements haraka s.
 void haraka_S(unsigned char *out, unsigned long long outlen,
               const unsigned char *in, unsigned long long inlen,
               const spx_ctx *ctx)
@@ -852,6 +833,7 @@ void haraka_S(unsigned char *out, unsigned long long outlen,
     }
 }
 
+// Implements haraka512 perm.
 void haraka512_perm(unsigned char *out, const unsigned char *in,
         const spx_ctx *ctx)
 {
@@ -865,7 +847,6 @@ void haraka512_perm(unsigned char *out, const unsigned char *in,
     }
     br_aes_ct64_ortho(q);
 
-    /* AES rounds */
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 2; j++) {
             br_aes_ct64_bitslice_Sbox(q);
@@ -873,7 +854,7 @@ void haraka512_perm(unsigned char *out, const unsigned char *in,
             mix_columns(q);
             add_round_key(q, ctx->tweaked512_rc64[2*i + j]);
         }
-        /* Mix states */
+
         for (j = 0; j < 8; j++) {
             tmp_q = q[j];
             q[j] = (tmp_q & 0x0001000100010001) << 5 |
@@ -899,6 +880,7 @@ void haraka512_perm(unsigned char *out, const unsigned char *in,
     br_range_enc32le(out, w, 16);
 }
 
+// Implements haraka512.
 void haraka512(unsigned char *out, const unsigned char *in, const spx_ctx *ctx)
 {
     int i;
@@ -906,19 +888,18 @@ void haraka512(unsigned char *out, const unsigned char *in, const spx_ctx *ctx)
     unsigned char buf[64];
 
     haraka512_perm(buf, in, ctx);
-    /* Feed-forward */
+
     for (i = 0; i < 64; i++) {
         buf[i] = buf[i] ^ in[i];
     }
 
-    /* Truncated */
     memcpy(out,      buf + 8, 8);
     memcpy(out + 8,  buf + 24, 8);
     memcpy(out + 16, buf + 32, 8);
     memcpy(out + 24, buf + 48, 8);
 }
 
-
+// Implements haraka256.
 void haraka256(unsigned char *out, const unsigned char *in,
         const spx_ctx *ctx)
 {
@@ -931,7 +912,6 @@ void haraka256(unsigned char *out, const unsigned char *in,
     }
     br_aes_ct_ortho(q);
 
-    /* AES rounds */
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 2; j++) {
             br_aes_ct_bitslice_Sbox(q);
@@ -940,7 +920,6 @@ void haraka256(unsigned char *out, const unsigned char *in,
             add_round_key32(q, ctx->tweaked256_rc32[2*i + j]);
         }
 
-        /* Mix states */
         for (j = 0; j < 8; j++) {
             tmp_q = q[j];
             q[j] = (tmp_q & 0x81818181) |

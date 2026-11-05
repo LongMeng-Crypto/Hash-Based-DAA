@@ -22,6 +22,7 @@ constexpr std::uint8_t tag_chen23_sst = 0x04;
 constexpr std::uint8_t tag_chen23_hk = 0x05;
 constexpr std::uint8_t tag_chen23_cet = 0x06;
 
+// Implements constant byte.
 FipsBits constant_byte(std::uint8_t value) {
   FipsBits result;
   result.reserve(8);
@@ -32,12 +33,12 @@ FipsBits constant_byte(std::uint8_t value) {
   return result;
 }
 
+// Implements allocate bytes.
 FipsBits allocate_bytes(vole_backend::BinaryCircuit& circuit,
                         std::size_t bytes, bool secret) {
   FipsBits result(bytes * 8);
   for (std::size_t byte = 0; byte != bytes; ++byte) {
-    // Allocate inputs in the backend's packed LSB-first order, while exposing
-    // them to SHA in FIPS/MSB-first order.
+
     for (std::size_t storage_bit = 0; storage_bit != 8; ++storage_bit) {
       const auto fips_bit = 8 * byte + (7 - storage_bit);
       result[fips_bit] = secret ? circuit.private_input() : circuit.public_input();
@@ -46,10 +47,12 @@ FipsBits allocate_bytes(vole_backend::BinaryCircuit& circuit,
   return result;
 }
 
+// Appends the operation result.
 void append(FipsBits& destination, std::span<const Wire> source) {
   destination.insert(destination.end(), source.begin(), source.end());
 }
 
+// Implements tagged message.
 FipsBits tagged_message(std::uint8_t tag, std::span<const Wire> first,
                         std::span<const Wire> second) {
   auto result = constant_byte(tag);
@@ -68,6 +71,7 @@ std::size_t digest_bytes_for(vole_backend::SecurityLevel level) {
   throw std::invalid_argument("unsupported TPM SHA security level");
 }
 
+// Hashes the operation result.
 FipsBits hash(vole_backend::BinaryCircuit& circuit,
               vole_backend::SecurityLevel level,
               std::span<const Wire> message) {
@@ -79,6 +83,7 @@ FipsBits hash(vole_backend::BinaryCircuit& circuit,
   return vole_circuits::sha2::build_sha512_family(circuit, message, variant).fips_bits;
 }
 
+// Adds digest outputs.
 void add_digest_outputs(vole_backend::BinaryCircuit& circuit,
                         std::span<const Wire> digest_fips_bits) {
   if (digest_fips_bits.size() % 8 != 0)
@@ -108,7 +113,7 @@ std::vector<std::uint8_t> bits_to_bytes(std::span<const std::uint8_t> bits) {
 std::vector<std::uint8_t> wires_to_bytes(
     std::span<const Wire> wires, const vole_backend::Evaluation& evaluation) {
   std::vector<std::uint8_t> result((wires.size() + 7) / 8, 0);
-  // wires are in FIPS order while output bytes are ordinary byte strings.
+
   for (std::size_t fips_bit = 0; fips_bit != wires.size(); ++fips_bit) {
     if (evaluation.wires[wires[fips_bit]])
       result[fips_bit / 8] |= static_cast<std::uint8_t>(1U << (7 - (fips_bit % 8)));
@@ -116,13 +121,14 @@ std::vector<std::uint8_t> wires_to_bytes(
   return result;
 }
 
+// Implements require size.
 void require_size(std::span<const std::uint8_t> value, std::size_t expected,
                   const char* name) {
   if (value.size() != expected)
     throw std::invalid_argument(std::string(name) + " has wrong length");
 }
 
-} // namespace
+}
 
 Relation::Relation(vole_backend::SecurityLevel level, RelationKind kind)
     : level_(level), kind_(kind) {
@@ -265,4 +271,4 @@ Evaluation Relation::evaluate(std::span<const std::uint8_t> sk,
   return result;
 }
 
-} // namespace daa::tpm_sha
+}

@@ -36,6 +36,6 @@ bool verify_witness(const BinaryCircuit& circuit, const PackedWitness& packed,
                     std::span<const std::uint8_t> public_inputs,
                     std::span<const std::uint8_t> expected_outputs);
 
-} // namespace vole_backend
+}
 
 #endif

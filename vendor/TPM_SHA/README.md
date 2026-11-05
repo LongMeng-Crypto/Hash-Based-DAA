@@ -1,71 +1,11 @@
-> This snapshot includes the [v1 soundness correction](SOUNDNESS_FIX_V1.md). Regenerate all old SHA-based Join/Sign/setup proofs. Previous formats are rejected.
+# SHA-2 TPM Proof Backend
 
-# DAA TPM SHA
-
-This is a minimal source snapshot of the VOLEith binary-circuit backend at
-commit `a721500`, extended with the DAA-specific SHA-2 relations.
-
-The DAA integration uses the **Ours-3H** relation with fixed, one-byte domain
-tags:
-
-```text
-slt = SHA2(0x01 || sk || lid)
-et  = SHA2(0x02 || sk || gid)
-hk  = SHA2(0x03 || s  || et)
-```
-
-The Join proof exposes `(gid, et)` and proves knowledge of `sk`. The joint TPM
-signing proof exposes `(lid, gid, slt, hk)` and proves knowledge of `(sk, s)`;
-`et` is an internal digest wire from the second SHA invocation to the third.
-The same `sk` input wires are used by the first two invocations.
-
-For an apples-to-apples comparison, this directory also contains a clearly
-separate **Chen23-5H-reimplementation** relation. It follows the five primitive
-calls in Chen et al.'s TPM signing relation, but instantiates all calls with the
-same optimized SHA-2 circuit and VOLEith backend used by Ours-3H:
-
-```text
-slt = SHA2(0x01 || sk  || lid)
-sst = SHA2(0x04 || sk  || sid)
-et  = SHA2(0x02 || sk  || gid)
-hk  = SHA2(0x05 || sst)
-cet = SHA2(0x06 || sst || et)
-```
-
-Here `(sid, gid, lid, slt, hk, cet)` is public, `sk` is the only private
-input, and `sst` and `et` are internal circuit wires. This is our normalized
-reimplementation for comparison; it is not an implementation or benchmark
-published by Chen et al. It is not used by the main DAA protocol path.
-
-The 128/192/256 levels use SHA-256/SHA-384/SHA-512. Each level supports both
-FAEST S (smaller proof) and F (faster proof) VOLE profiles. Proof format v4
-binds the level and profile in the serialized header, circuit identifier, and
-Fiat--Shamir transcript, so an S proof cannot be verified as F or conversely.
-
-All randomness enters the proof API as 32 caller-provided bytes. Applications
-must use OS randomness; tests use fixed bytes only for six deterministic
-known-answer vectors. The tests lock GF(2^64/128/192/256) arithmetic against
-fixed KATs and independent scalar references, including full-width,
-mixed-width, and batched products. The optimized backend uses aligned
-runtime-dispatched PCLMUL/Karatsuba paths at all three security levels,
-2/3/4-lane AVX2 VOLE-matrix transposition, batched QuickSilver universal
-hashing, a reusable-scratch streaming ConvertToVOLE tree fold, and eight-way
-AES-CTR generation. These paths do not change the relation, proof format,
-transcript, or generated PRG stream.
-
-The vendored FAEST symbols are force-prefixed with `daa_tpm_sha_faest_` so this
-library can be linked alongside the existing `TPM_AES` implementation.
-
-Build and test independently:
+VOLEith proofs support SHA-256/384/512 Join, three-function and five-function
+signing relations, and issuer seed anchors, with s/f profiles. The proof format
+binds the circuit, context, security level and profile.
 
 ```sh
-meson setup build-release --buildtype=release
-meson compile -C build-release
-meson test -C build-release --print-errorlogs
-./build-release/tpm_sha_benchmark --scheme all --profile all --iterations 10
+meson setup /tmp/daa-tpm-sha-tests . --buildtype=release
+meson test -C /tmp/daa-tpm-sha-tests --print-errorlogs
+/tmp/daa-tpm-sha-tests/tpm_sha_benchmark --scheme all --profile all --iterations 10
 ```
-
-Use `--scheme ours` or `--scheme chen23` to benchmark one relation only. The
-default `all` run covers SHA-256/384/512 with both S and F VOLE profiles for
-both relations. Ours-3H output also reports the common one-hash Join proof;
-Chen23-5H reports its five-hash TPM signing proof.

@@ -1,14 +1,4 @@
-/*
- * daa_faest.c — FAEST Join proofs: AES-128-DM and legacy AES-192/256
- *
- * Each public function dispatches to a per-variant static helper that holds
- * ONE known faest_paramset_t pointer.  This mirrors how faest_128s.c calls
- * faest_get_paramset(FAEST_128S) from a single call site, giving the LTO
- * pass the same opportunity to specialise faest_sign/faest_verify with
- * compile-time-constant loop bounds.
- *
- * OWF: uses daa_aes128_dm or owf_192/256 (AES-NI accelerated).
- */
+
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -25,12 +15,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* ----------------------------------------------------------------------- */
-/* Per-variant sign helpers — one static function per paramset.            */
-/* The compiler (with LTO) sees a single known params pointer at each site  */
-/* and can specialise faest_sign with folded loop bounds.                   */
-/* ----------------------------------------------------------------------- */
 
 #define DEFINE_SIGN(ID)                                                          \
 static int sign_##ID(const uint8_t* sk_u, const uint8_t* gid,                   \
@@ -72,8 +56,7 @@ DEFINE_VERIFY(DAA_FAEST_192F)
 DEFINE_VERIFY(DAA_FAEST_256S)
 DEFINE_VERIFY(DAA_FAEST_256F)
 
-/* ----------------------------------------------------------------------- */
-
+// Implements faest max sig size.
 size_t daa_faest_max_sig_size(unsigned int lambda, int fast) {
   switch (lambda) {
   case 192: return fast ? DAA_FAEST_192F_SIG_SIZE : DAA_FAEST_192S_SIG_SIZE;
@@ -82,12 +65,12 @@ size_t daa_faest_max_sig_size(unsigned int lambda, int fast) {
   }
 }
 
+// Implements faest etu bytes.
 size_t daa_faest_etu_bytes(unsigned int lambda) {
   return (lambda == 128) ? 16u : 32u;
 }
 
-/* ----------------------------------------------------------------------- */
-
+// Implements faest owf.
 void daa_faest_owf(unsigned int lambda, const uint8_t* sk_u,
                    const uint8_t* gid, uint8_t* et_u_out) {
   switch (lambda) {
@@ -97,8 +80,7 @@ void daa_faest_owf(unsigned int lambda, const uint8_t* sk_u,
   }
 }
 
-/* ----------------------------------------------------------------------- */
-
+// Implements faest sign.
 int daa_faest_sign(unsigned int lambda, int fast,
                    const uint8_t* sk_u, const uint8_t* gid, const uint8_t* et_u,
                    const uint8_t* msg, size_t msglen,
@@ -119,8 +101,7 @@ int daa_faest_sign(unsigned int lambda, int fast,
   }
 }
 
-/* ----------------------------------------------------------------------- */
-
+// Implements faest verify.
 int daa_faest_verify(unsigned int lambda, int fast,
                      const uint8_t* gid, const uint8_t* et_u,
                      const uint8_t* msg, size_t msglen,

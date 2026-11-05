@@ -57,8 +57,6 @@
     mov     \sav, \dst
     mov     \dst, \src
     .endm
-
-// NEON has no BIT-wise vector rotate operation
 .macro    ROTL64  dst, src, rot
     .if (\rot & 7) != 0                 // Bit-wise rotation
     shl     \dst\().2d, \src\().2d, #\rot
@@ -69,7 +67,6 @@
     .endm
 
 .macro    KeccakRound
-    // Theta - Build new lanes
     eor     v0.16b, v19.16b, v25.16b      // v0 = (A[0] ^ A[10]) || (A[4] ^ A[14])
     eor     v1.16b, v20.16b, v26.16b      // v1 = (A[1] ^ A[11]) || (A[5] ^ A[15])
     eor     v2.16b, v21.16b, v28.16b      // v2 = (A[2] ^ A[17]) || (A[6] ^ A[21])
@@ -108,8 +105,6 @@
     ext     v6.16b, v6.16b, v5.16b, #8    // v6 = ROTL64(B[2], 1) || ROTL64(B[1], 1)
     trn1    v4.2d, v1.2d, v4.2d           // v4 = B[0] || B[4]
     eor     v6.16b, v4.16b, v6.16b        // v6 = B[0] ^ ROTL64(B[2], 1) || B[4] ^ ROTL64(B[1], 1)
-
-    // Theta - Apply lanes
     eor     v19.16b, v19.16b, v18.16b     // A[0]  ^= B[4] ^ ROTL64(B[1], 1), A[4] ^= B[3] ^ ROTL64(B[0], 1)
     eor     v20.16b, v20.16b, v6.16b      // A[1]  ^= B[0] ^ ROTL64(B[2], 1), A[5] ^= B[4] ^ ROTL64(B[1], 1)
     eor     v21.16b, v21.16b, v2.16b      // A[2]  ^= B[1] ^ ROTL64(B[3], 1), A[6] ^= B[0] ^ ROTL64(B[2], 1)
@@ -123,8 +118,6 @@
     eor     v29.16b, v29.16b, v0.16b      // A[18] ^= B[2] ^ ROTL64(B[4], 1), A[22] ^= B[1] ^ ROTL64(B[3], 1)
     eor     v30.16b, v30.16b, v7.16b      // A[19] ^= B[3] ^ ROTL64(B[0], 1), A[23] ^= B[2] ^ ROTL64(B[4], 1)
     eor     v31.16b, v31.16b, v7.16b      // A[24] ^= B[3] ^ ROTL64(B[0], 1), ????
-
-    // Rho Pi
     mov     x11, v20.2d[0]                // x11   = A[1]
 
     RhoPi   v25.2d[0], x11, x10, 1        // A[10] = ROTL64(A[1], 1)
@@ -153,8 +146,6 @@
 
     ror     x10, x10, #20
     mov     v20.2d[0], x10                // A[1]  = ROTL64(A[6], 44)
-
-    // Chi - Some lanes are applied earlier so we can reuse registers
     ext     v18.16b, v26.16b, v31.16b, #8 // v18 = A[15] || A[24]
     bic     v6.16b, v27.16b, v18.16b      // v6 = ~A[15] & A[16] || ~A[24] & A[20]
 
@@ -203,8 +194,6 @@
 
     trn2    v17.2d, v20.2d, v25.2d        // v17 =  A[5]  || A[14]
     bic     v5.16b, v17.16b, v24.16b      // v5  = ~A[9]  & A[5]  || ~A[13] & A[14]
-
-    // Chi - Apply remaining lanes
     eor     v19.16b, v19.16b, v1.16b      // A[0] ^= ~A[1] & A[2], A[4] ^= ~A[0] & A[1]
     eor     v20.16b, v20.16b, v2.16b      // A[1] ^= ~A[2] & A[3], A[5] ^= ~A[6] & A[7]
     eor     v21.16b, v21.16b, v3.16b      // A[2] ^= ~A[3] & A[4], A[6] ^= ~A[7] & A[8]
@@ -213,8 +202,6 @@
     eor     v24.16b, v24.16b, v6.16b      // A[9] ^= ~A[5] & A[6], A[13] ^= ~A[14] & A[10]
     eor     v25.16b, v25.16b, v7.16b      // A[10] ^= ~A[11] & A[12], A[14] ^= ~A[10] & A[11]
     eor     v26.16b, v26.16b, v4.16b      // A[11] ^= ~A[12] & A[13], A[15] ^= ~A[16] & A[17]
-
-    // Iota
     ld1     { v16.d }[0], [x1], #8
     eor     v19.16b, v19.16b, v16.16b
     .endm
@@ -247,11 +234,6 @@ KeccakP1600_Permute_RoundConstants12:
     .quad   0x0000000080000001
     .quad   0x8000000080008008
 KeccakP1600_Permute_RoundConstants0:
-
-//----------------------------------------------------------------------------
-//
-// void KeccakP1600_Initialize(void *state)
-//
 .align 8
 .global   KeccakP1600_Initialize
 KeccakP1600_Initialize:
@@ -264,12 +246,6 @@ KeccakP1600_Initialize:
     st4     { v0.2d, v1.2d, v2.2d, v3.2d }, [x0], #64
     st1     { v0.d }[0], [x0], #8
     ret
-
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_AddByte(void *state, unsigned char byte, unsigned int offset)
-//
 .align 8
 .global   KeccakP1600_AddByte
 KeccakP1600_AddByte:
@@ -277,12 +253,6 @@ KeccakP1600_AddByte:
     eor     w3, w3, w1
     strb    w3, [x0, x2]
     ret
-
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_AddBytes(void *state, const unsigned char *data, unsigned int offset, unsigned int length)
-//
 .align 8
 .global   KeccakP1600_AddBytes
 KeccakP1600_AddBytes:
@@ -322,11 +292,6 @@ KeccakP1600_AddBytes_BytesLoop: // Same thing but go 1 byte at a time
     b       KeccakP1600_AddBytes_BytesLoop
 KeccakP1600_AddBytes_Exit:
     ret
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_OverwriteBytes(void *state, const unsigned char *data, unsigned int offset, unsigned int length)
-//
 .align 8
 .global   KeccakP1600_OverwriteBytes
 KeccakP1600_OverwriteBytes:
@@ -357,12 +322,6 @@ KeccakP1600_OverwriteBytes_BytesLoop:
     b       KeccakP1600_OverwriteBytes_BytesLoop
 KeccakP1600_OverwriteBytes_Exit:
     ret
-
-
-//----------------------------------------------------------------------------
-//
-// void KeccakP1600_OverwriteWithZeroes(void *state, unsigned int byteCount)
-//
 .align 8
 .global   KeccakP1600_OverwriteWithZeroes
 KeccakP1600_OverwriteWithZeroes:
@@ -394,12 +353,6 @@ KeccakP1600_OverwriteWithZeroes_LoopBytes:
     b       KeccakP1600_OverwriteWithZeroes_LoopBytes
 KeccakP1600_OverwriteWithZeroes_Exit:
     ret
-
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_ExtractBytes(void *state, const unsigned char *data, unsigned int offset, unsigned int length)
-//
 .align 8
 .global   KeccakP1600_ExtractBytes
 KeccakP1600_ExtractBytes:
@@ -430,12 +383,6 @@ KeccakP1600_ExtractBytes_BytesLoop:
     b       KeccakP1600_ExtractBytes_BytesLoop
 KeccakP1600_ExtractBytes_Exit:
     ret
-
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP800_ExtractAndAddBytes(void *state, const unsigned char *input, unsigned char *output, unsigned int offset, unsigned int length)
-//
 .align 8
 .global   KeccakP1600_ExtractAndAddBytes
 KeccakP1600_ExtractAndAddBytes:
@@ -475,11 +422,6 @@ KeccakP1600_ExtractAndAddBytes_BytesLoop:
     b       KeccakP1600_ExtractAndAddBytes_BytesLoop
 KeccakP1600_ExtractAndAddBytes_Exit:
     ret
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_Permute_Nrounds( void *state, unsigned int nrounds )
-//
 .align 8
 .global   KeccakP1600_Permute_Nrounds
 KeccakP1600_Permute_Nrounds:
@@ -488,34 +430,18 @@ KeccakP1600_Permute_Nrounds:
 	lsl		x3, x2, #3
 	sub		x1, x1, x3
     b       KeccakP1600_Permute
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_Permute_12rounds( void *state )
-//
 .align 8
 .global   KeccakP1600_Permute_12rounds
 KeccakP1600_Permute_12rounds:
     adr     x1, KeccakP1600_Permute_RoundConstants12
     mov     x2, #12
     b       KeccakP1600_Permute
-
-
-// ----------------------------------------------------------------------------
-//
-//  void KeccakP1600_Permute_24rounds( void *state )
-//
 .align 8
 .global   KeccakP1600_Permute_24rounds
 KeccakP1600_Permute_24rounds:
     adr     x1, KeccakP1600_Permute_RoundConstants24
     mov     x2, #24
     b       KeccakP1600_Permute
-
-//----------------------------------------------------------------------------
-//
-// void KeccakP1600_Permute( void *state, uint64_t *rc, unsigned int nrounds )
-//
 .align 8
 .global   KeccakP1600_Permute
 KeccakP1600_Permute:

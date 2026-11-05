@@ -21,9 +21,6 @@ Please refer to SnP-documentation.h for more details.
 #ifndef _KeccakP_1600_SnP_h_
 #define _KeccakP_1600_SnP_h_
 
-/** For the documentation, see SnP-documentation.h.
- */
-
 #define KeccakP1600_implementation      "in-place 32-bit optimized implementation"
 #define KeccakP1600_stateSizeInBytes    200
 #define KeccakP1600_stateAlignment      8

@@ -9,12 +9,12 @@
 #define SPX_MLEN 32
 #define SPX_SIGNATURES 1
 
+// Implements main.
 int main(void)
 {
     int ret = 0;
     int i;
 
-    /* Make stdout buffer more responsive. */
     setbuf(stdout, NULL);
 
     unsigned char pk[SPX_PK_BYTES];
@@ -51,7 +51,6 @@ int main(void)
             printf("    smlen as expected [%llu].\n", smlen);
         }
 
-        /* Test if signature is valid. */
         if (crypto_sign_open(mout, &mlen, sm, smlen, pk)) {
             printf("  X verification failed!\n");
             ret = -1;
@@ -60,7 +59,6 @@ int main(void)
             printf("    verification succeeded.\n");
         }
 
-        /* Test if the correct message was recovered. */
         if (mlen != SPX_MLEN) {
             printf("  X mlen incorrect [%llu != %u]!\n", mlen, SPX_MLEN);
             ret = -1;
@@ -76,7 +74,6 @@ int main(void)
             printf("    output message as expected.\n");
         }
 
-        /* Test if signature is valid when validating in-place. */
         if (crypto_sign_open(sm, &mlen, sm, smlen, pk)) {
             printf("  X in-place verification failed!\n");
             ret = -1;
@@ -85,9 +82,6 @@ int main(void)
             printf("    in-place verification succeeded.\n");
         }
 
-        /* Test if flipping bits invalidates the signature (it should). */
-
-        /* Flip the first bit of the message. Should invalidate. */
         sm[smlen - 1] ^= 1;
         if (!crypto_sign_open(mout, &mlen, sm, smlen, pk)) {
             printf("  X flipping a bit of m DID NOT invalidate signature!\n");
@@ -100,7 +94,7 @@ int main(void)
 
 #ifdef SPX_TEST_INVALIDSIG
         int j;
-        /* Flip one bit per hash; the signature is entirely hashes. */
+
         for (j = 0; j < (int)(smlen - SPX_MLEN); j += SPX_N) {
             sm[j] ^= 1;
             if (!crypto_sign_open(mout, &mlen, sm, smlen, pk)) {

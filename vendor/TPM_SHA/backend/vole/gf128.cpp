@@ -33,4 +33,4 @@ std::ostream& operator<<(std::ostream& stream, const Gf128& value) {
   return stream;
 }
 
-} // namespace vole_backend
+}

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -euo pipefail
-# set -euxo pipefail
 
 FAEST_128S="faest_128s"
 FAEST_128F="faest_128f"
@@ -87,19 +86,10 @@ parse_output () {
     echo "${json}"
 }
 
+# Returns the benchmark timestamp as JSON.
 gather_metadata () {
-    hostname="`uname -n`"
-    user="`whoami`"
     timestamp="`date --iso-8601=ns`"
-    git_commit="`git rev-parse --verify HEAD`"
-    json="`jq -c -n \
-        --arg "hostname" "${hostname}" \
-        --arg "user" "${user}" \
-        --arg "timestamp" "${timestamp}" \
-        --arg "git_commit" "${timestamp}" \
-        '$ARGS.named' \
-        `"
-    echo "${json}"
+    jq -c -n --arg "timestamp" "${timestamp}" '$ARGS.named'
 }
 
 run_bench () {

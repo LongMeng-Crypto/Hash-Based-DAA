@@ -3,14 +3,17 @@ use std::time::Instant;
 use methods::{WOTS_EXTREME_GUEST_ELF, WOTS_EXTREME_GUEST_ID};
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, ReceiptKind};
 
+// Reads u32.
 fn read_u32(bytes: &[u8], off: usize) -> u32 {
     u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap())
 }
 
+// Reads u64.
 fn read_u64(bytes: &[u8], off: usize) -> u64 {
     u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap())
 }
 
+// Runs the operation result.
 fn run(mode: u32, seg_po2: u32, backend_hash: &str, real_proof: bool) {
     let env = ExecutorEnv::builder()
         .segment_limit_po2(seg_po2)
@@ -84,6 +87,7 @@ fn run(mode: u32, seg_po2: u32, backend_hash: &str, real_proof: bool) {
     );
 }
 
+// Implements main.
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())

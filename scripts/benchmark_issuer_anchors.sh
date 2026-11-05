@@ -6,7 +6,10 @@ project_dir="$(cd -- "${script_dir}/.." && pwd)"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
 anchor_mode="${ANCHOR_MODE:-seed-anchor}"
 case "$anchor_mode" in
-  seed-anchor) export RISC0_SKIP_BUILD="${RISC0_SKIP_BUILD:-1}" ;;
+  seed-anchor)
+    export RISC0_SKIP_BUILD="${RISC0_SKIP_BUILD:-1}"
+    export DAA_HOST_CUDA="${DAA_HOST_CUDA:-0}"
+    ;;
   fixed-top-wots|all) unset RISC0_SKIP_BUILD ;;
   *) echo "ANCHOR_MODE must be seed-anchor, fixed-top-wots, or all" >&2; exit 2 ;;
 esac
@@ -17,10 +20,6 @@ export RISC0_RECEIPT_KIND="${RISC0_RECEIPT_KIND:-composite}"
 export RISC0_SEGMENT_LIMIT_PO2="${SEGMENT_PO2:-20}"
 export SPHINCS_OPT_LEVEL="${SPHINCS_OPT_LEVEL:-4}"
 export DAA_DETERMINISTIC=1
-recursion_zip="${HOME}/RISC0-SHA256/vendor/risc0_sha256_backend/crates/risc0-circuit-recursion/src/recursion_zkr.zip"
-if [[ -z "${RECURSION_SRC_PATH:-}" && -f "$recursion_zip" ]]; then
-  export RECURSION_SRC_PATH="$recursion_zip"
-fi
 iterations="${ITERATIONS:-1}"
 params_list="${PARAMS_LIST:-sha2-128s sha2-128f sha2-192s sha2-192f sha2-256s sha2-256f}"
 credentials="${CREDENTIALS:-sphincs}"
@@ -30,7 +29,6 @@ log_file="${LOG_FILE:-${log_dir}/issuer_anchor_${anchor_mode}_${RISC0_RECEIPT_KI
 : >"$log_file"
 echo "shared_cache=${CARGO_TARGET_DIR}; build/startup/test time excluded from pi_I timings" | tee -a "$log_file"
 
-# Benchmarks one credential, SPHINCS+ parameter set, and independent Setup proof mode.
 run_one() {
   local credential="$1" params="$2" mode="$3"
   echo "===== credential=${credential} params=${params} mode=${mode} =====" | tee -a "$log_file"

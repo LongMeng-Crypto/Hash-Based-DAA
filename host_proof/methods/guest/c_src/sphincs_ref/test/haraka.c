@@ -6,6 +6,7 @@
 #include "../haraka.c"
 #include "../randombytes.h"
 
+// Tests haraka s incremental.
 static int test_haraka_S_incremental(void) {
     unsigned char input[521];
     unsigned char check[521];
@@ -144,6 +145,7 @@ static int test_haraka_S_incremental(void) {
     return returncode;
 }
 
+// Implements main.
 int main(void) {
     int result = 0;
     result += test_haraka_S_incremental();

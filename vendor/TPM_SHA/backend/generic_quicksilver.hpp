@@ -63,6 +63,6 @@ std::vector<std::uint8_t> quicksilver_verify(
     std::span<const std::uint8_t> challenge_2,
     const ParameterizedQuicksilverProof& proof);
 
-} // namespace vole_backend
+}
 
 #endif

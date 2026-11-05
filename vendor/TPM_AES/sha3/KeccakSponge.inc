@@ -32,6 +32,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #define SnP_AddBytes                    JOIN(SnP, _AddBytes)
 #define SnP_ExtractBytes                JOIN(SnP, _ExtractBytes)
 
+// Implements sponge.
 int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input, size_t inputByteLen, unsigned char suffix, unsigned char *output, size_t outputByteLen)
 {
     ALIGN(SnP_stateAlignment) unsigned char state[SnP_stateSizeInBytes];
@@ -47,14 +48,12 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
     if (suffix == 0)
         return 1;
 
-    /* Initialize the state */
     SnP_StaticInitialize();
     SnP_Initialize(state);
 
-    /* First, absorb whole blocks */
 #ifdef SnP_FastLoop_Absorb
     if (((rateInBytes % (SnP_width/200)) == 0) && (inputByteLen >= rateInBytes)) {
-        /* fast lane: whole lane rate */
+
         size_t j;
         j = SnP_FastLoop_Absorb(state, rateInBytes/(SnP_width/200), curInput, inputByteLen);
         curInput += j;
@@ -71,14 +70,12 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
         inputByteLen -= rateInBytes;
     }
 
-    /* Then, absorb what remains */
     partialBlock = (unsigned int)inputByteLen;
     #ifdef KeccakReference
     displayBytes(1, "Block to be absorbed (part)", curInput, partialBlock);
     #endif
     SnP_AddBytes(state, curInput, 0, partialBlock);
 
-    /* Finally, absorb the suffix */
     #ifdef KeccakReference
     {
         unsigned char delimitedData1[1];
@@ -86,12 +83,12 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
         displayBytes(1, "Block to be absorbed (last few bits + first bit of padding)", delimitedData1, 1);
     }
     #endif
-    /* Last few bits, whose delimiter coincides with first bit of padding */
+
     SnP_AddByte(state, suffix, partialBlock);
-    /* If the first bit of padding is at position rate-1, we need a whole new block for the second bit of padding */
+
     if ((suffix >= 0x80) && (partialBlock == (rateInBytes-1)))
         SnP_Permute(state);
-    /* Second bit of padding */
+
     SnP_AddByte(state, 0x80, rateInBytes-1);
     #ifdef KeccakReference
     {
@@ -106,7 +103,6 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
     displayText(1, "--- Switching to squeezing phase ---");
     #endif
 
-    /* First, output whole blocks */
     while(outputByteLen > (size_t)rateInBytes) {
         SnP_ExtractBytes(state, curOutput, 0, rateInBytes);
         SnP_Permute(state);
@@ -117,7 +113,6 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
         outputByteLen -= rateInBytes;
     }
 
-    /* Finally, output what remains */
     partialBlock = (unsigned int)outputByteLen;
     SnP_ExtractBytes(state, curOutput, 0, partialBlock);
     #ifdef KeccakReference
@@ -127,10 +122,7 @@ int Sponge(unsigned int rate, unsigned int capacity, const unsigned char *input,
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-/* ---------------------------------------------------------------- */
-/* ---------------------------------------------------------------- */
-
+// Implements sponge initialize.
 int SpongeInitialize(SpongeInstance *instance, unsigned int rate, unsigned int capacity)
 {
     if (rate+capacity != SnP_width)
@@ -146,8 +138,7 @@ int SpongeInitialize(SpongeInstance *instance, unsigned int rate, unsigned int c
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge absorb.
 int SpongeAbsorb(SpongeInstance *instance, const unsigned char *data, size_t dataByteLen)
 {
     size_t i, j;
@@ -156,16 +147,16 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char *data, size_t dat
     unsigned int rateInBytes = instance->rate/8;
 
     if (instance->squeezing)
-        return 1; /* Too late for additional input */
+        return 1;
 
     i = 0;
     curData = data;
     while(i < dataByteLen) {
         if ((instance->byteIOIndex == 0) && (dataByteLen >= (i + rateInBytes))) {
 #ifdef SnP_FastLoop_Absorb
-            /* processing full blocks first */
+
             if ((rateInBytes % (SnP_width/200)) == 0) {
-                /* fast lane: whole lane rate */
+
                 j = SnP_FastLoop_Absorb(instance->state, rateInBytes/(SnP_width/200), curData, dataByteLen - i);
                 i += j;
                 curData += j;
@@ -186,7 +177,7 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char *data, size_t dat
 #endif
         }
         else {
-            /* normal lane: using the message queue */
+
             partialBlock = (unsigned int)(dataByteLen - i);
             if (partialBlock+instance->byteIOIndex > rateInBytes)
                 partialBlock = rateInBytes-instance->byteIOIndex;
@@ -207,8 +198,7 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char *data, size_t dat
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge absorb last few bits.
 int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedData)
 {
     unsigned int rateInBytes = instance->rate/8;
@@ -216,7 +206,7 @@ int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedDat
     if (delimitedData == 0)
         return 1;
     if (instance->squeezing)
-        return 1; /* Too late for additional input */
+        return 1;
 
     #ifdef KeccakReference
     {
@@ -225,12 +215,12 @@ int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedDat
         displayBytes(1, "Block to be absorbed (last few bits + first bit of padding)", delimitedData1, 1);
     }
     #endif
-    /* Last few bits, whose delimiter coincides with first bit of padding */
+
     SnP_AddByte(instance->state, delimitedData, instance->byteIOIndex);
-    /* If the first bit of padding is at position rate-1, we need a whole new block for the second bit of padding */
+
     if ((delimitedData >= 0x80) && (instance->byteIOIndex == (rateInBytes-1)))
         SnP_Permute(instance->state);
-    /* Second bit of padding */
+
     SnP_AddByte(instance->state, 0x80, rateInBytes-1);
     #ifdef KeccakReference
     {
@@ -249,8 +239,7 @@ int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedDat
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge squeeze.
 int SpongeSqueeze(SpongeInstance *instance, unsigned char *data, size_t dataByteLen)
 {
     size_t i, j;
@@ -276,7 +265,7 @@ int SpongeSqueeze(SpongeInstance *instance, unsigned char *data, size_t dataByte
             i = dataByteLen - j;
         }
         else {
-            /* normal lane: using the message queue */
+
             if (instance->byteIOIndex == rateInBytes) {
                 SnP_Permute(instance->state);
                 instance->byteIOIndex = 0;
@@ -296,8 +285,6 @@ int SpongeSqueeze(SpongeInstance *instance, unsigned char *data, size_t dataByte
     }
     return 0;
 }
-
-/* ---------------------------------------------------------------- */
 
 #undef Sponge
 #undef SpongeInstance

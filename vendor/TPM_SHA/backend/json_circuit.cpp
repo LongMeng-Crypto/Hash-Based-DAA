@@ -16,6 +16,7 @@ namespace {
 
 using Tree = boost::property_tree::ptree;
 
+// Implements require keys.
 void require_keys(const Tree& tree, std::initializer_list<std::string_view> allowed,
                   std::string_view where) {
   std::set<std::string> seen;
@@ -52,8 +53,9 @@ const Tree& required_child(const Tree& tree, const char* key, std::string_view w
   return *child;
 }
 
-} // namespace
+}
 
+// Implements compile json circuit.
 BinaryCircuit compile_json_circuit(std::string_view json) {
   Tree root;
   std::istringstream stream{std::string(json)};
@@ -109,4 +111,4 @@ BinaryCircuit compile_json_circuit(std::string_view json) {
   return BinaryCircuit::from_canonical(std::move(nodes), std::move(outputs));
 }
 
-} // namespace vole_backend
+}

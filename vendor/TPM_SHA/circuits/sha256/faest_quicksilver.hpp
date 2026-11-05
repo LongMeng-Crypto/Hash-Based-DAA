@@ -21,8 +21,6 @@ using vole_backend::lambda_bytes;
 using vole_backend::QuicksilverChallenge;
 using vole_backend::QuicksilverProof;
 
-// V/Q are lambda column pointers, each containing ell_hat bits.  These entry
-// points mirror FAEST's AES prover/verifier wrappers but traverse SHA-256 IR.
 QuicksilverProof sha256_quicksilver_prove(
     const faest::sha256_circuit::Circuit& circuit, const PackedWitness& witness,
     const std::vector<std::uint8_t*>& v_columns, const std::uint8_t* u_after_witness,
@@ -35,6 +33,6 @@ std::array<std::uint8_t, lambda_bytes> sha256_quicksilver_verify(
     const faest::sha256_circuit::Digest& public_digest,
     const QuicksilverChallenge& challenge_2, const QuicksilverProof& proof);
 
-} // namespace vole_sha256
+}
 
 #endif

@@ -1,9 +1,4 @@
-/*
- * daa_faest_opt.h — fixed-entry and scratch-buffer DAA FAEST helpers.
- *
- * These APIs keep the protocol statement unchanged. They only avoid repeated
- * allocation and let benchmark callers fuse OWF computation with witness setup.
- */
+
 
 #ifndef DAA_FAEST_OPT_H
 #define DAA_FAEST_OPT_H
@@ -85,4 +80,4 @@ int daa_faest_256f_1aes_verify(const uint8_t* gid, const uint8_t* et_u,
 }
 #endif
 
-#endif /* DAA_FAEST_OPT_H */
+#endif

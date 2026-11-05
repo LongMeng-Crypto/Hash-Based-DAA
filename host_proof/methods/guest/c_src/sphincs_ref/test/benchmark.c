@@ -18,6 +18,7 @@
 static void wots_gen_pkx1(unsigned char *pk, const spx_ctx* ctx,
                 uint32_t addr[8]);
 
+// Implements cmp llu.
 static int cmp_llu(const void *a, const void*b)
 {
   if(*(unsigned long long *)a < *(unsigned long long *)b) return -1;
@@ -25,6 +26,7 @@ static int cmp_llu(const void *a, const void*b)
   return 0;
 }
 
+// Implements median.
 static unsigned long long median(unsigned long long *l, size_t llen)
 {
   qsort(l,llen,sizeof(unsigned long long),cmp_llu);
@@ -33,6 +35,7 @@ static unsigned long long median(unsigned long long *l, size_t llen)
   else return (l[llen/2-1]+l[llen/2])/2;
 }
 
+// Implements delta.
 static void delta(unsigned long long *l, size_t llen)
 {
     unsigned int i;
@@ -41,7 +44,7 @@ static void delta(unsigned long long *l, size_t llen)
     }
 }
 
-
+// Implements printfcomma.
 static void printfcomma (unsigned long long n)
 {
     if (n < 1000) {
@@ -52,6 +55,7 @@ static void printfcomma (unsigned long long n)
     printf (",%03llu", n % 1000);
 }
 
+// Implements printfalignedcomma.
 static void printfalignedcomma (unsigned long long n, int len)
 {
     unsigned long long ncopy = n;
@@ -60,15 +64,16 @@ static void printfalignedcomma (unsigned long long n, int len)
     while (ncopy > 9) {
         len -= 1;
         ncopy /= 10;
-        i += 1;  // to account for commas
+        i += 1;
     }
-    i = i/3 - 1;  // to account for commas
+    i = i/3 - 1;
     for (; i < len; i++) {
         printf(" ");
     }
     printfcomma(n);
 }
 
+// Implements display result.
 static void display_result(double result, unsigned long long *l, size_t llen, unsigned long long mul)
 {
     unsigned long long med;
@@ -106,9 +111,10 @@ static void display_result(double result, unsigned long long *l, size_t llen, un
     1000);
 #define MEASURE(TEXT, MUL, FNCALL) MEASURE_GENERIC(TEXT, MUL, FNCALL, 1)
 
+// Implements main.
 int main(void)
 {
-    /* Make stdout buffer more responsive. */
+
     setbuf(stdout, NULL);
     init_cpucycles();
 
@@ -163,6 +169,7 @@ int main(void)
     return 0;
 }
 
+// Implements wots gen pkx1.
 static void wots_gen_pkx1(unsigned char *pk, const spx_ctx *ctx,
                   uint32_t addr[8]) {
     struct leaf_info_x1 leaf;
@@ -170,4 +177,3 @@ static void wots_gen_pkx1(unsigned char *pk, const spx_ctx *ctx,
     INITIALIZE_LEAF_INFO_X1(leaf, addr, steps);
     wots_gen_leafx1(pk, ctx, 0, &leaf);
 }
-

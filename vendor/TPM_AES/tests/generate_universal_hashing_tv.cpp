@@ -15,6 +15,7 @@
 #include <random>
 #include <vector>
 
+// Implements main.
 int main() {
   std::mt19937_64 rd{0x5eed};
   std::uniform_int_distribution<uint8_t> distrib(0, 255);

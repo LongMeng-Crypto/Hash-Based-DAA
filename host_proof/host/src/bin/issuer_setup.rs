@@ -1,18 +1,16 @@
-// DAA Issuer Setup Phase (standalone, no zkVM)
-//
-// Models the one-time issuer key generation step from Chen et al. (PQCrypto 2023):
-//   1. Generate SPHINCS+ master key pair: (mpk, msk) = KeyGen()
-//   2. Self-certify: issuer signs mpk with msk  →  cert = Sign(msk, mpk)
-//
-// This runs entirely on the host CPU — no RISC0 proving involved.
-// Run with:
-//   SPHINCS_PARAMS=sphincs-sha2-128s SPHINCS_THASH=simple cargo run --bin issuer_setup --release
+
 
 use std::time::Instant;
 
 extern "C" {
+
+    // Implements crypto sign keypair.
     fn crypto_sign_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+
+    // Implements crypto sign.
     fn crypto_sign(sm: *mut u8, smlen: *mut u64, m: *const u8, mlen: u64, sk: *const u8) -> i32;
+
+    // Implements crypto sign open.
     fn crypto_sign_open(
         m: *mut u8,
         mlen: *mut u64,
@@ -20,13 +18,20 @@ extern "C" {
         smlen: u64,
         pk: *const u8,
     ) -> i32;
+
+    // Implements sig bytes.
     fn sphincs_sig_bytes() -> usize;
+
+    // Implements pk bytes.
     fn sphincs_pk_bytes() -> usize;
+
+    // Implements sk bytes.
     fn sphincs_sk_bytes() -> usize;
 }
 
-// Required by the SPHINCS+ C reference implementation.
 #[no_mangle]
+
+// Implements randombytes.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     use rand::RngCore;
     use rand_chacha::ChaCha20Rng;
@@ -42,6 +47,7 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     rng.fill_bytes(slice);
 }
 
+// Implements main.
 fn main() {
     let pk_bytes = unsafe { sphincs_pk_bytes() };
     let sk_bytes = unsafe { sphincs_sk_bytes() };
@@ -58,7 +64,6 @@ fn main() {
         pk_bytes, sk_bytes, sig_bytes
     );
 
-    // ── 1) Master key generation ──────────────────────────────────────────────
     let mut mpk = vec![0u8; pk_bytes];
     let mut msk = vec![0u8; sk_bytes];
 
@@ -67,8 +72,6 @@ fn main() {
     let keygen_ms = t_keygen.elapsed().as_micros() as f64 / 1000.0;
     assert_eq!(r, 0, "KeyGen failed");
 
-    // ── 2) Self-certify: Sign mpk with msk ───────────────────────────────────
-    // cert = Sign(msk, mpk)  — issuer certifies its own public key
     let mut sm_buf = vec![0u8; sig_bytes + pk_bytes + 64];
     let mut smlen: u64 = 0;
 
@@ -88,7 +91,6 @@ fn main() {
 
     let cert_sig = &sm_buf[..sig_bytes];
 
-    // ── 3) Verify the self-certificate (sanity check) ─────────────────────────
     let mut recovered = vec![0u8; pk_bytes + 64];
     let mut rlen: u64 = 0;
     let t_verify = Instant::now();
@@ -109,7 +111,6 @@ fn main() {
         "Recovered message != mpk"
     );
 
-    // ── 4) Print results ──────────────────────────────────────────────────────
     println!("keygen = {:.2} ms", keygen_ms);
     println!("sign(msk, mpk) = {:.2} ms", sign_ms);
     println!("verify self-cert = {:.2} ms", verify_ms);

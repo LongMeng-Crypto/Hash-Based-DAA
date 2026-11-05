@@ -26,7 +26,7 @@ namespace {
       0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
       0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
   };
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE(bavc)
 
@@ -48,6 +48,7 @@ BOOST_DATA_TEST_CASE(test_node_indices, all_parameters, param_id) {
 
 namespace {
   template <size_t HSize, size_t IDeltaSize>
+  // Tests vc tv.
   void test_vc_tv(const faest_paramset_t& params, const std::array<uint16_t, IDeltaSize>& i_delta,
                   const std::array<uint8_t, HSize>& expected_h,
                   const std::array<uint8_t, 64>& expected_hashed_k,
@@ -64,10 +65,10 @@ namespace {
     const std::vector<uint8_t> h{vc.h, vc.h + HSize},
         expected_h_vec{expected_h.begin(), expected_h.end()};
     BOOST_TEST(h == expected_h_vec);
-    // compare hashed k_alpha to reduce size of the TVs
+
     const auto hashed_k = hash_array(vc.k, (2 * params.L - 1) * lambda_bytes);
     BOOST_TEST(hashed_k == expected_hashed_k);
-    // compare hashed sd_ij to reduce size of the TVs
+
     const auto hashed_sd = hash_array(vc.sd, params.L * lambda_bytes);
     BOOST_TEST(hashed_sd == expected_hashed_sd);
 
@@ -75,7 +76,6 @@ namespace {
     decom_i.resize(com_size * params.tau + params.T_open * lambda_bytes);
     BOOST_TEST(bavc_open(decom_i.data(), &vc, i_delta.data(), &params));
 
-    // compare hashed decom_i to reduce size of the TVs
     const auto hashed_decom_i = hash_array(decom_i);
     BOOST_TEST(hashed_decom_i == expected_hashed_decom_i);
 
@@ -90,13 +90,12 @@ namespace {
     BOOST_TEST(bavc_reconstruct(&vc_rec, decom_i.data(), i_delta.data(), iv.data(), &params));
     BOOST_TEST(rec_h == expected_h_vec);
 
-    // compare hashed sd_ij to reduce size of the TVs
     const auto hashed_rec_sd = hash_array(rec_s);
     BOOST_TEST(hashed_rec_sd == expected_hashed_rec_sd);
 
     bavc_clear(&vc);
   }
-} // namespace
+}
 
 BOOST_AUTO_TEST_CASE(tv_faest_128f) {
   test_vc_tv(*faest_get_paramset(FAEST_128F), bavc_tvs::FAEST_128F::i_delta,

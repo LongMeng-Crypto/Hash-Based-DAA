@@ -36,16 +36,16 @@ std::uint64_t load_partial_le(const std::uint8_t* input, std::size_t bytes) {
   return result;
 }
 
+// Stores le.
 void store_le(std::uint8_t* output, std::uint64_t value) {
   for (std::size_t i = 0; i != 8; ++i)
     output[i] = static_cast<std::uint8_t>(value >> (8 * i));
 }
 
 #if defined(VOLE_HAVE_RUNTIME_AVX2)
-/* Transpose two, three, or four 64x64 column groups in parallel. Each AVX2
- * lane carries the same column from one security-level field, so the exact
- * scalar transpose is applied to every group with one vector instruction. */
+
 VOLE_TARGET_AVX2
+// Implements transpose column groups avx2.
 void transpose_column_groups_avx2(
     std::span<std::uint8_t* const> columns, std::size_t row_offset,
     std::size_t row_count, std::span<std::uint8_t> packed_rows,
@@ -94,11 +94,11 @@ void transpose_column_groups_avx2(
 }
 #endif
 
-} // namespace
+}
 
+// Implements transpose 64x64.
 void transpose_64x64(std::array<std::uint64_t, 64>& block) {
-  // Hacker's Delight butterfly transpose. Its native ordering reverses both
-  // axes relative to FAEST's little-endian bit convention, corrected below.
+
   std::uint64_t mask = UINT64_C(0x00000000ffffffff);
   for (unsigned int shift = 32; shift != 0;) {
     for (unsigned int i = 0; i != 64; i = (i + shift + 1) & ~shift) {
@@ -116,6 +116,7 @@ void transpose_64x64(std::array<std::uint64_t, 64>& block) {
   block = ordered;
 }
 
+// Implements transpose column block.
 void transpose_column_block(
     std::span<std::uint8_t* const> columns, std::size_t row_offset,
     std::size_t row_count, std::span<std::uint8_t> packed_rows,
@@ -150,4 +151,4 @@ void transpose_column_block(
   }
 }
 
-} // namespace vole_backend
+}

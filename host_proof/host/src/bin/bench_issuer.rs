@@ -1,11 +1,4 @@
-// Benchmark runner for the DAA Issuer Setup phase only (no zkVM proving).
-// Loops over all SPHINCS+ SHA-2 parameter sets and measures:
-//   - KeyGen time
-//   - Sign(msk, mpk) time
-//   - Verify self-cert time
-//   - Certificate signature size
-//
-// Run with: cargo run --bin bench_issuer --release
+
 
 const VARIANTS: &[(&str, &str)] = &[
     ("sphincs-sha2-128s", "simple"),
@@ -18,6 +11,7 @@ const VARIANTS: &[(&str, &str)] = &[
 
 use std::process::Command;
 
+// Implements main.
 fn main() {
     println!(
         "\n{:<24} {:>12} {:>12} {:>12} {:>12}",
@@ -26,7 +20,7 @@ fn main() {
     println!("{}", "-".repeat(76));
 
     for (params, thash) in VARIANTS {
-        // Build issuer_setup binary for this parameter set.
+
         let build = Command::new("cargo")
             .args(["build", "--bin", "issuer_setup", "--release"])
             .env("SPHINCS_PARAMS", params)
@@ -76,6 +70,7 @@ fn main() {
     println!();
 }
 
+// Parses field.
 fn parse_field<'a>(text: &'a str, prefix: &str, suffix: &str) -> String {
     text.find(prefix)
         .and_then(|i| {

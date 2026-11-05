@@ -21,14 +21,16 @@ typedef struct bavc_rec_t {
   uint8_t* s;
 } bavc_rec_t;
 
+// Implements bavc max node depth.
 static inline ATTR_CONST unsigned int bavc_max_node_depth(unsigned int i, unsigned int tau_1,
                                                           unsigned int k) {
   return (i < tau_1) ? k : (k - 1);
 }
 
+// Implements bavc max node index.
 static inline ATTR_CONST unsigned int bavc_max_node_index(unsigned int i, unsigned int tau_1,
                                                           unsigned int k) {
-  // for scan-build
+
   assert(k >= 1 && k <= MAX_DEPTH);
   return 1u << ((i < tau_1) ? k : (k - 1));
 }

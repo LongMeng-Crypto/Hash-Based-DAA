@@ -15,4 +15,4 @@ Sha512Circuit::Sha512Circuit(std::size_t message_length,
     : Sha512FamilyCircuit(Sha512Variant::Sha512, message_length,
                           std::move(input_visibility)) {}
 
-} // namespace vole_circuits::sha2
+}

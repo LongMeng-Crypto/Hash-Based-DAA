@@ -12,6 +12,6 @@ using vole_circuits::PartitionedInput;
 using vole_circuits::VisibilityRange;
 using vole_circuits::pack_input_bits;
 
-} // namespace faest::sha256_circuit
+}
 
 #endif

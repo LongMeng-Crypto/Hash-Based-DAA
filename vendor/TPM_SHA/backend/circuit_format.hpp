@@ -18,6 +18,6 @@ BinaryCircuit deserialize_vbc(std::span<const std::uint8_t> bytes);
 CircuitHash circuit_hash(const BinaryCircuit& circuit);
 CircuitHash circuit_hash(std::span<const std::uint8_t> canonical_vbc);
 
-} // namespace vole_backend
+}
 
 #endif

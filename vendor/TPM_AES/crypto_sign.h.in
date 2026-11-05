@@ -17,5 +17,3 @@ int crypto_sign_open(unsigned char* m, unsigned long long* mlen, const unsigned 
                      unsigned long long smlen, const unsigned char* pk);
 
 #endif
-
-// vim: ft=c

@@ -3,15 +3,13 @@ mod fsphincs_build;
 use std::env;
 use std::path::Path;
 
-/// Builds the parameter-selected native credential and Setup-anchor helpers.
+// Implements main.
 fn main() {
     let dir = "../methods/guest/c_src/sphincs_ref";
     if !Path::new(dir).exists() {
         panic!("C source dir not found: {}", dir);
     }
 
-    // Must match the selection in methods/guest/build.rs.
-    // Both are driven by the same environment variables.
     let params = env::var("SPHINCS_PARAMS").unwrap_or_else(|_| "sphincs-sha2-128s".to_string());
     let thash = env::var("SPHINCS_THASH").unwrap_or_else(|_| "simple".to_string());
     let profile = env::var("SPHINCS_PROFILE").unwrap_or_default() == "1";
@@ -117,7 +115,6 @@ fn main() {
     build.opt_level(3);
     build.warnings(false);
 
-    // Host does NOT use RISC0 syscalls — compiles plain C SHA2 implementation
     build.file("c_src/sphincs_consts.c");
 
     for &f in core_files.iter().chain(backend_files.iter()) {
@@ -139,11 +136,6 @@ fn main() {
     );
     build.file(&thash_path);
 
-    // Experimental F-SPHINCS+-SHA256 implementation from the PQCrypto 2023
-    // hash-based DAA paper. It is compiled in parallel with SPHINCS+ and uses
-    // the portable SHA-256 implementation linked immediately after it.
-    // Compile this archive first so static-link ordering resolves its sha256
-    // reference from sphincs_ref.
     let fs_dir = "../methods/guest/c_src/fsphincs_ref";
     let mut fs_build = cc::Build::new();
     fs_build
@@ -171,7 +163,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
     println!("cargo:rerun-if-env-changed=FSPHINCS_K");
 
-    // Security level → cfg flag + SPHINCS_N byte count
     let sec_level = if params.contains("-128") {
         "128"
     } else if params.contains("-192") {
@@ -211,7 +202,6 @@ fn main() {
     }
     println!("cargo:rustc-env=SPHINCS_N={}", spx_n);
 
-    // Expose to host/src/main.rs via env!()
     println!("cargo:rustc-env=SPHINCS_PARAMS={}", params);
     println!("cargo:rustc-env=SPHINCS_THASH={}", thash);
     println!("cargo:rustc-env=SPHINCS_HASH_BACKEND={}", hash_backend);

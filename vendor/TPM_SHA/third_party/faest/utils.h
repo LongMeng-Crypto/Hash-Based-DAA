@@ -15,12 +15,14 @@
 
 FAEST_BEGIN_C_DECL
 
+// Implements xor u8 array.
 static inline void xor_u8_array(const uint8_t* a, const uint8_t* b, uint8_t* out, size_t len) {
   for (size_t i = 0; i < len; i++) {
     out[i] = a[i] ^ b[i];
   }
 }
 
+// Implements masked xor u8 array.
 static inline void masked_xor_u8_array(const uint8_t* a, const uint8_t* b, uint8_t* out,
                                        uint8_t mask_bit, size_t len) {
   uint8_t mask = -(mask_bit & 1);
@@ -39,7 +41,6 @@ static inline void masked_xor_u8_array(const uint8_t* a, const uint8_t* b, uint8
                          ((value) << ptr_set_bit_index_mod_8);                                     \
   } while (0)
 
-// DecodeAllChall_3
 bool decode_all_chall_3(uint16_t* decoded_chall, const uint8_t* chall,
                         const faest_paramset_t* params);
 

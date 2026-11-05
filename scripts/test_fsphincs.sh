@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Native/KAT regression suite; only disposable test binaries are removed.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source_dir="${project_dir}/host_proof/methods/guest/c_src/fsphincs_ref"
-test_dir="$(mktemp -d /tmp/daa-fsphincs-h1-v6-test.XXXXXX)"
+test_dir="$(mktemp -d /tmp/daa-fsphincs-test.XXXXXX)"
 cleanup() { rm -f -- "$test_dir/native" "$test_dir/kat"; rmdir -- "$test_dir"; }
 trap cleanup EXIT
 flags=(-O2 -g -std=c11 -Wall -Wextra -Werror)

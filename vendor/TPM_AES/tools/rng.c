@@ -19,21 +19,18 @@ typedef struct {
 
 static AES256_CTR_DRBG_struct DRBG_ctx;
 
+// Implements handle errors.
 static void handleErrors(void) {
   ERR_print_errors_fp(stderr);
   abort();
 }
 
-// Use whatever AES implementation you have. This uses AES from openSSL library
-//    key - 256-bit AES key
-//    ctr - a 128-bit plaintext value
-//    buffer - a 128-bit ciphertext value
+// Implements aes256 ecb.
 void AES256_ECB(unsigned char* key, unsigned char* ctr, unsigned char* buffer) {
   EVP_CIPHER_CTX* ctx;
 
   int len;
 
-  /* Create and initialise the context */
   if (!(ctx = EVP_CIPHER_CTX_new()))
     handleErrors();
 
@@ -43,16 +40,16 @@ void AES256_ECB(unsigned char* key, unsigned char* ctr, unsigned char* buffer) {
   if (1 != EVP_EncryptUpdate(ctx, buffer, &len, ctr, 16))
     handleErrors();
 
-  /* Clean up */
   EVP_CIPHER_CTX_free(ctx);
 }
 
+// Implements aes256 ctr drbg update.
 static void AES256_CTR_DRBG_Update(unsigned char* provided_data, unsigned char* Key,
                                    unsigned char* V) {
   unsigned char temp[48];
 
   for (int i = 0; i < 3; i++) {
-    // increment V
+
     for (int j = 15; j >= 0; j--) {
       if (V[j] == 0xff)
         V[j] = 0x00;
@@ -71,6 +68,7 @@ static void AES256_CTR_DRBG_Update(unsigned char* provided_data, unsigned char* 
   memcpy(V, temp + 32, 16);
 }
 
+// Implements randombytes init.
 void randombytes_init(unsigned char* entropy_input, unsigned char* personalization_string,
                       int security_strength) {
   (void)security_strength;
@@ -86,12 +84,13 @@ void randombytes_init(unsigned char* entropy_input, unsigned char* personalizati
   DRBG_ctx.reseed_counter = 1;
 }
 
+// Implements randombytes.
 int randombytes(unsigned char* x, unsigned long long xlen) {
   unsigned char block[16];
   int i = 0;
 
   while (xlen > 0) {
-    // increment V
+
     for (int j = 15; j >= 0; j--) {
       if (DRBG_ctx.V[j] == 0xff)
         DRBG_ctx.V[j] = 0x00;

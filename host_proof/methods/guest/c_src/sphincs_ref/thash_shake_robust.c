@@ -8,9 +8,7 @@
 
 #include "fips202.h"
 
-/**
- * Takes an array of inblocks concatenated arrays of SPX_N bytes.
- */
+// Implements thash.
 void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
            const spx_ctx *ctx, uint32_t addr[8])
 {

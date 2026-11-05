@@ -14,6 +14,7 @@
 BOOST_AUTO_TEST_SUITE(utils)
 
 namespace {
+  // Tests aligned alloc.
   void test_aligned_alloc(size_t alignment) {
     void* ptr      = faest_aligned_alloc(alignment, 3 * alignment);
     uintptr_t iptr = reinterpret_cast<uintptr_t>(ptr);
@@ -22,7 +23,7 @@ namespace {
   }
 
   constexpr size_t alignments[3] = {16, 32, 64};
-} // namespace
+}
 
 BOOST_DATA_TEST_CASE(faest_aligned_alloc, alignments, alignment) {
   BOOST_TEST_CONTEXT("alignment: " << alignment) {

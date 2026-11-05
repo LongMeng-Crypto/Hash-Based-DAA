@@ -2,9 +2,6 @@
  *  SPDX-License-Identifier: MIT
  */
 
-// Reference - https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf
-// Tested against Appendix C.1
-
 #include "../aes.h"
 
 #include <boost/test/unit_test.hpp>
@@ -19,7 +16,7 @@ namespace {
   typedef std::array<uint8_t, 16> block_t;
   typedef std::array<uint8_t, 24> block192_t;
   typedef std::array<uint8_t, 32> block256_t;
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE(aes)
 
@@ -139,7 +136,6 @@ BOOST_AUTO_TEST_CASE(test_extend_witness_aes128) {
   std::vector<uint8_t> expected_witness{tv::witness.begin(), tv::witness.end()};
   BOOST_TEST(expected_witness == witness);
 }
-
 
 BOOST_AUTO_TEST_CASE(test_extend_witness_aes192) {
   namespace tv = faest_tvs::faest_192s;

@@ -6,6 +6,7 @@
 static unsigned rng_state = 7123;
 static unsigned rng_calls = 0;
 static unsigned long long rng_bytes = 0;
+// Implements randombytes.
 void randombytes(unsigned char *out, unsigned long long len) {
   rng_calls++;
   rng_bytes += len;
@@ -14,6 +15,7 @@ void randombytes(unsigned char *out, unsigned long long len) {
     out[i] = rng_state >> 24;
   }
 }
+// Implements main.
 int main(void) {
   unsigned char pk[SPX_PK_BYTES], sk[SPX_SK_BYTES], seed[3 * SPX_N];
   for (unsigned i = 0; i < sizeof(seed); i++)
@@ -35,8 +37,7 @@ int main(void) {
   if (len != expected_len || len != sphincs_issuer_anchor_certificate_bytes() ||
       c[6] != 5 || c[7] != 2 || rng_calls != 1 || rng_bytes != SPX_N)
     return 12;
-  /* Insufficient capacity must fail before signing or writing the certificate.
-   */
+
   size_t short_len = len - 1;
   if (!sphincs_issuer_anchor_generate(c, &short_len, pk, sk) || rng_calls != 1)
     return 13;

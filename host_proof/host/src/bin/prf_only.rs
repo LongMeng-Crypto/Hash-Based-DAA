@@ -1,13 +1,4 @@
-// DAA FORS sk_i PRF Proof (standalone host binary)
-//
-// Proves: sk_i = prf_addr(SK.seed, PK.seed, ADRS)  for one FORS leaf
-// where ADRS has type = SPX_ADDR_TYPE_FORSPRF (6), all other fields zero.
-//
-// SK.seed is the private witness; everything else is public.
-// The proof uses the RISC0 SHA-256 hardware syscall inside the zkVM guest.
-//
-// Run with:
-//   SPHINCS_PARAMS=sphincs-sha2-128s SPHINCS_THASH=simple cargo run --bin prf_only --release
+
 
 use std::time::Instant;
 
@@ -16,13 +7,23 @@ use methods::PRF_GUEST_ID;
 use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts};
 
 extern "C" {
+
+    // Implements crypto sign keypair.
     fn crypto_sign_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+
+    // Implements prf one.
     fn sphincs_prf_one(out: *mut u8, pk_seed: *const u8, sk_seed: *const u8, adrs_bytes: *const u8);
+
+    // Implements pk bytes.
     fn sphincs_pk_bytes() -> usize;
+
+    // Implements sk bytes.
     fn sphincs_sk_bytes() -> usize;
 }
 
 #[no_mangle]
+
+// Implements randombytes.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     use rand::RngCore;
     use rand_chacha::ChaCha20Rng;
@@ -43,7 +44,6 @@ struct PrfOutputs {
     sk_i: Vec<u8>,
 }
 
-// SPX_N at compile time (bytes)
 #[cfg(lambda_128)]
 const SPX_N: usize = 16;
 #[cfg(lambda_192)]
@@ -51,14 +51,14 @@ const SPX_N: usize = 24;
 #[cfg(lambda_256)]
 const SPX_N: usize = 32;
 
-// SPX_ADDR_TYPE_FORSPRF = 6 sits at byte offset 9 of the 32-byte ADRS
-// (SHA-2 backend, see sha2_offsets.h: OFFSET_TYPE = 9)
+// Implements fors prf adrs.
 fn fors_prf_adrs() -> [u8; 32] {
     let mut adrs = [0u8; 32];
-    adrs[9] = 6; // SPX_ADDR_TYPE_FORSPRF
+    adrs[9] = 6;
     adrs
 }
 
+// Implements main.
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
@@ -72,7 +72,6 @@ fn main() {
         env!("SPHINCS_N"),
     );
 
-    // ── 1) Generate SPHINCS+ keypair ─────────────────────────────────────
     let pk_bytes = unsafe { sphincs_pk_bytes() };
     let sk_bytes = unsafe { sphincs_sk_bytes() };
     let mut pk = vec![0u8; pk_bytes];
@@ -86,12 +85,9 @@ fn main() {
     let keygen_ms = t_kg.elapsed().as_micros() as f64 / 1000.0;
     println!("keygen = {:.2} ms", keygen_ms);
 
-    // sk layout: [SK.seed (n) | SK.prf (n) | PK.seed (n) | PK.root (n)]
-    // pk layout: [PK.seed (n) | PK.root (n)]
     let sk_seed = sk[..SPX_N].to_vec();
-    let pk_seed = pk[..SPX_N].to_vec(); // == sk[2*SPX_N..3*SPX_N]
+    let pk_seed = pk[..SPX_N].to_vec();
 
-    // ── 2) Compute the expected PRF output on the host ────────────────────
     let adrs = fors_prf_adrs();
     let mut sk_i = vec![0u8; SPX_N];
     unsafe {
@@ -107,9 +103,6 @@ fn main() {
         SPX_N, SPX_N, SPX_N
     );
 
-    // ── 3) Build guest env ────────────────────────────────────────────────
-    // Write order must match prf_guest.rs read order:
-    //   pk_seed (public), adrs (public), sk_i (public), sk_seed (private)
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -128,7 +121,6 @@ fn main() {
         .build()
         .unwrap();
 
-    // ── 4) Prove ──────────────────────────────────────────────────────────
     let prover = default_prover();
     let opts = ProverOpts::fast();
     println!(
@@ -161,7 +153,6 @@ fn main() {
         stats.segments,
     );
 
-    // ── 5) Verify ─────────────────────────────────────────────────────────
     let t1 = Instant::now();
     receipt.verify(PRF_GUEST_ID).unwrap();
     let verify_ms = t1.elapsed().as_millis();

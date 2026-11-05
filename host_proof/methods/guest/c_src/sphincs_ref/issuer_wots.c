@@ -14,7 +14,7 @@
 
 #ifdef DAA_WOTS_SUPPORTED
 
-/* Generates a public top-leaf certificate and its private complete WOTS key. */
+// Implements issuer wots generate.
 int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len,
     uint8_t *witness, size_t witness_len, const uint8_t *pk, const uint8_t *sk)
 {
@@ -53,11 +53,11 @@ int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len,
         || sphincs_issuer_wots_relation(cert, cert_len, pk, witness, witness_len) ? -1 : 0;
 }
 
-/* Tests signing capability without SK.seed using fabricated hidden lower layers and R grinding. */
+// Implements issuer wots capability test.
 int sphincs_issuer_wots_capability_test(const uint8_t *cert, const uint8_t *pk,
     const uint8_t *witness)
 {
-    spx_ctx ctx = {0}; /* Deliberately never load any issuer SK.seed. */
+    spx_ctx ctx = {0};
     memcpy(ctx.pub_seed, pk, SPX_N);
     initialize_hash_function(&ctx);
     uint8_t *sig = malloc(SPX_BYTES);
@@ -123,16 +123,18 @@ int sphincs_issuer_wots_capability_test(const uint8_t *cert, const uint8_t *pk,
     }
     result = 0;
 cleanup:
-    /* This is a local simulator-capability test; neither credentials nor WOTS keys are exported. */
+
     memset(sig, 0, SPX_BYTES);
     free(sig);
     return result;
 }
 #else
-/* Rejects setup requests outside the supported SHA2-simple instantiation. */
+
+// Implements issuer wots generate.
 int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len, uint8_t *witness,
     size_t witness_len, const uint8_t *pk, const uint8_t *sk) { return -1; }
-/* Rejects capability tests outside the supported SHA2-simple instantiation. */
+
+// Implements issuer wots capability test.
 int sphincs_issuer_wots_capability_test(const uint8_t *cert, const uint8_t *pk,
     const uint8_t *witness) { return -1; }
 #endif

@@ -1,4 +1,4 @@
-/* Regression tests for feed-forward, shared witnesses, and public-input binding. */
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -11,12 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Keep test checks active in optimized builds where assert() is disabled. */
+// Implements require.
 static void require(int condition, const char* message) {
   if (!condition) { fprintf(stderr, "AES-DM regression failed: %s\n", message); exit(1); }
 }
 
-/* Compare against the FIPS AES-128 example, then apply its specified feed-forward. */
+// Implements known answer.
 static void known_answer(void) {
   const uint8_t key[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
   const uint8_t data[16] = {0,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff};
@@ -31,7 +31,7 @@ static void known_answer(void) {
   require(memcmp(output, raw, 16) == 0, "generic AES must stay unchanged");
 }
 
-/* Exercise actual constraints, including malformed witnesses bypassing DAA wrappers. */
+// Implements profile test.
 static void profile_test(int fast) {
   const faest_paramset_t* join = faest_get_paramset(fast ? DAA_FAEST_128F : DAA_FAEST_128S);
   const faest_paramset_t* sign = faest_get_paramset(fast ? FAEST_128F : FAEST_128S);
@@ -69,7 +69,7 @@ static void profile_test(int fast) {
   free(proof); free(witness);
 }
 
-/* Validate both VOLE profiles against the same AES-128-DM relation. */
+// Implements main.
 int main(void) {
   known_answer(); profile_test(0); profile_test(1);
   puts("AES-128-DM s/f: KAT, Join/Sign, feed-forward and hidden-et rejection tests: ok");

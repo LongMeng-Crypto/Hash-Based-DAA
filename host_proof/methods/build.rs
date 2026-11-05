@@ -1,7 +1,7 @@
 use std::fs::{self, File, FileTimes};
 use std::path::PathBuf;
 
-/// Embeds changed guests while keeping identical generated methods cache-stable.
+// Implements main.
 fn main() {
     for path in [
         "guest/Cargo.toml",
@@ -40,9 +40,6 @@ fn main() {
 
     risc0_build::embed_methods();
 
-    // risc0-build watches its own output to force a rebuild on every invocation.
-    // Restore only the timestamp of byte-identical output; source/lock/parameter
-    // dependencies above still force rebuilding whenever the guest could change.
     if let Some((bytes, modified)) = previous {
         if fs::read(&methods_rs).unwrap() == bytes {
             File::options()

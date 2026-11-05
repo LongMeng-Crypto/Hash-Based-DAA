@@ -14,6 +14,7 @@
 
 namespace {
   template <class B>
+  // Checks add.
   void check_add(B lhs, B rhs, B expected) {
     const auto result = lhs + rhs;
     BOOST_TEST(result == expected);
@@ -25,6 +26,7 @@ namespace {
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Checks add.
   void check_add(B lhs, B rhs) {
     const auto result     = lhs + rhs;
     const auto ntl_result = lhs.as_ntl() + rhs.as_ntl();
@@ -33,6 +35,7 @@ namespace {
 #endif
 
   template <class B>
+  // Checks mul.
   void check_mul(B lhs, B rhs, B expected) {
     const auto result = lhs * rhs;
     BOOST_TEST(result == expected);
@@ -44,6 +47,7 @@ namespace {
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Checks mul.
   void check_mul(B lhs, B rhs) {
     const auto result     = lhs * rhs;
     const auto ntl_result = MulMod(lhs.as_ntl(), rhs.as_ntl(), B::ntl_residue());
@@ -52,6 +56,7 @@ namespace {
 #endif
 
   template <class B>
+  // Checks div.
   void check_div(B lhs, B rhs, B expected) {
     const auto result = lhs / rhs;
     BOOST_TEST(result == expected);
@@ -63,6 +68,7 @@ namespace {
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Checks div.
   void check_div(B lhs, B rhs) {
     const auto result     = lhs / rhs;
     const auto ntl_result = DivMod(lhs.as_ntl(), rhs.as_ntl(), B::ntl_residue());
@@ -71,6 +77,7 @@ namespace {
 #endif
 
   template <class B>
+  // Adds invariants.
   void add_invariants() {
     check_add<B>(0xFF, B::zero(), 0xFF);
     check_add<B>(B::zero(), 0xFF, 0xFF);
@@ -79,6 +86,7 @@ namespace {
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Adds random.
   void add_random() {
     for (unsigned int i = 50; i; --i) {
       auto lhs = B::random();
@@ -89,6 +97,7 @@ namespace {
 #endif
 
   template <class B>
+  // Multiplies invariants.
   void mul_invariants() {
     check_mul<B>(0xFF, B::zero(), B::zero());
     check_mul<B>(B::zero(), 0xFF, B::zero());
@@ -97,12 +106,14 @@ namespace {
   }
 
   template <class B>
+  // Implements div invariants.
   void div_invariants() {
     check_div<B>(0xFF, B::one(), 0xFF);
   }
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Multiplies random.
   void mul_random() {
     for (unsigned int i = 50; i; --i) {
       auto lhs = B::random();
@@ -114,6 +125,7 @@ namespace {
 
 #if defined(HAVE_NTL)
   template <class B>
+  // Implements div random.
   void div_random() {
     for (unsigned int i = 50; i; --i) {
       auto lhs = B::random();
@@ -125,7 +137,7 @@ namespace {
     }
   }
 #endif
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE(fields)
 
@@ -1537,7 +1549,7 @@ namespace {
       0x53, 0x0a, 0xf6, 0xd5, 0x6d, 0xef, 0xe8, 0x53, 0x58, 0xfb, 0x5e,
       0x33, 0xfc, 0xe7, 0x04, 0x7d, 0xba, 0xa9, 0xea, 0x28, 0xb0,
   };
-} // namespace
+}
 
 BOOST_AUTO_TEST_CASE(test_bf64_tv) {
   for (size_t offset = 0; offset < enc_poly64_vec_xs.size(); offset += sizeof(bf64::bytes)) {

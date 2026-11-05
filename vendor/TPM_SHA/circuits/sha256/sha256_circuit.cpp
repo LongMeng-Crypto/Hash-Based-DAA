@@ -10,7 +10,7 @@ namespace faest::sha256_circuit {
 namespace {
 
 using Wire = std::uint32_t;
-using Word = std::array<Wire, 32>; // little-endian bits: bit 0 is the LSB
+using Word = std::array<Wire, 32>;
 
 constexpr std::array<std::uint32_t, 8> initial_state = {
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
@@ -31,24 +31,32 @@ constexpr std::array<std::uint32_t, 64> round_constants = {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
 
+// Implements default input visibility.
 InputVisibilityLayout default_input_visibility(std::size_t message_length) {
   if (message_length > max_message_bytes)
     throw std::invalid_argument("SHA-256 message exceeds the 550-byte circuit limit");
   return InputVisibilityLayout::all_secret(message_length * 8);
 }
 
-} // namespace
+}
 
 class CircuitBuilder {
 public:
+  // Implements circuit builder.
   explicit CircuitBuilder(Circuit& circuit) : circuit_(circuit) {}
 
+  // Implements zero.
   Wire zero() { return 0; }
+  // Implements one.
   Wire one() { return 1; }
+  // Implements input.
   Wire input(InputVisibility visibility) { return circuit_.input(visibility); }
+  // Implements xor.
   Wire xor_(Wire a, Wire b) { return circuit_.xor_wire(a, b); }
+  // Implements and.
   Wire and_(Wire a, Wire b) { return circuit_.and_wire(a, b); }
 
+  // Implements constant word.
   Word constant_word(std::uint32_t value) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) {
@@ -57,22 +65,26 @@ public:
     return out;
   }
 
+  // Implements xor word.
   Word xor_word(const Word& a, const Word& b) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) out[i] = xor_(a[i], b[i]);
     return out;
   }
 
+  // Implements xor word.
   Word xor_word(const Word& a, const Word& b, const Word& c) {
     return xor_word(xor_word(a, b), c);
   }
 
+  // Implements rotr.
   Word rotr(const Word& x, std::size_t amount) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) out[i] = x[(i + amount) % 32];
     return out;
   }
 
+  // Implements shr.
   Word shr(const Word& x, std::size_t amount) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) {
@@ -81,6 +93,7 @@ public:
     return out;
   }
 
+  // Adds the operation result.
   Word add(const Word& a, const Word& b) {
     Word sum{};
     Wire carry = zero();
@@ -88,15 +101,14 @@ public:
       const Wire propagate = xor_(a[i], b[i]);
       sum[i] = xor_(propagate, carry);
       if (i != 31) {
-        // maj(a,b,carry) = a XOR ((a XOR b) AND (a XOR carry)).
-        // This is the same full-adder carry as generate/propagate, but has
-        // multiplicative complexity one instead of two AND gates per bit.
+
         carry = xor_(a[i], and_(propagate, xor_(a[i], carry)));
       }
     }
     return sum;
   }
 
+  // Implements choice.
   Word choice(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) {
@@ -105,18 +117,23 @@ public:
     return out;
   }
 
+  // Implements majority.
   Word majority(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t i = 0; i != 32; ++i) {
-      // maj(x,y,z) = x XOR ((x XOR y) AND (x XOR z)).
+
       out[i] = xor_(x[i], and_(xor_(x[i], y[i]), xor_(x[i], z[i])));
     }
     return out;
   }
 
+  // Implements big sigma0.
   Word big_sigma0(const Word& x) { return xor_word(rotr(x, 2), rotr(x, 13), rotr(x, 22)); }
+  // Implements big sigma1.
   Word big_sigma1(const Word& x) { return xor_word(rotr(x, 6), rotr(x, 11), rotr(x, 25)); }
+  // Implements small sigma0.
   Word small_sigma0(const Word& x) { return xor_word(rotr(x, 7), rotr(x, 18), shr(x, 3)); }
+  // Implements small sigma1.
   Word small_sigma1(const Word& x) { return xor_word(rotr(x, 17), rotr(x, 19), shr(x, 10)); }
 
 private:
@@ -143,8 +160,6 @@ Circuit::Circuit(std::size_t message_length,
         nodes().begin(), nodes().end(), [](const Node& node) { return node.op == Op::And; }));
   };
 
-  // Secret bytes are supplied in ordinary byte order.  SHA-256 parses each
-  // group of four bytes as a big-endian word; Word itself stores LSB first.
   std::vector<std::array<Wire, 8>> message(message_length);
   inputs_.reserve(message_length * 8);
   for (std::size_t byte = 0; byte != message.size(); ++byte) {
@@ -212,7 +227,6 @@ Circuit::Circuit(std::size_t message_length,
     chaining = state;
   }
 
-  // Public SHA-256 digest bytes are big-endian.
   for (std::size_t word = 0; word != 8; ++word) {
     for (std::size_t byte = 0; byte != 4; ++byte) {
       for (std::size_t bit = 0; bit != 8; ++bit) {
@@ -279,4 +293,4 @@ bool Circuit::verify_statement(const Message& message, const Digest& claimed_dig
   return evaluate(message) == claimed_digest;
 }
 
-} // namespace faest::sha256_circuit
+}

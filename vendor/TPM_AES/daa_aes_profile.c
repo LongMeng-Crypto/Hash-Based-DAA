@@ -1,4 +1,4 @@
-/* Benchmark the in-tree optimized AES VOLE proofs used by DAA Join and Sign. */
+
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -23,20 +23,20 @@
 #include <string.h>
 #include <time.h>
 
-/* Return a monotonic timestamp in microseconds. */
+// Implements now us.
 static double now_us(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (double)ts.tv_sec * 1e6 + (double)ts.tv_nsec * 1e-3;
 }
 
-/* Abort a benchmark immediately if a proof operation fails. */
+// Implements die step.
 static void die_step(const char* variant, const char* step, int ret) {
   fprintf(stderr, "[%s] %s failed: %d\n", variant, step, ret);
   abort();
 }
 
-/* Parse the optional positive iteration count. */
+// Reads iters.
 static unsigned int read_iters(int argc, char** argv) {
   if (argc < 2) return 100;
   char* end = NULL;
@@ -44,8 +44,7 @@ static unsigned int read_iters(int argc, char** argv) {
   return end && *end == '\0' && value > 0 ? (unsigned int)value : 100;
 }
 
-/* Benchmark the Join relation et = F(sk,gid), excluding input generation. */
-/* Select whole comma-separated tokens, avoiding work for unrequested profiles. */
+// Implements selected.
 static int selected(const char* variable, const char* value) {
   const char* list = getenv(variable);
   if (!list || !*list) return 1;
@@ -60,7 +59,7 @@ static int selected(const char* variable, const char* value) {
   return 0;
 }
 
-/* Benchmark a selected Join profile with warmup outside the timed region. */
+// Benchmarks join.
 static void bench_join(const char* name, unsigned int lambda, int fast,
                        unsigned int iterations) {
   if (!selected("PARAMETERS", name) || !selected("PHASES", "join")) return;
@@ -152,7 +151,7 @@ DEFINE_SIGN_BENCH("256s", faest_256s, FAEST_256S_PUBLIC_KEY_SIZE,
 DEFINE_SIGN_BENCH("256f", faest_256f, FAEST_256F_PUBLIC_KEY_SIZE,
                   FAEST_256F_PRIVATE_KEY_SIZE, FAEST_256F_SIGNATURE_SIZE)
 
-/* Run every AES Join and three-function TPM signing profile. */
+// Implements main.
 int main(int argc, char** argv) {
   const unsigned int iterations = read_iters(argc, argv);
   printf("phase\tparameter\tprover_ms\tverifier_ms\tproof_bytes\n");

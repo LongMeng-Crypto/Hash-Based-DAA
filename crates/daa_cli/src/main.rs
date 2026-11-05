@@ -10,7 +10,7 @@ use daa_core::{
     TpmShaScheme,
 };
 
-/// Starts the CLI and prints fatal errors.
+// Implements main.
 fn main() {
     if let Err(err) = real_main() {
         eprintln!("error: {err}");
@@ -18,7 +18,7 @@ fn main() {
     }
 }
 
-/// Parses the top-level command and dispatches it.
+// Implements real main.
 fn real_main() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("run-full");
@@ -37,7 +37,7 @@ fn real_main() -> Result<(), String> {
     }
 }
 
-/// Benchmarks deterministic anchor generation, public verification and pi_I.
+// Benchmarks issuer anchor cmd.
 fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
     let iterations = opts.iterations.max(1);
     let config = opts.config().with_proof_mode(ProofMode::RealTpm);
@@ -136,7 +136,7 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
     Ok(())
 }
 
-/// Benchmarks only the prepared TPM-SHA Join and joint signing proofs.
+// Benchmarks tpm sha cmd.
 fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
     let variants: Vec<(SecurityLevel, TpmShaProfile)> = match opts.params.as_str() {
         "all" | "sha2-all" => vec![
@@ -210,7 +210,7 @@ fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
     Ok(())
 }
 
-/// Runs the complete protocol once and prints the trace.
+// Runs full cmd.
 fn run_full_cmd(opts: CliOptions) -> Result<(), String> {
     let config = opts.config();
     let output = run_full(config).map_err(|err| err.to_string())?;
@@ -253,7 +253,7 @@ fn run_full_cmd(opts: CliOptions) -> Result<(), String> {
     Ok(())
 }
 
-/// Runs repeated complete-protocol benchmarks and reports averages.
+// Benchmarks cmd.
 fn bench_cmd(opts: CliOptions) -> Result<(), String> {
     let iterations = opts.iterations.max(1);
     let started = Instant::now();
@@ -291,7 +291,7 @@ fn bench_cmd(opts: CliOptions) -> Result<(), String> {
     Ok(())
 }
 
-/// Prints a benchmark trace as a compact table.
+// Implements print trace.
 fn print_trace(trace: &BenchmarkTrace) {
     println!("{:<32} {:>14}", "step", "time (ms)");
     println!("{:-<47}", "");
@@ -308,7 +308,7 @@ fn print_trace(trace: &BenchmarkTrace) {
     }
 }
 
-/// Averages multiple benchmark traces by entry name.
+// Implements merge traces.
 fn merge_traces(traces: &[BenchmarkTrace]) -> BenchmarkTrace {
     let mut merged = BenchmarkTrace::new();
     if traces.is_empty() {
@@ -359,7 +359,7 @@ fn merge_traces(traces: &[BenchmarkTrace]) -> BenchmarkTrace {
     merged
 }
 
-/// Writes averaged benchmark results as JSON.
+// Writes json.
 fn write_json(path: &PathBuf, iterations: usize, trace: &BenchmarkTrace) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -403,7 +403,8 @@ struct CliOptions {
 }
 
 impl CliOptions {
-    /// Parses CLI flags into benchmark options.
+
+    // Parses the operation result.
     fn parse(args: &[String]) -> Result<Self, String> {
         let mut opts = Self {
             params: "sha2-128s".to_string(),
@@ -487,7 +488,7 @@ impl CliOptions {
         Ok(opts)
     }
 
-    /// Converts CLI options into a protocol configuration.
+    // Implements config.
     fn config(&self) -> ProtocolConfig {
         ProtocolConfig::default()
             .with_params(self.params.clone())
@@ -501,14 +502,14 @@ impl CliOptions {
     }
 }
 
-/// Reads the value following a flag.
+// Implements value.
 fn value(args: &[String], index: usize, flag: &str) -> Result<String, String> {
     args.get(index)
         .cloned()
         .ok_or_else(|| format!("missing value for {flag}"))
 }
 
-/// Prints the CLI help text.
+// Implements print help.
 fn print_help() {
     println!("DAA full protocol CLI");
     println!(

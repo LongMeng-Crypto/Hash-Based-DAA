@@ -9,6 +9,8 @@ mod sha_syscalls;
 risc0_zkvm::guest::entry!(main);
 
 extern "C" {
+
+    // Implements wots extreme.
     fn sphincs_wots_extreme(mode: u32) -> u64;
 }
 
@@ -19,11 +21,13 @@ const SPX_N: u32 = 24;
 #[cfg(lambda_256)]
 const SPX_N: u32 = 32;
 
+// Implements wots len.
 fn wots_len(n: u32) -> u32 {
-    // All current SPHINCS+ parameter sets use w=16, log_w=4, and len2=3.
+
     2 * n + 3
 }
 
+// Implements spx d.
 fn spx_d() -> u32 {
     match env!("SPHINCS_PARAMS") {
         "sphincs-sha2-128s" => 7,
@@ -36,6 +40,7 @@ fn spx_d() -> u32 {
     }
 }
 
+// Implements main.
 fn main() {
     let mode: u32 = env::read();
     assert!(mode == 0 || mode == 1);

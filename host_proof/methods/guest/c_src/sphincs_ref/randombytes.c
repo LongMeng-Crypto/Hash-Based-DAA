@@ -9,6 +9,7 @@ This code was taken from the SPHINCS reference implementation and is public doma
 
 static int fd = -1;
 
+// Implements randombytes.
 void randombytes(unsigned char *x, unsigned long long xlen)
 {
     unsigned long long i;

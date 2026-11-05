@@ -47,6 +47,7 @@ static const bf8_t round_constants[30] = {
     0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91,
 };
 
+// Computes sbox.
 static bf8_t compute_sbox(bf8_t in) {
   bf8_t t  = bf8_inv(in);
   bf8_t t0 = set_bit(parity8(t & (1 | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7))), 0);
@@ -72,8 +73,7 @@ static inline void aes_increment_iv(uint8_t* iv)
   memcpy(iv, &iv0, sizeof(uint32_t));
 }
 
-// ## AES ##
-// Round Functions
+// Adds round key.
 static void add_round_key(unsigned int round, aes_block_t state, const aes_round_keys_t* round_key,
                           unsigned int block_words) {
   for (unsigned int c = 0; c < block_words; c++) {
@@ -81,6 +81,7 @@ static void add_round_key(unsigned int round, aes_block_t state, const aes_round
   }
 }
 
+// Implements sub bytes.
 static void sub_bytes(aes_block_t state, unsigned int block_words) {
   for (unsigned int c = 0; c < block_words; c++) {
     for (unsigned int r = 0; r < AES_NR; r++) {
@@ -89,6 +90,7 @@ static void sub_bytes(aes_block_t state, unsigned int block_words) {
   }
 }
 
+// Implements shift row.
 static void shift_row(aes_block_t state, unsigned int block_words) {
   aes_block_t new_state;
   switch (block_words) {
@@ -116,6 +118,7 @@ static void shift_row(aes_block_t state, unsigned int block_words) {
   }
 }
 
+// Implements mix column.
 static void mix_column(aes_block_t state, unsigned int block_words) {
   for (unsigned int c = 0; c < block_words; c++) {
     bf8_t tmp[4];
@@ -128,7 +131,7 @@ static void mix_column(aes_block_t state, unsigned int block_words) {
   }
 }
 
-// Key Expansion functions
+// Implements sub words.
 static void sub_words(bf8_t* words) {
   words[0] = compute_sbox(words[0]);
   words[1] = compute_sbox(words[1]);
@@ -136,6 +139,7 @@ static void sub_words(bf8_t* words) {
   words[3] = compute_sbox(words[3]);
 }
 
+// Implements rot word.
 static void rot_word(bf8_t* words) {
 #if 0
   bf8_t tmp = words[0];
@@ -144,7 +148,7 @@ static void rot_word(bf8_t* words) {
   words[2]  = words[3];
   words[3]  = tmp;
 #else
-  // in the most ideal case, this generates a simple rord instruction
+
   uint32_t w;
   memcpy(&w, words, sizeof(w));
   w = htole32(rotr32(le32toh(w), 8));
@@ -152,6 +156,7 @@ static void rot_word(bf8_t* words) {
 #endif
 }
 
+// Implements expand key.
 void expand_key(aes_round_keys_t* round_keys, const uint8_t* key, unsigned int key_words,
                 unsigned int block_words, unsigned int num_rounds) {
   for (unsigned int k = 0; k < key_words; k++) {
@@ -178,47 +183,52 @@ void expand_key(aes_round_keys_t* round_keys, const uint8_t* key, unsigned int k
   }
 }
 
-// Calling Functions
-
+// Implements aes128 init round keys.
 void aes128_init_round_keys(aes_round_keys_t* round_key, const uint8_t* key) {
   expand_key(round_key, key, KEY_WORDS_128, AES_BLOCK_WORDS, AES_ROUNDS_128);
 }
 
+// Implements aes192 init round keys.
 void aes192_init_round_keys(aes_round_keys_t* round_key, const uint8_t* key) {
   expand_key(round_key, key, KEY_WORDS_192, AES_BLOCK_WORDS, AES_ROUNDS_192);
 }
 
+// Implements aes256 init round keys.
 void aes256_init_round_keys(aes_round_keys_t* round_key, const uint8_t* key) {
   expand_key(round_key, key, KEY_WORDS_256, AES_BLOCK_WORDS, AES_ROUNDS_256);
 }
 
+// Implements rijndael192 init round keys.
 void rijndael192_init_round_keys(aes_round_keys_t* round_key, const uint8_t* key) {
   expand_key(round_key, key, KEY_WORDS_192, RIJNDAEL_BLOCK_WORDS_192, AES_ROUNDS_192);
 }
 
+// Implements rijndael256 init round keys.
 void rijndael256_init_round_keys(aes_round_keys_t* round_key, const uint8_t* key) {
   expand_key(round_key, key, KEY_WORDS_256, RIJNDAEL_BLOCK_WORDS_256, AES_ROUNDS_256);
 }
 
+// Loads state.
 static void load_state(aes_block_t state, const uint8_t* src, unsigned int block_words) {
   for (unsigned int i = 0; i != block_words * 4; ++i) {
     state[i / 4][i % 4] = bf8_load(&src[i]);
   }
 }
 
+// Implements bf exp 238.
 ATTR_CONST static bf8_t bf_exp_238(bf8_t x) {
-  // 238 == 0b11101110
-  bf8_t y = bf8_square(x); // x^2
-  x       = bf8_square(y); // x^4
+
+  bf8_t y = bf8_square(x);
+  x       = bf8_square(y);
   y       = bf8_mul(x, y);
-  x       = bf8_square(x); // x^8
+  x       = bf8_square(x);
   y       = bf8_mul(x, y);
-  x       = bf8_square(x); // x^16
-  x       = bf8_square(x); // x^32
+  x       = bf8_square(x);
+  x       = bf8_square(x);
   y       = bf8_mul(x, y);
-  x       = bf8_square(x); // x^64
+  x       = bf8_square(x);
   y       = bf8_mul(x, y);
-  x       = bf8_square(x); // x^128
+  x       = bf8_square(x);
   return bf8_mul(x, y);
 }
 
@@ -227,12 +237,13 @@ static
 #endif
     uint8_t
     invnorm(uint8_t in) {
-  // instead of computing in^(-17), we calculate in^238
+
   in = bf_exp_238(in);
   return set_bit(get_bit(in, 0), 0) ^ set_bit(get_bit(in, 6), 1) ^ set_bit(get_bit(in, 7), 2) ^
          set_bit(get_bit(in, 2), 3);
 }
 
+// Stores invnorm state.
 static uint8_t* store_invnorm_state(uint8_t* dst, aes_block_t state, unsigned int block_words) {
   for (unsigned int i = 0; i != block_words * 4; i += 2, ++dst) {
     uint8_t normstate_lo = invnorm(state[i / 4][i % 4]);
@@ -242,6 +253,7 @@ static uint8_t* store_invnorm_state(uint8_t* dst, aes_block_t state, unsigned in
   return dst;
 }
 
+// Stores state.
 static uint8_t* store_state(uint8_t* dst, aes_block_t state, unsigned int block_words) {
   for (unsigned int i = 0; i != block_words * 4; ++i, ++dst) {
     bf8_store(dst, state[i / 4][i % 4]);
@@ -249,9 +261,10 @@ static uint8_t* store_state(uint8_t* dst, aes_block_t state, unsigned int block_
   return dst;
 }
 
+// Implements aes encrypt.
 static void aes_encrypt(const aes_round_keys_t* keys, aes_block_t state, unsigned int block_words,
                         unsigned int num_rounds) {
-  // first round
+
   add_round_key(0, state, keys, block_words);
 
   for (unsigned int round = 1; round < num_rounds; ++round) {
@@ -261,12 +274,12 @@ static void aes_encrypt(const aes_round_keys_t* keys, aes_block_t state, unsigne
     add_round_key(round, state, keys, block_words);
   }
 
-  // last round
   sub_bytes(state, block_words);
   shift_row(state, block_words);
   add_round_key(num_rounds, state, keys, block_words);
 }
 
+// Implements aes128 encrypt block.
 void aes128_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
                           uint8_t* ciphertext) {
   aes_block_t state;
@@ -275,6 +288,7 @@ void aes128_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
   store_state(ciphertext, state, AES_BLOCK_WORDS);
 }
 
+// Implements aes192 encrypt block.
 void aes192_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
                           uint8_t* ciphertext) {
   aes_block_t state;
@@ -283,6 +297,7 @@ void aes192_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
   store_state(ciphertext, state, AES_BLOCK_WORDS);
 }
 
+// Implements aes256 encrypt block.
 void aes256_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
                           uint8_t* ciphertext) {
   aes_block_t state;
@@ -291,6 +306,7 @@ void aes256_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
   store_state(ciphertext, state, AES_BLOCK_WORDS);
 }
 
+// Implements rijndael192 encrypt block.
 void rijndael192_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
                                uint8_t* ciphertext) {
   aes_block_t state;
@@ -299,6 +315,7 @@ void rijndael192_encrypt_block(const aes_round_keys_t* key, const uint8_t* plain
   store_state(ciphertext, state, RIJNDAEL_BLOCK_WORDS_192);
 }
 
+// Implements rijndael256 encrypt block.
 void rijndael256_encrypt_block(const aes_round_keys_t* key, const uint8_t* plaintext,
                                uint8_t* ciphertext) {
   aes_block_t state;
@@ -307,6 +324,7 @@ void rijndael256_encrypt_block(const aes_round_keys_t* key, const uint8_t* plain
   store_state(ciphertext, state, RIJNDAEL_BLOCK_WORDS_256);
 }
 
+// Adds to upper word.
 static void add_to_upper_word(uint8_t* iv, uint32_t tweak) {
   uint32_t iv3;
   memcpy(&iv3, iv + IV_SIZE - sizeof(uint32_t), sizeof(uint32_t));
@@ -315,10 +333,12 @@ static void add_to_upper_word(uint8_t* iv, uint32_t tweak) {
 }
 
 #if defined(HAVE_AESNI)
+// Implements sse2 increment iv.
 ATTR_TARGET_AESNI ATTR_ALWAYS_INLINE static inline __m128i sse2_increment_iv(__m128i iv) {
   return _mm_add_epi32(iv, _mm_set_epi32(0, 0, 0, 1));
 }
 
+// Implements prg aesni 128.
 ATTR_TARGET_AESNI static void prg_aesni_128(const uint8_t* key, const uint8_t* iv, uint8_t* out,
                                             size_t outlen) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -349,6 +369,7 @@ ATTR_TARGET_AESNI static void prg_aesni_128(const uint8_t* key, const uint8_t* i
   }
 }
 
+// Implements prg 2 aesni 128.
 ATTR_TARGET_AESNI static void prg_2_aesni_128(const uint8_t* key, const uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_128 + 1];
   aes128_expand_key_aesni(rk, key);
@@ -366,6 +387,7 @@ ATTR_TARGET_AESNI static void prg_2_aesni_128(const uint8_t* key, const uint8_t*
   _mm_storeu_si128((__m128i_u*)out + 1, _mm_aesenclast_si128(temp[1], rk[AES_ROUNDS_128]));
 }
 
+// Implements prg 4 aesni 128.
 ATTR_TARGET_AESNI static void prg_4_aesni_128(const uint8_t* key, const uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_128 + 1];
   aes128_expand_key_aesni(rk, key);
@@ -391,6 +413,7 @@ ATTR_TARGET_AESNI static void prg_4_aesni_128(const uint8_t* key, const uint8_t*
   _mm_storeu_si128((__m128i_u*)out + 3, _mm_aesenclast_si128(temp[3], rk[AES_ROUNDS_128]));
 }
 
+// Implements prg aesni 192.
 ATTR_TARGET_AESNI static void prg_aesni_192(const uint8_t* key, uint8_t* iv, uint8_t* out,
                                             size_t outlen) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -421,6 +444,7 @@ ATTR_TARGET_AESNI static void prg_aesni_192(const uint8_t* key, uint8_t* iv, uin
   }
 }
 
+// Implements prg 2 aesni 192.
 ATTR_TARGET_AESNI static void prg_2_aesni_192(const uint8_t* key, uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_192 + 1];
   aes192_expand_key_aesni(rk, key);
@@ -442,6 +466,7 @@ ATTR_TARGET_AESNI static void prg_2_aesni_192(const uint8_t* key, uint8_t* iv, u
   _mm_storeu_si128((__m128i_u*)out + 2, _mm_aesenclast_si128(temp[2], rk[AES_ROUNDS_192]));
 }
 
+// Implements prg 4 aesni 192.
 ATTR_TARGET_AESNI static void prg_4_aesni_192(const uint8_t* key, uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_192 + 1];
   aes192_expand_key_aesni(rk, key);
@@ -464,6 +489,7 @@ ATTR_TARGET_AESNI static void prg_4_aesni_192(const uint8_t* key, uint8_t* iv, u
   }
 }
 
+// Implements prg aesni 256.
 ATTR_TARGET_AESNI static void prg_aesni_256(const uint8_t* key, uint8_t* iv, uint8_t* out,
                                             size_t outlen) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -494,6 +520,7 @@ ATTR_TARGET_AESNI static void prg_aesni_256(const uint8_t* key, uint8_t* iv, uin
   }
 }
 
+// Implements prg 2 aesni 256.
 ATTR_TARGET_AESNI static void prg_2_aesni_256(const uint8_t* key, uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_256 + 1];
   aes256_expand_key_aesni(rk, key);
@@ -516,6 +543,7 @@ ATTR_TARGET_AESNI static void prg_2_aesni_256(const uint8_t* key, uint8_t* iv, u
   }
 }
 
+// Implements prg 4 aesni 256.
 ATTR_TARGET_AESNI static void prg_4_aesni_256(const uint8_t* key, uint8_t* iv, uint8_t* out) {
   __m128i rk[AES_ROUNDS_256 + 1];
   aes256_expand_key_aesni(rk, key);
@@ -539,6 +567,7 @@ ATTR_TARGET_AESNI static void prg_4_aesni_256(const uint8_t* key, uint8_t* iv, u
 }
 
 #if defined(HAVE_AVX2)
+// Implements prg aesni avx 128.
 ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_128(const uint8_t* key, const uint8_t* iv,
                                                      uint8_t* out, size_t outlen) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -569,6 +598,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_128(const uint8_t* key, const u
   }
 }
 
+// Implements prg 2 aesni avx 128.
 ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_128(const uint8_t* key, const uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -589,6 +619,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_128(const uint8_t* key, const
   _mm_storeu_si128((__m128i_u*)(out + IV_SIZE), temp[1]);
 }
 
+// Implements prg 4 aesni avx 128.
 ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_128(const uint8_t* key, const uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -615,6 +646,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_128(const uint8_t* key, const
   _mm_storeu_si128((__m128i_u*)out + 3, _mm_aesenclast_si128(temp[3], rk[AES_ROUNDS_128]));
 }
 
+// Implements prg aesni avx 192.
 ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_192(const uint8_t* key, uint8_t* iv, uint8_t* out,
                                                      size_t outlen) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -645,6 +677,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_192(const uint8_t* key, uint8_t
   }
 }
 
+// Implements prg 2 aesni avx 192.
 ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_192(const uint8_t* key, uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -667,6 +700,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_192(const uint8_t* key, uint8
   _mm_storeu_si128((__m128i_u*)out + 2, _mm_aesenclast_si128(temp[2], rk[AES_ROUNDS_192]));
 }
 
+// Implements prg 4 aesni avx 192.
 ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_192(const uint8_t* key, uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -690,6 +724,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_192(const uint8_t* key, uint8
   }
 }
 
+// Implements prg aesni avx 256.
 ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_256(const uint8_t* key, uint8_t* iv, uint8_t* out,
                                                      size_t outlen) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -720,6 +755,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_aesni_avx_256(const uint8_t* key, uint8_t
   }
 }
 
+// Implements prg 2 aesni avx 256.
 ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_256(const uint8_t* key, uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -743,6 +779,7 @@ ATTR_TARGET_AESNI_AVX2 static void prg_2_aesni_avx_256(const uint8_t* key, uint8
   }
 }
 
+// Implements prg 4 aesni avx 256.
 ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_256(const uint8_t* key, uint8_t* iv,
                                                        uint8_t* out) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -769,7 +806,8 @@ ATTR_TARGET_AESNI_AVX2 static void prg_4_aesni_avx_256(const uint8_t* key, uint8
 #endif
 
 #if defined(HAVE_AESNI)
-/* Encrypt eight independent CTR blocks in parallel for long VOLE streams. */
+
+// Implements prg aesni batch8.
 ATTR_TARGET_AESNI static void prg_aesni_batch8(const uint8_t* key, const uint8_t* iv,
                                                uint8_t* out, unsigned int seclvl,
                                                size_t outlen) {
@@ -838,6 +876,7 @@ ATTR_TARGET_AESNI static void prg_aesni_batch8(const uint8_t* key, const uint8_t
 }
 #endif
 
+// Implements generic prg.
 static void generic_prg(const uint8_t* key, uint8_t* internal_iv, uint8_t* out, unsigned int seclvl,
                         size_t outlen) {
   generic_aes_ecb_t ctx;
@@ -863,6 +902,7 @@ static void generic_prg(const uint8_t* key, uint8_t* internal_iv, uint8_t* out, 
   generic_aes_ecb_free(&ctx);
 }
 
+// Implements prg.
 void prg(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out, unsigned int seclvl,
          size_t outlen) {
   uint8_t internal_iv[IV_SIZE];
@@ -870,7 +910,7 @@ void prg(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out, un
   add_to_upper_word(internal_iv, tweak);
 
 #if defined(HAVE_AESNI)
-// use AES-NI if possible
+
   if (CPU_SUPPORTS_AESNI && outlen >= 8 * IV_SIZE) {
     prg_aesni_batch8(key, internal_iv, out, seclvl, outlen);
     return;
@@ -909,6 +949,7 @@ void prg(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out, un
   generic_prg(key, internal_iv, out, seclvl, outlen);
 }
 
+// Implements prg 2 lambda.
 void prg_2_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out,
                   unsigned int seclvl) {
   uint8_t internal_iv[IV_SIZE];
@@ -916,7 +957,7 @@ void prg_2_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t
   add_to_upper_word(internal_iv, tweak);
 
 #if defined(HAVE_AESNI)
-// use AES-NI if possible
+
 #if defined(HAVE_AVX2)
   if (CPU_SUPPORTS_AESNI_AVX2) {
     switch (seclvl) {
@@ -951,6 +992,7 @@ void prg_2_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t
   generic_prg(key, internal_iv, out, seclvl, seclvl * 2 / 8);
 }
 
+// Implements prg 4 lambda.
 void prg_4_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t* out,
                   unsigned int seclvl) {
   uint8_t internal_iv[IV_SIZE];
@@ -958,7 +1000,7 @@ void prg_4_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t
   add_to_upper_word(internal_iv, tweak);
 
 #if defined(HAVE_AESNI)
-// use AES-NI if possible
+
 #if defined(HAVE_AVX2)
   if (CPU_SUPPORTS_AESNI_AVX2) {
     switch (seclvl) {
@@ -993,154 +1035,10 @@ void prg_4_lambda(const uint8_t* key, const uint8_t* iv, uint32_t tweak, uint8_t
   generic_prg(key, internal_iv, out, seclvl, seclvl * 4 / 8);
 }
 
-/*
-void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in,
-                        const faest_paramset_t* params) {
-
-  const unsigned int lambda      = params->lambda;
-  const unsigned int num_rounds  = params->R;
-  const unsigned int blocksize   = 32 * params->Nst;
-  const unsigned int beta        = (lambda + blocksize - 1) / blocksize;
-  const unsigned int block_words = blocksize / 32;
-  const bool is_em               = faest_is_em(params);
-
-#if !defined(NDEBUG)
-  uint8_t* const w_out = w;
-#endif
-
-  if (is_em) {
-    // switch input and key for EM
-    const uint8_t* tmp = key;
-    key                = in;
-    in                 = tmp;
-  }
-
-  // Step 3
-  aes_round_keys_t round_keys;
-  switch (lambda) {
-  case 256:
-    if (is_em) {
-      // for scan-build
-      assert(block_words == RIJNDAEL_BLOCK_WORDS_256);
-      rijndael256_init_round_keys(&round_keys, key);
-    } else {
-      aes256_init_round_keys(&round_keys, key);
-    }
-    break;
-  case 192:
-    if (is_em) {
-      // for scan-build
-      assert(block_words == RIJNDAEL_BLOCK_WORDS_192);
-      rijndael192_init_round_keys(&round_keys, key);
-    } else {
-      aes192_init_round_keys(&round_keys, key);
-    }
-    break;
-  default:
-    aes128_init_round_keys(&round_keys, key);
-    break;
-  }
-
-  // Step 4
-  if (!is_em) {
-    const unsigned int nk = lambda / 32;
-
-    // Key schedule constraints only needed for normal AES, not EM variant.
-    for (unsigned int i = 0; i != nk; ++i) {
-      memcpy(w, round_keys.round_keys[i / 4][i % 4], sizeof(aes_word_t));
-      w += sizeof(aes_word_t);
-    }
-
-    const unsigned int S_ke = params->Ske;
-    for (unsigned int j = 0, ik = nk; j < S_ke / 4; ++j) {
-      memcpy(w, round_keys.round_keys[ik / 4][ik % 4], sizeof(aes_word_t));
-      w += sizeof(aes_word_t);
-      ik += lambda == 192 ? 6 : 4;
-    }
-  } else {
-    const unsigned int lambda_bytes = lambda / 8;
-
-    // saving the OWF key to the extended witness
-    memcpy(w, in, lambda_bytes);
-    w += lambda_bytes;
-  }
-
-  assert(w - w_out == params->Lke / 8);
-
-  // Step 10
-  // common part for AES-128, EM-128, EM-192, EM-256, first part for AES-192 and AES-256
-  {
-    // Step 12
-    aes_block_t state;
-    load_state(state, in, block_words);
-
-    // Step 13
-    add_round_key(0, state, &round_keys, block_words);
-
-    for (unsigned int round = 1; round < num_rounds; ++round) {
-      if (round % 2 == 1) {
-        // save inverse norm of the S-box inputs, in coloumn major order
-        w = store_invnorm_state(w, state, block_words);
-      }
-      // Step 15
-      sub_bytes(state, block_words);
-      // Step 16
-      shift_row(state, block_words);
-      if (round % 2 == 0) {
-        // Step 17
-        w = store_state(w, state, block_words);
-      }
-      // Step 18
-      mix_column(state, block_words);
-      // Step 19
-      add_round_key(round, state, &round_keys, block_words);
-    }
-    // last round is not commited to, so not computed
-  }
-
-  if (beta == 2) {
-    // AES-192 and AES-256
-    uint8_t buf[16];
-    memcpy(buf, in, sizeof(buf));
-    buf[0] ^= 0x1;
-
-    // Step 12
-    aes_block_t state;
-    load_state(state, buf, block_words);
-
-    // Step 13
-    add_round_key(0, state, &round_keys, block_words);
-
-    for (unsigned int round = 1; round < num_rounds; ++round) {
-      if (round % 2 == 1) {
-        // save inverse norm of the S-box inputs, in coloumn major order
-        w = store_invnorm_state(w, state, block_words);
-      }
-      // Step 15
-      sub_bytes(state, block_words);
-      // Step 16
-      shift_row(state, block_words);
-      if (round % 2 == 0) {
-        // Step 17
-        w = store_state(w, state, block_words);
-      }
-      // Step 18
-      mix_column(state, block_words);
-      // Step 19
-      add_round_key(round, state, &round_keys, block_words);
-    }
-    // last round is not commited to, so not computed
-  }
-
-  assert(w - w_out == params->l / 8);
-}
-*/
-
-// ---------- TPM credential helpers: AES-128 keyexp + enc witness writers ----------
-
+// Writes keyexp witness aes128.
 static uint8_t* tpm_write_keyexp_witness_aes128(uint8_t* w, const aes_round_keys_t* rk, const faest_paramset_t* params) {
-  // Same format as original FAEST key schedule witness (AES-128, non-EM).
-  const unsigned int nk = 4; // AES-128: Nk = 4 words
+
+  const unsigned int nk = 4;
   for (unsigned int i = 0; i != nk; ++i) {
     memcpy(w, rk->round_keys[i / 4][i % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
@@ -1150,26 +1048,25 @@ static uint8_t* tpm_write_keyexp_witness_aes128(uint8_t* w, const aes_round_keys
   for (unsigned int j = 0, ik = nk; j < S_ke / 4; ++j) {
     memcpy(w, rk->round_keys[ik / 4][ik % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
-    ik += 4; // AES-128 step
+    ik += 4;
   }
 
   return w;
 }
 
+// Writes enc witness aes128.
 static uint8_t* tpm_write_enc_witness_aes128(uint8_t* w, const uint8_t* plaintext, const aes_round_keys_t* rk, const faest_paramset_t* params) {
   const unsigned int num_rounds = params->R;
-  const unsigned int block_words = 4; // AES-128 block = 4 words (16 bytes)
+  const unsigned int block_words = 4;
 
   aes_block_t state;
   load_state(state, plaintext, block_words);
 
-  // Round 0
   add_round_key(0, state, rk, block_words);
 
-  // Rounds 1..R-1 (last round not committed)
   for (unsigned int round = 1; round < num_rounds; ++round) {
     if (round % 2 == 1) {
-      // save 4-bit inverse norm of S-box inputs, packed into bytes
+
       w = store_invnorm_state(w, state, block_words);
     }
 
@@ -1177,7 +1074,7 @@ static uint8_t* tpm_write_enc_witness_aes128(uint8_t* w, const uint8_t* plaintex
     shift_row(state, block_words);
 
     if (round % 2 == 0) {
-      // save ShiftRows output (bit-packed) in FAEST format
+
       w = store_state(w, state, block_words);
     }
 
@@ -1188,30 +1085,29 @@ static uint8_t* tpm_write_enc_witness_aes128(uint8_t* w, const uint8_t* plaintex
   return w;
 }
 
-// ---------- TPM credential helpers: AES-192 keyexp + enc witness writers ----------
-
+// Writes keyexp witness aes192.
 static uint8_t* tpm_write_keyexp_witness_aes192(uint8_t* w, const aes_round_keys_t* rk, const faest_paramset_t* params) {
-  // AES-192: Nk = 6 words (24 bytes = LAMBDA/8 initial key bytes)
+
   const unsigned int nk = 6;
   for (unsigned int i = 0; i != nk; ++i) {
     memcpy(w, rk->round_keys[i / 4][i % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
   }
 
-  // Additional S-box key words, stepping by 6 (AES-192 key schedule: SubWord every NK=6 words)
   const unsigned int S_ke = params->Ske;
   for (unsigned int j = 0, ik = nk; j < S_ke / 4; ++j) {
     memcpy(w, rk->round_keys[ik / 4][ik % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
-    ik += 6; // AES-192 step: SubWord applied every NK=6 words
+    ik += 6;
   }
 
   return w;
 }
 
+// Writes enc witness aes192.
 static uint8_t* tpm_write_enc_witness_aes192(uint8_t* w, const uint8_t* plaintext, const aes_round_keys_t* rk, const faest_paramset_t* params) {
-  const unsigned int num_rounds = params->R;  // 12 for AES-192
-  const unsigned int block_words = 4;         // AES block always 4 words (16 bytes)
+  const unsigned int num_rounds = params->R;
+  const unsigned int block_words = 4;
 
   aes_block_t state;
   load_state(state, plaintext, block_words);
@@ -1236,30 +1132,29 @@ static uint8_t* tpm_write_enc_witness_aes192(uint8_t* w, const uint8_t* plaintex
   return w;
 }
 
-// ---------- TPM credential helpers: AES-256 keyexp + enc witness writers ----------
-
+// Writes keyexp witness aes256.
 static uint8_t* tpm_write_keyexp_witness_aes256(uint8_t* w, const aes_round_keys_t* rk, const faest_paramset_t* params) {
-  // AES-256: Nk = 8 words (32 bytes = LAMBDA/8 initial key bytes)
+
   const unsigned int nk = 8;
   for (unsigned int i = 0; i != nk; ++i) {
     memcpy(w, rk->round_keys[i / 4][i % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
   }
 
-  // Additional S-box key words, stepping by 4 (same as original FAEST non-192 case)
   const unsigned int S_ke = params->Ske;
   for (unsigned int j = 0, ik = nk; j < S_ke / 4; ++j) {
     memcpy(w, rk->round_keys[ik / 4][ik % 4], sizeof(aes_word_t));
     w += sizeof(aes_word_t);
-    ik += 4; // step 4 for AES-128/256 (original FAEST: lambda==192?6:4)
+    ik += 4;
   }
 
   return w;
 }
 
+// Writes enc witness aes256.
 static uint8_t* tpm_write_enc_witness_aes256(uint8_t* w, const uint8_t* plaintext, const aes_round_keys_t* rk, const faest_paramset_t* params) {
-  const unsigned int num_rounds = params->R;  // 14 for AES-256
-  const unsigned int block_words = 4;         // AES block always 4 words (16 bytes)
+  const unsigned int num_rounds = params->R;
+  const unsigned int block_words = 4;
 
   aes_block_t state;
   load_state(state, plaintext, block_words);
@@ -1284,7 +1179,7 @@ static uint8_t* tpm_write_enc_witness_aes256(uint8_t* w, const uint8_t* plaintex
   return w;
 }
 
-/* Serialize the secret Rijndael-256 key and every nonlinear key-schedule word. */
+// Writes keyexp witness rijndael256.
 static uint8_t* tpm_write_keyexp_witness_rijndael256(uint8_t* w,
                                                      const aes_round_keys_t* rk,
                                                      const faest_paramset_t* params) {
@@ -1300,7 +1195,7 @@ static uint8_t* tpm_write_keyexp_witness_rijndael256(uint8_t* w,
   return w;
 }
 
-/* Serialize the optimized FAEST witness for one 256-bit Rijndael encryption. */
+// Writes enc witness rijndael256.
 static uint8_t* tpm_write_enc_witness_rijndael256(uint8_t* w, const uint8_t* plaintext,
                                                   const aes_round_keys_t* rk,
                                                   const faest_paramset_t* params) {
@@ -1323,6 +1218,7 @@ static uint8_t* tpm_write_enc_witness_rijndael256(uint8_t* w, const uint8_t* pla
   return w;
 }
 
+// Implements aes extend witness.
 void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const faest_paramset_t* params) {
   const unsigned int lambda      = params->lambda;
   const unsigned int num_rounds  = params->R;
@@ -1335,7 +1231,6 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     uint8_t* const w_out = w;
   #endif
 
-  /* Rijndael-256 DM Join: Kexp(sk) || Enc(sk,gid). */
   if (!is_em && lambda == 128 && params->Nst == 8 &&
       params->owf_input_size == 32 && params->owf_output_size == 32 &&
       params->l == params->Lke + params->Lenc) {
@@ -1349,7 +1244,6 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     return;
   }
 
-  /* Rijndael-256 DM Sign: two shared key schedules, three calls, and hidden et. */
   if (!is_em && lambda == 128 && params->Nst == 8 &&
       params->owf_input_size == 64 && params->owf_output_size == 64) {
     const uint8_t* sk = key;
@@ -1376,29 +1270,13 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     return;
   }
 
-  // --------------------------------------------------------------------
-  // TPM-credential (3-AES) witness extension fast path:
-  //   key = k1||k2||k3 = sk_u || et_u || s  (48 bytes)
-  //   in  = in1||in2   = lid  || gid       (32 bytes)
-  //
-  //   w = w1 || w2 || w3 || k2
-  //     w1: KeyExp(k1) + Enc(k1, in1)
-  //     w2: Enc(k1, in2)
-  //     w3: KeyExp(k3) + Enc(k3, k2)
-  //     k2 appended (16 bytes)
-  //
-  // NOTE: XOR-with-plaintext (hash-style y=AES(x)^x) is enforced in constraints (Step 4),
-  //       not in witness extension.
-  // --------------------------------------------------------------------
-
   if (!is_em && lambda == 128 && params->owf_input_size == 32 && params->owf_output_size == 32) {
-    const uint8_t* k1  = key;        // sk_u (16 bytes)
-    const uint8_t* k2  = key + 16;   // et_u (16 bytes)
-    const uint8_t* k3  = key + 32;   // s    (16 bytes)
-    const uint8_t* in1 = in;         // lid  (16 bytes)
-    const uint8_t* in2 = in + 16;    // gid  (16 bytes)
+    const uint8_t* k1  = key;
+    const uint8_t* k2  = key + 16;
+    const uint8_t* k3  = key + 32;
+    const uint8_t* in1 = in;
+    const uint8_t* in2 = in + 16;
 
-    // Kexp(k1) + Enc(k1, lid) + Enc(k1, gid) + Kexp(k3) + Enc(k3, et_u) + et_u_raw
     aes_round_keys_t rk1;
     aes128_init_round_keys(&rk1, k1);
     w = tpm_write_keyexp_witness_aes128(w, &rk1, params);
@@ -1410,7 +1288,6 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     w = tpm_write_keyexp_witness_aes128(w, &rk3, params);
     w = tpm_write_enc_witness_aes128(w, k2, &rk3, params);
 
-    // Append et_u raw (16 bytes) so verifier can link the chained AES calls
     memcpy(w, k2, 16);
     w += 16;
 
@@ -1420,33 +1297,19 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     return;
   }
 
-  // --------------------------------------------------------------------
-  // TPM-credential (6-AES-192) witness extension fast path (LAMBDA=192):
-  //   key = sk_u(24) || et_u(32) || s(24)  (80 bytes)
-  //   in  = lid(16)  || gid(16)             (32 bytes)
-  //
-  //   w = Kexp(sk_u) + Enc(sk_u,lid) + Enc(sk_u,lid⊕1)
-  //                  + Enc(sk_u,gid) + Enc(sk_u,gid⊕1)
-  //       + Kexp(s)  + Enc(s,et_u[0]) + Enc(s,et_u[1])
-  //       + et_u_raw (32 bytes)
-  //
-  //   Total: 2*Lke + 6*Lenc + 256 = 7296 bits
-  // --------------------------------------------------------------------
   if (!is_em && lambda == 192 && params->owf_input_size == 32 && params->owf_output_size == 64) {
-    const uint8_t* k1  = key;           // sk_u   (24 bytes)
-    const uint8_t* k2  = key + 24;      // et_u   (32 bytes: et_u[0] at +24, et_u[1] at +40)
-    const uint8_t* k3  = key + 24 + 32; // s      (24 bytes)
-    const uint8_t* in1 = in;            // lid    (16 bytes)
-    const uint8_t* in2 = in + 16;       // gid    (16 bytes)
+    const uint8_t* k1  = key;
+    const uint8_t* k2  = key + 24;
+    const uint8_t* k3  = key + 24 + 32;
+    const uint8_t* in1 = in;
+    const uint8_t* in2 = in + 16;
 
-    // Compute lid⊕1 and gid⊕1 (flip LSB of first byte, matching owf_192 convention)
     uint8_t lid1[16], gid1[16];
     memcpy(lid1, in1, 16);
     lid1[0] ^= 0x01;
     memcpy(gid1, in2, 16);
     gid1[0] ^= 0x01;
 
-    // KeyExp(sk_u) + Enc(sk_u, lid) + Enc(sk_u, lid⊕1) + Enc(sk_u, gid) + Enc(sk_u, gid⊕1)
     aes_round_keys_t rk1;
     aes192_init_round_keys(&rk1, k1);
     w = tpm_write_keyexp_witness_aes192(w, &rk1, params);
@@ -1455,14 +1318,12 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     w = tpm_write_enc_witness_aes192(w, in2,  &rk1, params);
     w = tpm_write_enc_witness_aes192(w, gid1, &rk1, params);
 
-    // KeyExp(s) + Enc(s, et_u[0:16]) + Enc(s, et_u[16:32])
     aes_round_keys_t rk3;
     aes192_init_round_keys(&rk3, k3);
     w = tpm_write_keyexp_witness_aes192(w, &rk3, params);
-    w = tpm_write_enc_witness_aes192(w, k2,      &rk3, params);  // et_u[0]
-    w = tpm_write_enc_witness_aes192(w, k2 + 16, &rk3, params);  // et_u[1]
+    w = tpm_write_enc_witness_aes192(w, k2,      &rk3, params);
+    w = tpm_write_enc_witness_aes192(w, k2 + 16, &rk3, params);
 
-    // Append et_u raw (32 bytes)
     memcpy(w, k2, 32);
     w += 32;
 
@@ -1472,33 +1333,19 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     return;
   }
 
-  // --------------------------------------------------------------------
-  // TPM-credential (6-AES-256) witness extension fast path (LAMBDA=256):
-  //   key = sk_u(32) || et_u(32) || s(32)  (96 bytes)
-  //   in  = lid(16)  || gid(16)             (32 bytes)
-  //
-  //   w = Kexp(sk_u) + Enc(sk_u,lid) + Enc(sk_u,lid⊕1)
-  //                  + Enc(sk_u,gid) + Enc(sk_u,gid⊕1)
-  //       + Kexp(s)  + Enc(s,et_u[0]) + Enc(s,et_u[1])
-  //       + et_u_raw (32 bytes)
-  //
-  //   Total: 2*Lke + 6*Lenc + 256 = 8896 bits
-  // --------------------------------------------------------------------
   if (!is_em && lambda == 256 && params->owf_input_size == 32 && params->owf_output_size == 64) {
-    const uint8_t* k1   = key;        // sk_u   (32 bytes)
-    const uint8_t* k2   = key + 32;   // et_u   (32 bytes: et_u[0] at +32, et_u[1] at +48)
-    const uint8_t* k3   = key + 64;   // s      (32 bytes)
-    const uint8_t* in1  = in;         // lid    (16 bytes)
-    const uint8_t* in2  = in + 16;    // gid    (16 bytes)
+    const uint8_t* k1   = key;
+    const uint8_t* k2   = key + 32;
+    const uint8_t* k3   = key + 64;
+    const uint8_t* in1  = in;
+    const uint8_t* in2  = in + 16;
 
-    // Compute lid⊕1 and gid⊕1 (flip LSB of first byte, matching owf_256 convention)
     uint8_t lid1[16], gid1[16];
     memcpy(lid1, in1, 16);
     lid1[0] ^= 0x01;
     memcpy(gid1, in2, 16);
     gid1[0] ^= 0x01;
 
-    // KeyExp(sk_u) + Enc(sk_u, lid) + Enc(sk_u, lid⊕1) + Enc(sk_u, gid) + Enc(sk_u, gid⊕1)
     aes_round_keys_t rk1;
     aes256_init_round_keys(&rk1, k1);
     w = tpm_write_keyexp_witness_aes256(w, &rk1, params);
@@ -1507,14 +1354,12 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     w = tpm_write_enc_witness_aes256(w, in2,  &rk1, params);
     w = tpm_write_enc_witness_aes256(w, gid1, &rk1, params);
 
-    // KeyExp(s) + Enc(s, et_u[0:16]) + Enc(s, et_u[16:32])
     aes_round_keys_t rk3;
     aes256_init_round_keys(&rk3, k3);
     w = tpm_write_keyexp_witness_aes256(w, &rk3, params);
-    w = tpm_write_enc_witness_aes256(w, k2,      &rk3, params);  // et_u[0]
-    w = tpm_write_enc_witness_aes256(w, k2 + 16, &rk3, params);  // et_u[1]
+    w = tpm_write_enc_witness_aes256(w, k2,      &rk3, params);
+    w = tpm_write_enc_witness_aes256(w, k2 + 16, &rk3, params);
 
-    // Append et_u raw (32 bytes)
     memcpy(w, k2, 32);
     w += 32;
 
@@ -1524,23 +1369,18 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     return;
   }
 
-  // --------------------------------------------------------------------
-  // Original FAEST behavior (fallback)
-  // --------------------------------------------------------------------
-
   if (is_em) {
-    // switch input and key for EM
+
     const uint8_t* tmp = key;
     key                = in;
     in                 = tmp;
   }
 
-  // Step 3
   aes_round_keys_t round_keys;
   switch (lambda) {
   case 256:
     if (is_em) {
-      // for scan-build
+
       assert(block_words == RIJNDAEL_BLOCK_WORDS_256);
       rijndael256_init_round_keys(&round_keys, key);
     } else {
@@ -1549,7 +1389,7 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     break;
   case 192:
     if (is_em) {
-      // for scan-build
+
       assert(block_words == RIJNDAEL_BLOCK_WORDS_192);
       rijndael192_init_round_keys(&round_keys, key);
     } else {
@@ -1561,7 +1401,6 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
     break;
   }
 
-  // Step 4
   if (!is_em) {
     const unsigned int nk = lambda / 32;
 
@@ -1586,7 +1425,6 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
   assert(w - w_out == params->Lke / 8);
 #endif
 
-  // Step 10
   {
     aes_block_t state;
     load_state(state, in, block_words);
@@ -1640,8 +1478,8 @@ void aes_extend_witness(uint8_t* w, const uint8_t* key, const uint8_t* in, const
 #endif
 }
 
-
 #if defined(HAVE_OPENSSL)
+// Implements generic aes ecb new.
 int generic_aes_ecb_new(generic_aes_ecb_t* context, const uint8_t* key, unsigned int seclvl) {
   const EVP_CIPHER* cipher;
   switch (seclvl) {
@@ -1669,6 +1507,7 @@ int generic_aes_ecb_new(generic_aes_ecb_t* context, const uint8_t* key, unsigned
   return 0;
 }
 
+// Implements generic aes ecb encrypt.
 int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const uint8_t* plaintext,
                             size_t blocks) {
   int len = 0;
@@ -1679,10 +1518,12 @@ int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const u
   return 0;
 }
 
+// Implements generic aes ecb free.
 void generic_aes_ecb_free(generic_aes_ecb_t* ctx) {
   EVP_CIPHER_CTX_free(ctx->ctx);
 }
 #elif defined(_WIN32)
+// Implements generic aes ecb new.
 int generic_aes_ecb_new(generic_aes_ecb_t* ctx, const uint8_t* key, unsigned int seclvl) {
   BCRYPT_ALG_HANDLE aes_handle = NULL;
   BCRYPT_KEY_HANDLE key_handle = NULL;
@@ -1709,6 +1550,7 @@ int generic_aes_ecb_new(generic_aes_ecb_t* ctx, const uint8_t* key, unsigned int
   return 0;
 }
 
+// Implements generic aes ecb encrypt.
 int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const uint8_t* plaintext,
                             size_t blocks) {
   ULONG len          = 0;
@@ -1723,11 +1565,13 @@ int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const u
   return 0;
 }
 
+// Implements generic aes ecb free.
 void generic_aes_ecb_free(generic_aes_ecb_t* ctx) {
   BCryptDestroyKey(ctx->key_handle);
   BCryptCloseAlgorithmProvider(ctx->aes_handle, 0);
 }
 #else
+// Implements generic aes ecb new.
 int generic_aes_ecb_new(generic_aes_ecb_t* ctx, const uint8_t* key, unsigned int seclvl) {
   switch (seclvl) {
   case 256:
@@ -1747,6 +1591,7 @@ int generic_aes_ecb_new(generic_aes_ecb_t* ctx, const uint8_t* key, unsigned int
   return 0;
 }
 
+// Implements generic aes ecb encrypt.
 int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const uint8_t* plaintext,
                             size_t blocks) {
   switch (ctx->seclvl) {
@@ -1779,6 +1624,7 @@ int generic_aes_ecb_encrypt(generic_aes_ecb_t* ctx, uint8_t* ciphertext, const u
   return 0;
 }
 
+// Implements generic aes ecb free.
 void generic_aes_ecb_free(generic_aes_ecb_t* ctx) {
   faest_explicit_bzero(&ctx->round_keys, sizeof(ctx->round_keys));
 }

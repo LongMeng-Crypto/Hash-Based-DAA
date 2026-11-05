@@ -21,6 +21,8 @@ mod sha_syscalls;
 risc0_zkvm::guest::entry!(main);
 
 extern "C" {
+
+    // Implements crypto sign verify.
     fn crypto_sign_verify(
         sig: *const u8,
         siglen: usize,
@@ -30,9 +32,12 @@ extern "C" {
     ) -> i32;
 
     #[cfg(sphincs_profile)]
+
+    // Implements spx profile snapshot.
     fn spx_profile_snapshot(out: *mut u64);
 }
 
+// Parses usize.
 const fn parse_usize(s: &str) -> usize {
     let bytes = s.as_bytes();
     let mut i = 0;
@@ -53,8 +58,6 @@ const OPT5_PAD_BLOCKS: usize = parse_usize(env!("SPHINCS_OPT5_PAD_BLOCKS"));
 #[cfg(sphincs_profile)]
 const PROFILE_WORDS: usize = 16;
 
-// AES mode retains its historical wire format.  SHA mode uses full SHA-2
-// digests for et/hk and keeps the issuer nonce at the security-parameter size.
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
 const ET_BYTES: usize = 16;
 #[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
@@ -97,11 +100,13 @@ const HOOK_PUBLIC_BYTES: usize = HK_BYTES;
 const HOOK_PUBLIC_BYTES: usize = 2 * HK_BYTES;
 
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
-    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+
     for (byte, input) in block.iter_mut().zip(et_u.iter()) {
         *byte ^= input;
     }
@@ -110,8 +115,9 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     out
 }
 
-// lambda = 192: AES-192, s=24B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_192))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -124,8 +130,9 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-// lambda = 256: AES-256, s=32B, et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_256))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = [0u8; HK_BYTES];
@@ -139,21 +146,29 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
+
+// Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha512_hook(s, et_u)
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -162,6 +177,8 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -170,6 +187,8 @@ fn cdenw23_hooks(
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(
     sst: &[u8; HOOK_SECRET_BYTES],
     et_u: &[u8; ET_BYTES],
@@ -178,6 +197,8 @@ fn cdenw23_hooks(
 }
 
 #[cfg(sphincs_opt5_padding)]
+
+// Implements opt5 bin forcing padding.
 fn opt5_bin_forcing_padding() {
     const DIGEST_WORDS: usize = 8;
     let mut state = [
@@ -202,6 +223,7 @@ fn opt5_bin_forcing_padding() {
     core::hint::black_box(state);
 }
 
+// Implements main.
 fn main() {
     let mut pk = [0u8; PK_BYTES];
     let mut sig = [0u8; SIG_BYTES];
@@ -225,7 +247,6 @@ fn main() {
     msg[..ET_BYTES].copy_from_slice(&et_u);
     msg[ET_BYTES..].copy_from_slice(&issuer_nonce);
 
-    // 1) Verify SPHINCS+ signature over the reconstructed secret message
     let ret = unsafe {
         crypto_sign_verify(
             sig.as_ptr(),
@@ -237,8 +258,6 @@ fn main() {
     };
     assert!(ret == 0);
 
-    // 2) Recompute and check the selected TPM hook.  The legacy skip switch is
-    // deliberately AES-only; a SHA-mode receipt always proves the SHA hook.
     #[cfg(all(not(daa_tpm_sha_chen23), any(daa_tpm_sha2, not(skip_aes_check))))]
     {
         let hk_calc = hook(&hook_secret, &et_u);

@@ -24,4 +24,4 @@ int randombytes(unsigned char* x, unsigned long long xlen);
 
 FAEST_END_C_DECL
 
-#endif /* rng_h */
+#endif

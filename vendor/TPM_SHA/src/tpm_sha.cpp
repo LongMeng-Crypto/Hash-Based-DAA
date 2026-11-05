@@ -37,6 +37,7 @@ vole_backend::VoleProfile profile_from_c(daa_tpm_sha_profile profile) {
 }
 
 struct CachedRelation {
+  // Implements cached relation.
   explicit CachedRelation(vole_backend::SecurityLevel level,
                           daa::tpm_sha::RelationKind kind)
       : relation(level, kind), prepared(relation.binary_circuit()) {}
@@ -141,6 +142,7 @@ int ffi(Function&& function) noexcept {
   }
 }
 
+// Implements copy exact.
 void copy_exact(std::span<const std::uint8_t> source,
                 std::span<std::uint8_t> destination, const char* name) {
   if (destination.size() != source.size())
@@ -186,6 +188,7 @@ vole_backend::PublicStatement chen23_sign_statement(
           relation.output_bits(slt, {}, hk, cet)};
 }
 
+// Writes proof.
 int write_proof(std::span<const std::uint8_t> proof,
                 std::uint8_t* output, std::size_t* output_length) {
   if (output_length == nullptr) {
@@ -202,6 +205,7 @@ int write_proof(std::span<const std::uint8_t> proof,
   return DAA_TPM_SHA_OK;
 }
 
+// Implements fill stats.
 void fill_stats(const CachedRelation& cached,
                 vole_backend::VoleProfile profile,
                 daa_tpm_sha_stats* output) {
@@ -217,10 +221,11 @@ void fill_stats(const CachedRelation& cached,
       cached.prepared, cached.relation.level(), profile);
 }
 
-} // namespace
+}
 
 extern "C" {
 
+// Implements tpm sha key bytes.
 size_t daa_tpm_sha_key_bytes(daa_tpm_sha_level level) {
   last_error.clear();
   try {
@@ -231,6 +236,7 @@ size_t daa_tpm_sha_key_bytes(daa_tpm_sha_level level) {
   }
 }
 
+// Implements tpm sha digest bytes.
 size_t daa_tpm_sha_digest_bytes(daa_tpm_sha_level level) {
   last_error.clear();
   switch (level) {
@@ -242,6 +248,7 @@ size_t daa_tpm_sha_digest_bytes(daa_tpm_sha_level level) {
   return 0;
 }
 
+// Implements tpm sha prepare.
 int daa_tpm_sha_prepare(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
   return ffi([&] {
     static_cast<void>(profile_from_c(profile));
@@ -250,6 +257,7 @@ int daa_tpm_sha_prepare(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
   });
 }
 
+// Implements tpm sha join stats.
 int daa_tpm_sha_join_stats(daa_tpm_sha_level level,
                            daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* output) {
@@ -258,6 +266,7 @@ int daa_tpm_sha_join_stats(daa_tpm_sha_level level,
   });
 }
 
+// Implements tpm sha sign stats.
 int daa_tpm_sha_sign_stats(daa_tpm_sha_level level,
                            daa_tpm_sha_profile profile,
                            daa_tpm_sha_stats* output) {
@@ -266,6 +275,7 @@ int daa_tpm_sha_sign_stats(daa_tpm_sha_level level,
   });
 }
 
+// Implements tpm sha join proof bytes.
 size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level,
                                     daa_tpm_sha_profile profile) {
   daa_tpm_sha_stats stats{};
@@ -273,6 +283,7 @@ size_t daa_tpm_sha_join_proof_bytes(daa_tpm_sha_level level,
              ? stats.proof_bytes : 0;
 }
 
+// Implements tpm sha sign proof bytes.
 size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level,
                                     daa_tpm_sha_profile profile) {
   daa_tpm_sha_stats stats{};
@@ -280,6 +291,7 @@ size_t daa_tpm_sha_sign_proof_bytes(daa_tpm_sha_level level,
              ? stats.proof_bytes : 0;
 }
 
+// Implements tpm sha evaluate join.
 int daa_tpm_sha_evaluate_join(
     daa_tpm_sha_level level, const uint8_t* sk, size_t sk_len,
     const uint8_t* gid, size_t gid_len, uint8_t* et_out, size_t et_len) {
@@ -291,6 +303,7 @@ int daa_tpm_sha_evaluate_join(
   });
 }
 
+// Implements tpm sha evaluate sign.
 int daa_tpm_sha_evaluate_sign(
     daa_tpm_sha_level level, const uint8_t* sk, size_t sk_len,
     const uint8_t* s, size_t s_len, const uint8_t* lid, size_t lid_len,
@@ -307,6 +320,7 @@ int daa_tpm_sha_evaluate_sign(
   });
 }
 
+// Implements tpm sha join prove.
 int daa_tpm_sha_join_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
@@ -339,6 +353,7 @@ int daa_tpm_sha_join_prove(
   }
 }
 
+// Implements tpm sha join verify.
 int daa_tpm_sha_join_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* gid, size_t gid_len,
@@ -365,6 +380,7 @@ int daa_tpm_sha_join_verify(
   }
 }
 
+// Implements tpm sha sign prove.
 int daa_tpm_sha_sign_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
@@ -399,6 +415,7 @@ int daa_tpm_sha_sign_prove(
   }
 }
 
+// Implements tpm sha sign verify.
 int daa_tpm_sha_sign_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* lid, size_t lid_len,
@@ -427,6 +444,7 @@ int daa_tpm_sha_sign_verify(
   }
 }
 
+// Implements tpm sha chen23 prepare.
 int daa_tpm_sha_chen23_prepare(daa_tpm_sha_level level,
                                daa_tpm_sha_profile profile) {
   return ffi([&] {
@@ -435,6 +453,7 @@ int daa_tpm_sha_chen23_prepare(daa_tpm_sha_level level,
   });
 }
 
+// Implements tpm sha chen23 sign stats.
 int daa_tpm_sha_chen23_sign_stats(daa_tpm_sha_level level,
                                   daa_tpm_sha_profile profile,
                                   daa_tpm_sha_stats* output) {
@@ -443,6 +462,7 @@ int daa_tpm_sha_chen23_sign_stats(daa_tpm_sha_level level,
   });
 }
 
+// Implements tpm sha chen23 sign proof bytes.
 size_t daa_tpm_sha_chen23_sign_proof_bytes(daa_tpm_sha_level level,
                                            daa_tpm_sha_profile profile) {
   daa_tpm_sha_stats stats{};
@@ -452,6 +472,7 @@ size_t daa_tpm_sha_chen23_sign_proof_bytes(daa_tpm_sha_level level,
              : 0;
 }
 
+// Implements tpm sha chen23 evaluate sign.
 int daa_tpm_sha_chen23_evaluate_sign(
     daa_tpm_sha_level level,
     const uint8_t* sk, size_t sk_len,
@@ -479,6 +500,7 @@ int daa_tpm_sha_chen23_evaluate_sign(
   });
 }
 
+// Implements tpm sha chen23 sign prove.
 int daa_tpm_sha_chen23_sign_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
@@ -517,6 +539,7 @@ int daa_tpm_sha_chen23_sign_prove(
   }
 }
 
+// Implements tpm sha chen23 sign verify.
 int daa_tpm_sha_chen23_sign_verify(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sid, size_t sid_len,
@@ -550,6 +573,7 @@ int daa_tpm_sha_chen23_sign_verify(
   }
 }
 
+// Implements tpm sha last error.
 const char* daa_tpm_sha_last_error(void) { return last_error.c_str(); }
 
-} // extern "C"
+}

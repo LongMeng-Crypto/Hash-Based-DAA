@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-// Malicious-prover tests: local witness checks are deliberately bypassed.
+
 #include "backend/backend_witness.hpp"
 #include "backend/circuit_format.hpp"
 #include "backend/generic_nizk.hpp"
@@ -27,9 +27,9 @@ using namespace vole_backend;
 using Bytes=std::vector<std::uint8_t>;
 namespace {
 std::size_t checks=0;
+// Checks the operation result.
 void check(bool ok,const char* message){++checks;if(!ok)throw std::runtime_error(message);}
-// Real bit-VOLE correlations, generated directly to isolate constraint soundness
-// from the seed-tree and Fiat--Shamir layers. Delta is independent of the prover.
+
 struct Correlations {
  Bytes u,v,q,delta,challenge;std::size_t stride,columns;
  Correlations(std::size_t witness,SecurityLevel level,VoleProfile profile){
@@ -43,6 +43,7 @@ struct Correlations {
  }
  std::vector<std::uint8_t*> cols(Bytes& data){std::vector<std::uint8_t*> out;for(std::size_t j=0;j<columns;++j)out.push_back(data.data()+j*stride);return out;}
 };
+// Implements residual hash.
 Bytes residual_hash(SecurityLevel level,const Bytes& challenge,const Bytes& residuals){
  Bytes out(security_parameters(level).lambda_bytes);
 #define HASH_CASE(LEVEL,BITS) case SecurityLevel::LEVEL:{ \
@@ -53,12 +54,11 @@ Bytes residual_hash(SecurityLevel level,const Bytes& challenge,const Bytes& resi
 #undef HASH_CASE
  return out;
 }
+// Implements malicious generic.
 void malicious_generic(const BinaryCircuit& c,const Bytes& witness,const PublicStatement& st,const Bytes& residuals,SecurityLevel level,VoleProfile profile){
  PreparedBinaryCircuit prepared(c);Correlations f(prepared.layout().vole_bits,level,profile);auto v=f.cols(f.v),q=f.cols(f.q);
  auto prover_witness=witness;
- // The public helper rejects nonzero padding locally. A malicious prover can
- // bypass that check; its lower polynomial coefficients do not depend on the
- // padding values, so obtain those coefficients with the padding cleared.
+
  for(std::size_t i=prepared.layout().logical_bits;i<prepared.layout().vole_bits;++i)prover_witness[i/8]&=static_cast<std::uint8_t>(~(1U<<(i%8)));
  auto p=quicksilver_prove(level,prepared,prover_witness,st.public_inputs,st.expected_outputs,v,f.u.data()+witness.size(),f.challenge);
  auto masked=mask_witness(witness,f.u);
@@ -67,6 +67,7 @@ void malicious_generic(const BinaryCircuit& c,const Bytes& witness,const PublicS
  for(std::size_t i=0;i<p.a2.size();++i)p.a2[i]^=correction[i];
  check(quicksilver_verify(level,prepared,masked,st.public_inputs,st.expected_outputs,q,f.delta,f.challenge,p)!=p.a0,"a2 residual-absorption attack accepted");
 }
+// Implements generic tests.
 void generic_tests(){
  for(auto level:{SecurityLevel::Bits128,SecurityLevel::Bits192,SecurityLevel::Bits256})for(auto profile:{VoleProfile::Small,VoleProfile::Fast}){
   BinaryCircuit c;c.private_input();c.add_output(c.one());Bytes input{0};PublicStatement false_st{{},{0}};
@@ -90,17 +91,18 @@ void generic_tests(){
    if(profile==VoleProfile::Small)check(!verify(prepared_c,level,true_st,{},old),"legacy fallback accepted old proof");
   }
   auto fixture=std::filesystem::path(VOLE_SOUNDNESS_DATA_DIR)/(std::string(security_level_name(level))+std::string(vole_profile_name(profile))+".bin");
-  std::ifstream in(fixture,std::ios::binary);check(bool(in),"missing historical forgery fixture");
-  Bytes historical{std::istreambuf_iterator<char>(in),{}};
-  check(!verify(prepared_c,level,profile,false_st,{},historical),"historical forgery accepted");
-  historical[5]=4;
-  check(!verify(prepared_c,level,profile,false_st,{},historical),"relabelled historical forgery accepted");
+  std::ifstream in(fixture,std::ios::binary);check(bool(in),"missing invalid proof fixture");
+  Bytes invalid_proof{std::istreambuf_iterator<char>(in),{}};
+  check(!verify(prepared_c,level,profile,false_st,{},invalid_proof),"invalid proof accepted");
+  invalid_proof[5]=4;
+  check(!verify(prepared_c,level,profile,false_st,{},invalid_proof),"relabelled invalid proof accepted");
  }
 }
 #ifdef VOLE_SOUNDNESS_FRONTENDS
 class MaliciousMixed final:public QuicksilverRelation {
  const MixedQuadraticRelation& r;
 public:
+ // Implements malicious mixed.
  explicit MaliciousMixed(const MixedQuadraticRelation& relation):r(relation){}
  auto id()const->std::array<std::uint8_t,32>override{return r.id();}
  std::size_t private_input_bits()const override{return r.private_input_bits();}
@@ -115,6 +117,7 @@ public:
  }
  auto verify_constraints(std::span<const std::uint8_t>d,const PublicStatement&s,const std::vector<std::uint8_t*>&q,const std::array<std::uint8_t,16>&delta,const QuicksilverChallenge&c,const QuicksilverProof&p)const->std::array<std::uint8_t,16>override{return r.verify_constraints(d,s,q,delta,c,p);}
 };
+// Implements mixed tests.
 void mixed_tests(){
  BinaryCircuit c;c.private_input();FieldQuadraticEquation equation;equation.linear=c.one();
  MixedQuadraticRelation r(c,{Gf128{},Gf128::from_bit(1)},{},{equation},{'1','=','0'});
@@ -124,6 +127,7 @@ void mixed_tests(){
   check(!verify(r,profile,{},{},proof),"unsatisfiable mixed relation accepted");
  }
 }
+// Implements legacy sha test.
 void legacy_sha_test(){
  faest::sha256_circuit::Circuit c(0);faest::sha256_circuit::Message input{};auto digest=c.evaluate(input);
  auto w=vole_sha256::build_witness(c,input);auto witness_bits=vole_sha256::witness_layout(c).vole_bits;
@@ -135,6 +139,7 @@ void legacy_sha_test(){
  for(std::size_t i=0;i<16;++i)forged.a2[i]^=challenge[i]^challenge[16+i];
  check(vole_sha256::sha256_quicksilver_verify(c,masked,q,delta,digest,challenge,forged)!=forged.a0,"legacy SHA a2 absorption accepted");
 }
+// Implements aes test.
 void aes_test(){
  vole_circuits::aes::Aes128FaestRelation r;
  const Bytes key{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},pt{0,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff},ct{0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a};
@@ -155,6 +160,7 @@ void aes_test(){
 #endif
 
 #ifdef VOLE_SOUNDNESS_DAA
+// Implements tests.
 void daa_tests(){
  for(auto level:{SecurityLevel::Bits128,SecurityLevel::Bits192,SecurityLevel::Bits256}){
   for(auto kind:{daa::tpm_sha::RelationKind::Join,daa::tpm_sha::RelationKind::OursSign,daa::tpm_sha::RelationKind::Chen23Sign}){
@@ -189,6 +195,7 @@ void daa_tests(){
 }
 #endif
 }
+// Implements main.
 int main(){try{generic_tests();
 #ifdef VOLE_SOUNDNESS_FRONTENDS
  mixed_tests();legacy_sha_test();aes_test();

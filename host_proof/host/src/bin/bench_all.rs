@@ -1,20 +1,17 @@
-// Benchmark runner — edit VARIANTS to select which parameter sets to run.
-// Run with: cargo run --bin bench_all --release
 
-// ── Change these lines to select which variants to benchmark ──────────────────
+
 const VARIANTS: &[(&str, &str)] = &[
     ("sphincs-sha2-128s", "simple"),
     ("sphincs-sha2-128f", "simple"),
     ("sphincs-sha2-192s", "simple"),
     ("sphincs-sha2-192f", "simple"),
-    //("sphincs-sha2-256s", "simple"),
-    //("sphincs-sha2-256f", "simple"),
+
 ];
-// ─────────────────────────────────────────────────────────────────────────────
 
 use std::process::Command;
 use std::time::Instant;
 
+// Implements main.
 fn main() {
     println!(
         "\n{:<20} {:>10} {:>10} {:>12} {:>12} {:>10}",
@@ -25,7 +22,6 @@ fn main() {
     for (params, thash) in VARIANTS {
         let t = Instant::now();
 
-        // Build first so the binary reflects the correct SPHINCS_PARAMS C compilation.
         let build = Command::new("cargo")
             .args(["build", "--bin", "host", "--release"])
             .env("SPHINCS_PARAMS", params)
@@ -40,7 +36,6 @@ fn main() {
             continue;
         }
 
-        // Run the binary directly to avoid cargo reusing a stale cached binary.
         let output = Command::new("./target/release/host")
             .env("SPHINCS_PARAMS", params)
             .env("SPHINCS_THASH", thash)
@@ -82,6 +77,7 @@ fn main() {
     println!();
 }
 
+// Parses field.
 fn parse_field<'a>(text: &'a str, prefix: &str, suffix: &str) -> String {
     text.find(prefix)
         .and_then(|i| {

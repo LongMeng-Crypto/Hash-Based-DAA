@@ -65,6 +65,6 @@ bool verify(const QuicksilverRelation& relation, const PublicStatement& statemen
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> proof);
 
-} // namespace vole_backend
+}
 
 #endif

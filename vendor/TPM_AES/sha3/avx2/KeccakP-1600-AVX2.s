@@ -17,11 +17,6 @@
 # Adaptations for mingw-w64 (changes macOS too) by Jorrit Jongma.
 
 .text
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_Initialize(void *state);
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_Initialize
 _KeccakP1600_Initialize:
@@ -46,12 +41,6 @@ KeccakP1600_Initialize:
 .ifndef no_size
 .size   KeccakP1600_Initialize,.-KeccakP1600_Initialize
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_AddByte(void *state, unsigned char data, unsigned int offset);
-#                                %rdi                 %rsi               %rdx
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_AddByte
 _KeccakP1600_AddByte:
@@ -76,12 +65,6 @@ KeccakP1600_AddByte:
 .ifndef no_size
 .size   KeccakP1600_AddByte,.-KeccakP1600_AddByte
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_AddBytes(void *state, const unsigned char *data, unsigned int offset, unsigned int length);
-#                                %rdi                         %rsi               %rdx                 %rcx
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_AddBytes
 _KeccakP1600_AddBytes:
@@ -145,12 +128,6 @@ KeccakP1600_AddBytes_Exit:
 .ifndef no_size
 .size   KeccakP1600_AddBytes,.-KeccakP1600_AddBytes
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_OverwriteBytes(void *state, const unsigned char *data, unsigned int offset, unsigned int length);
-#                                       %rdi                        %rsi               %rdx                 %rcx
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_OverwriteBytes
 _KeccakP1600_OverwriteBytes:
@@ -214,12 +191,6 @@ KeccakP1600_OverwriteBytes_Exit:
 .ifndef no_size
 .size   KeccakP1600_OverwriteBytes,.-KeccakP1600_OverwriteBytes
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_OverwriteWithZeroes(void *state, unsigned int byteCount);
-#                                            %rdi                %rsi
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_OverwriteWithZeroes
 _KeccakP1600_OverwriteWithZeroes:
@@ -259,12 +230,6 @@ KeccakP1600_OverwriteWithZeroes_Exit:
 .ifndef no_size
 .size   KeccakP1600_OverwriteWithZeroes,.-KeccakP1600_OverwriteWithZeroes
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_ExtractBytes(const void *state, unsigned char *data, unsigned int offset, unsigned int length);
-#                                           %rdi                  %rsi               %rdx                 %rcx
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_ExtractBytes
 _KeccakP1600_ExtractBytes:
@@ -331,12 +296,6 @@ KeccakP1600_ExtractBytes_Exit:
 .ifndef no_size
 .size   KeccakP1600_ExtractBytes,.-KeccakP1600_ExtractBytes
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# void KeccakP1600_ExtractAndAddBytes(const void *state, const unsigned char *input, unsigned char *output, unsigned int offset, unsigned int length);
-#                                                 %rdi                        %rsi                  %rdx                 %rcx                  %r8
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_ExtractAndAddBytes
 _KeccakP1600_ExtractAndAddBytes:
@@ -411,18 +370,12 @@ KeccakP1600_ExtractAndAddBytes_Exit:
 .ifndef no_size
 .size   KeccakP1600_ExtractAndAddBytes,.-KeccakP1600_ExtractAndAddBytes
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# internal    
-#
 .ifndef no_type
 .type    __KeccakF1600,@function
 .endif
 .balign 32
 __KeccakF1600:
 .Loop_avx2:
-    ######################################### Theta
     vpshufd     $0b01001110,%ymm2,%ymm13
     vpxor       %ymm3,%ymm5,%ymm12
     vpxor       %ymm6,%ymm4,%ymm9
@@ -454,8 +407,6 @@ __KeccakF1600:
     vpblendd    $0b11000000,%ymm8,%ymm15,%ymm15
     vpblendd    $0b00000011,%ymm13,%ymm11,%ymm11
     vpxor       %ymm11,%ymm15,%ymm15        # D[1..4] = ROL64(C[2..4,0),1) ^ C[0..3]
-
-    ######################################### Rho + Pi + pre-Chi shuffle
     vpsllvq     0*32-96(%r8),%ymm2,%ymm10
     vpsrlvq     0*32-96(%r9),%ymm2,%ymm2
     vpor        %ymm10,%ymm2,%ymm2
@@ -488,8 +439,6 @@ __KeccakF1600:
     vpsllvq     1*32-96(%r8),%ymm1,%ymm15
     vpsrlvq     1*32-96(%r9),%ymm1,%ymm9
     vpor        %ymm15,%ymm9,%ymm9          # %ymm1 -> future %ymm2
-
-    ######################################### Chi
     vpsrldq     $8,%ymm8,%ymm14
     vpandn      %ymm14,%ymm8,%ymm7                  # tgting  [0][0] [0][0] [0][0] [0][0]
 
@@ -550,8 +499,6 @@ __KeccakF1600:
     vpxor       %ymm7,%ymm0,%ymm0
     vpxor       %ymm8,%ymm1,%ymm1
     vpxor       %ymm11,%ymm4,%ymm4
-
-    ######################################### Iota
     vpxor       (%r10),%ymm0,%ymm0
     lea         32(%r10),%r10
 
@@ -682,12 +629,6 @@ KeccakP1600_Permute_Nrounds:
 .ifndef no_size
 .size   KeccakP1600_Permute_Nrounds,.-KeccakP1600_Permute_Nrounds
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# size_t KeccakF1600_FastLoop_Absorb(void *state, unsigned int laneCount, const unsigned char *data, size_t dataByteLen);
-#                                          %rdi                %rsi                            %rdx         %rcx
-#
 .ifdef add_underscore
 .globl  _KeccakF1600_FastLoop_Absorb
 _KeccakF1600_FastLoop_Absorb:
@@ -869,12 +810,6 @@ KeccakF1600_FastLoop_Absorb_LanesAddLoop:
 .ifndef no_size
 .size   KeccakF1600_FastLoop_Absorb,.-KeccakF1600_FastLoop_Absorb
 .endif
-
-# -----------------------------------------------------------------------------
-#
-# size_t KeccakP1600_12rounds_FastLoop_Absorb(void *state, unsigned int laneCount, const unsigned char *data, size_t dataByteLen);
-#                                          %rdi                %rsi                            %rdx         %rcx
-#
 .ifdef add_underscore
 .globl  _KeccakP1600_12rounds_FastLoop_Absorb
 _KeccakP1600_12rounds_FastLoop_Absorb:
@@ -1141,7 +1076,4 @@ mask6_17:
     .quad    ALLON, ALLON,     0,     0
 
 .asciz  "Keccak-1600 for AVX2, CRYPTOGAMS by <appro@openssl.org>"
-
-#if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits
-#endif

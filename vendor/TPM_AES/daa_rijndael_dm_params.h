@@ -1,4 +1,4 @@
-/* Parameters for 128-bit VOLE proofs of Rijndael-256 Davies--Meyer relations. */
+
 #ifndef DAA_RIJNDAEL_DM_PARAMS_H
 #define DAA_RIJNDAEL_DM_PARAMS_H
 
@@ -62,4 +62,4 @@
 #define DAA_RDM_SIGN_128F_OWF_INPUT_SIZE 64
 #define DAA_RDM_SIGN_128F_OWF_OUTPUT_SIZE 64
 
-#endif /* DAA_RIJNDAEL_DM_PARAMS_H */
+#endif

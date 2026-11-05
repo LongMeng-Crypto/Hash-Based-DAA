@@ -19,15 +19,18 @@
 #define bswap32(x) _byteswap_ulong(x)
 #define bswap64(x) _byteswap_uint64(x)
 #else
+// Implements bswap16.
 static inline uint16_t ATTR_CONST bswap16(uint16_t x) {
   return ((x & 0xff00) >> 8) | ((x & 0x00ff) << 8);
 }
 
+// Implements bswap32.
 static inline uint32_t ATTR_CONST bswap32(uint32_t x) {
   return ((x & 0xff000000) >> 24) | ((x & 0x00ff0000) >> 8) | ((x & 0x0000ff00) << 8) |
          ((x & 0x000000ff) << 24);
 }
 
+// Implements bswap64.
 static inline uint64_t ATTR_CONST bswap64(uint64_t x) {
   return ((x & UINT64_C(0xff00000000000000)) >> 56) | ((x & UINT64_C(0x00ff000000000000)) >> 40) |
          ((x & UINT64_C(0x0000ff0000000000)) >> 24) | ((x & UINT64_C(0x000000ff00000000)) >> 8) |
@@ -36,17 +39,14 @@ static inline uint64_t ATTR_CONST bswap64(uint64_t x) {
 }
 #endif
 
-/* Linux / GLIBC */
 #if defined(__linux__) || defined(__GLIBC__)
 #include <endian.h>
-/* endian.h only provides conversion functions if built with one these defines. Android is also
- * known to provide these functions. */
+
 #if defined(_DEFAULT_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE) || defined(__ANDROID__)
 #define HAVE_HOSTSWAP
 #endif
 #endif
 
-/* Windows */
 #if defined(_WIN16) || defined(_WIN32) || defined(_WIN64)
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #include <sys/param.h>
@@ -55,24 +55,20 @@ static inline uint64_t ATTR_CONST bswap64(uint64_t x) {
 #endif
 #endif
 
-/* Cygwin */
 #if defined(__CYGWIN__)
 #include <endian.h>
 #define HAVE_HOSTSWAP
 #endif
 
-/* OS X */
 #if defined(__APPLE__)
 #include <machine/endian.h>
 #endif
 
-/* OpenBSD */
 #if defined(__OpenBSD__)
 #include <machine/endian.h>
 #define HAVE_HOSTSWAP
 #endif
 
-/* other BSDs */
 #if defined(__FreeBSD__) || defined(__NETBSD__) || defined(__NetBSD__)
 #include <sys/endian.h>
 #define HAVE_HOSTSWAP

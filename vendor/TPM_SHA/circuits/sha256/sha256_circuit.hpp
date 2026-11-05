@@ -45,14 +45,10 @@ public:
   explicit Circuit(std::size_t message_length = 55);
   Circuit(std::size_t message_length, InputVisibilityLayout input_visibility);
 
-  // Evaluate all 256 public output wires for the public message_length prefix.
   Digest evaluate(const Message& message) const;
 
-  // Values of the AND outputs, in circuit order. Together with the inputs
-  // marked secret by input_visibility, this is the VOLE extended witness.
   std::vector<std::uint8_t> multiplication_witness(const Message& message) const;
 
-  // Checks SHA256(message) == claimed_digest for a complete local message.
   bool verify_statement(const Message& message, const Digest& claimed_digest) const;
 
   const Statistics& statistics() const { return statistics_; }
@@ -83,6 +79,6 @@ private:
   vole_backend::Evaluation evaluate_ir(const Message& message) const;
 };
 
-} // namespace faest::sha256_circuit
+}
 
 #endif

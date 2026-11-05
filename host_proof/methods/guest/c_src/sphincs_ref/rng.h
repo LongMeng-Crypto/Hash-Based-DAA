@@ -29,7 +29,6 @@ typedef struct {
     int             reseed_counter;
 } AES256_CTR_DRBG_struct;
 
-
 void
 AES256_CTR_DRBG_Update(unsigned char *provided_data,
                        unsigned char *Key,
@@ -51,4 +50,4 @@ randombytes_init(unsigned char *entropy_input,
 int
 randombytes(unsigned char *x, unsigned long long xlen);
 
-#endif /* rng_h */
+#endif

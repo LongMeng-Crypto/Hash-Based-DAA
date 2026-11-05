@@ -1,19 +1,13 @@
 #![allow(dead_code)]
 
-//! SHA-2 host-hook relations for the RISC0 guest.
-//!
-//! The domain byte is part of the hashed preimage.  SHA-256 uses RISC0's
-//! accelerated guest implementation; SHA-384/512 use the no_std RustCrypto
-//! implementations because RISC0 v3 has no SHA-512-family syscall.
-
 const OURS_HOOK_DOMAIN: u8 = 0x03;
 const CDENW23_HK_DOMAIN: u8 = 0x05;
 const CDENW23_CET_DOMAIN: u8 = 0x06;
 
+// Implements sha256 hook.
 pub fn sha256_hook(s: &[u8; 16], et: &[u8; 32]) -> [u8; 32] {
     use risc0_zkvm::sha::{Impl, Sha256};
 
-    // 49 bytes plus SHA-256 padding fit in one 64-byte compression block.
     let mut preimage = [0u8; 49];
     preimage[0] = OURS_HOOK_DOMAIN;
     preimage[1..17].copy_from_slice(s);
@@ -24,6 +18,7 @@ pub fn sha256_hook(s: &[u8; 16], et: &[u8; 32]) -> [u8; 32] {
     out
 }
 
+// Implements sha384 hook.
 pub fn sha384_hook(s: &[u8; 24], et: &[u8; 48]) -> [u8; 48] {
     use sha2::{Digest, Sha384};
 
@@ -34,6 +29,7 @@ pub fn sha384_hook(s: &[u8; 24], et: &[u8; 48]) -> [u8; 48] {
     hasher.finalize().into()
 }
 
+// Implements sha512 hook.
 pub fn sha512_hook(s: &[u8; 32], et: &[u8; 64]) -> [u8; 64] {
     use sha2::{Digest, Sha512};
 
@@ -44,6 +40,7 @@ pub fn sha512_hook(s: &[u8; 32], et: &[u8; 64]) -> [u8; 64] {
     hasher.finalize().into()
 }
 
+// Implements sha256 cdenw23 hooks.
 pub fn sha256_cdenw23_hooks(sst: &[u8; 32], et: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     use risc0_zkvm::sha::{Impl, Sha256};
 
@@ -65,6 +62,7 @@ pub fn sha256_cdenw23_hooks(sst: &[u8; 32], et: &[u8; 32]) -> ([u8; 32], [u8; 32
     (hk, cet)
 }
 
+// Implements sha384 cdenw23 hooks.
 pub fn sha384_cdenw23_hooks(sst: &[u8; 48], et: &[u8; 48]) -> ([u8; 48], [u8; 48]) {
     use sha2::{Digest, Sha384};
 
@@ -78,6 +76,7 @@ pub fn sha384_cdenw23_hooks(sst: &[u8; 48], et: &[u8; 48]) -> ([u8; 48], [u8; 48
     (hk_hasher.finalize().into(), cet_hasher.finalize().into())
 }
 
+// Implements sha512 cdenw23 hooks.
 pub fn sha512_cdenw23_hooks(sst: &[u8; 64], et: &[u8; 64]) -> ([u8; 64], [u8; 64]) {
     use sha2::{Digest, Sha512};
 

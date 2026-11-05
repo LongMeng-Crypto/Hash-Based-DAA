@@ -8,9 +8,7 @@
 
 #include "haraka.h"
 
-/**
- * Takes an array of inblocks concatenated arrays of SPX_N bytes.
- */
+// Implements thash.
 void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
            const spx_ctx *ctx, uint32_t addr[8])
 {
@@ -21,8 +19,7 @@ void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
     unsigned int i;
 
     if (inblocks == 1) {
-        /* F function */
-        /* Since SPX_N may be smaller than 32, we need a temporary buffer. */
+
         memset(buf_tmp, 0, 64);
         memcpy(buf_tmp, addr, 32);
 
@@ -33,7 +30,7 @@ void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
         haraka512(outbuf, buf_tmp, ctx);
         memcpy(out, outbuf, SPX_N);
     } else {
-        /* All other tweakable hashes*/
+
         memcpy(buf, addr, 32);
         haraka_S(bitmask, inblocks * SPX_N, buf, SPX_ADDR_BYTES, ctx);
 

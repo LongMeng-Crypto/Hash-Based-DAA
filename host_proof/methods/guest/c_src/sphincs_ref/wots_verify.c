@@ -8,6 +8,7 @@
 #include "params.h"
 #include "sphincs_profile.h"
 
+// Implements gen chain.
 static void gen_chain(unsigned char *out, const unsigned char *in,
                       unsigned int start, unsigned int steps,
                       const spx_ctx *ctx, uint32_t addr[8])
@@ -22,6 +23,7 @@ static void gen_chain(unsigned char *out, const unsigned char *in,
     }
 }
 
+// Implements base w.
 static void base_w(unsigned int *output, const int out_len,
                    const unsigned char *input)
 {
@@ -43,6 +45,7 @@ static void base_w(unsigned int *output, const int out_len,
     }
 }
 
+// Implements wots checksum.
 static void wots_checksum(unsigned int *csum_base_w,
                           const unsigned int *msg_base_w)
 {
@@ -59,12 +62,14 @@ static void wots_checksum(unsigned int *csum_base_w,
     base_w(csum_base_w, SPX_WOTS_LEN2, csum_bytes);
 }
 
+// Implements chain lengths.
 void chain_lengths(unsigned int *lengths, const unsigned char *msg)
 {
     base_w(lengths, SPX_WOTS_LEN1, msg);
     wots_checksum(lengths + SPX_WOTS_LEN1, lengths);
 }
 
+// Implements wots pk from sig.
 void wots_pk_from_sig(unsigned char *pk,
                       const unsigned char *sig, const unsigned char *msg,
                       const spx_ctx *ctx, uint32_t addr[8])

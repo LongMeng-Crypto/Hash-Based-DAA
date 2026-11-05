@@ -10,23 +10,27 @@
 namespace vole_sha256 {
 namespace {
 
+// Implements require all secret.
 void require_all_secret(const faest::sha256_circuit::Circuit& circuit) {
   if (circuit.public_input_bits() != 0)
     throw std::invalid_argument(
         "legacy SHA-256 witness API only supports all-secret input; use the generic backend");
 }
 
+// Returns bit.
 bool get_bit(const PackedWitness& packed, std::size_t bit) {
   return ((packed[bit / 8] >> (bit % 8)) & 1U) != 0;
 }
 
+// Sets bit.
 void set_bit(PackedWitness& packed, std::size_t bit, bool value) {
   const auto mask = static_cast<std::uint8_t>(1U << (bit % 8));
   if (value) packed[bit / 8] |= mask;
 }
 
-} // namespace
+}
 
+// Implements witness layout.
 WitnessLayout witness_layout(const faest::sha256_circuit::Circuit& circuit) {
   require_all_secret(circuit);
   const std::size_t inputs = circuit.secret_input_bits();
@@ -36,6 +40,7 @@ WitnessLayout witness_layout(const faest::sha256_circuit::Circuit& circuit) {
   return {inputs, products, logical, vole, vole / 8, vole - logical};
 }
 
+// Builds witness.
 PackedWitness build_witness(const faest::sha256_circuit::Circuit& circuit,
                             const faest::sha256_circuit::Message& secret_message) {
   require_all_secret(circuit);
@@ -51,6 +56,7 @@ PackedWitness build_witness(const faest::sha256_circuit::Circuit& circuit,
   return packed;
 }
 
+// Implements unpack witness.
 UnpackedWitness unpack_witness(const faest::sha256_circuit::Circuit& circuit,
                                const PackedWitness& packed) {
   require_all_secret(circuit);
@@ -66,6 +72,7 @@ UnpackedWitness unpack_witness(const faest::sha256_circuit::Circuit& circuit,
   return unpacked;
 }
 
+// Implements transport padding is zero.
 bool transport_padding_is_zero(const faest::sha256_circuit::Circuit& circuit,
                                const PackedWitness& packed) {
   require_all_secret(circuit);
@@ -77,6 +84,7 @@ bool transport_padding_is_zero(const faest::sha256_circuit::Circuit& circuit,
   return true;
 }
 
+// Verifies witness.
 bool verify_witness(const faest::sha256_circuit::Circuit& circuit, const PackedWitness& packed,
                     const faest::sha256_circuit::Digest& public_digest) {
   if (!transport_padding_is_zero(circuit, packed)) return false;
@@ -86,4 +94,4 @@ bool verify_witness(const faest::sha256_circuit::Circuit& circuit, const PackedW
   return expected == unpacked.multiplication_outputs;
 }
 
-} // namespace vole_sha256
+}

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-// Configures C builds for the vendored TPM FAEST/AES sources.
+// Implements main.
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let daa_full = manifest_dir
@@ -20,7 +20,7 @@ fn main() {
     build_tpm_sha(&tpm_sha);
 }
 
-/// Builds the independent C++ VOLEith TPM-SHA backend next to legacy TPM_AES.
+// Builds tpm sha.
 fn build_tpm_sha(tpm: &PathBuf) {
     let faest = tpm.join("third_party/faest");
     let prefix_header = tpm.join("include/tpm_sha_faest_prefix.h");
@@ -97,7 +97,7 @@ fn build_tpm_sha(tpm: &PathBuf) {
     println!("cargo:rustc-link-lib=crypto");
 }
 
-// Creates the common C compiler configuration for FAEST sources.
+// Implements base c build.
 fn base_c_build() -> cc::Build {
     let mut build = cc::Build::new();
     build.opt_level(3);
@@ -107,7 +107,7 @@ fn base_c_build() -> cc::Build {
     build
 }
 
-// Compiles the TPM AES/FAEST sources needed by all six proof paths.
+// Builds tpm.
 fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
     let mut build = base_c_build();
     build.include(tpm);
@@ -135,7 +135,6 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
         build.file(tpm.join(file));
     }
 
-    // Render current templates into OUT_DIR instead of linking stale Meson snapshots.
     let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     for (field, cipher, rounds, standard, suffix) in [
         ("128", "128", "FAEST_128S_R", "1", "128"),
@@ -184,7 +183,7 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
     build.compile("daa_tpm_faest_128s");
 }
 
-/// Expands the same template substitutions as Meson, failing on missing parameters.
+// Implements render c template.
 fn render_c_template(input: &std::path::Path, output: &std::path::Path, values: &[(&str, &str)]) {
     let mut source = std::fs::read_to_string(input).expect("read TPM template");
     for (name, value) in values {

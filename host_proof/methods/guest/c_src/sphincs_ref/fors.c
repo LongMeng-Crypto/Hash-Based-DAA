@@ -9,12 +9,14 @@
 #include "thash.h"
 #include "address.h"
 
+// Implements fors gen sk.
 static void fors_gen_sk(unsigned char *sk, const spx_ctx *ctx,
                         uint32_t fors_leaf_addr[8])
 {
     prf_addr(sk, ctx, fors_leaf_addr);
 }
 
+// Implements fors sk to leaf.
 static void fors_sk_to_leaf(unsigned char *leaf, const unsigned char *sk,
                             const spx_ctx *ctx,
                             uint32_t fors_leaf_addr[8])
@@ -26,6 +28,7 @@ struct fors_gen_leaf_info {
     uint32_t leaf_addrx[8];
 };
 
+// Implements fors gen leafx1.
 static void fors_gen_leafx1(unsigned char *leaf,
                             const spx_ctx *ctx,
                             uint32_t addr_idx, void *info)
@@ -33,7 +36,6 @@ static void fors_gen_leafx1(unsigned char *leaf,
     struct fors_gen_leaf_info *fors_info = info;
     uint32_t *fors_leaf_addr = fors_info->leaf_addrx;
 
-    /* Only set the parts that the caller doesn't set */
     set_tree_index(fors_leaf_addr, addr_idx);
     set_type(fors_leaf_addr, SPX_ADDR_TYPE_FORSPRF);
     fors_gen_sk(leaf, ctx, fors_leaf_addr);
@@ -43,11 +45,7 @@ static void fors_gen_leafx1(unsigned char *leaf,
                     ctx, fors_leaf_addr);
 }
 
-/**
- * Interprets m as SPX_FORS_HEIGHT-bit unsigned integers.
- * Assumes m contains at least SPX_FORS_HEIGHT * SPX_FORS_TREES bits.
- * Assumes indices has space for SPX_FORS_TREES integers.
- */
+// Implements message to indices.
 static void message_to_indices(uint32_t *indices, const unsigned char *m)
 {
     unsigned int i, j;
@@ -62,10 +60,7 @@ static void message_to_indices(uint32_t *indices, const unsigned char *m)
     }
 }
 
-/**
- * Signs a message m, deriving the secret key from sk_seed and the FTS address.
- * Assumes m contains at least SPX_FORS_HEIGHT * SPX_FORS_TREES bits.
- */
+// Implements fors sign.
 void fors_sign(unsigned char *sig, unsigned char *pk,
                const unsigned char *m,
                const spx_ctx *ctx,
@@ -95,12 +90,10 @@ void fors_sign(unsigned char *sig, unsigned char *pk,
         set_tree_index(fors_tree_addr, indices[i] + idx_offset);
         set_type(fors_tree_addr, SPX_ADDR_TYPE_FORSPRF);
 
-        /* Include the secret key part that produces the selected leaf node. */
         fors_gen_sk(sig, ctx, fors_tree_addr);
         set_type(fors_tree_addr, SPX_ADDR_TYPE_FORSTREE);
         sig += SPX_N;
 
-        /* Compute the authentication path for this leaf node. */
         treehashx1(roots + i*SPX_N, sig, ctx,
                  indices[i], idx_offset, SPX_FORS_HEIGHT, fors_gen_leafx1,
                  fors_tree_addr, &fors_info);
@@ -108,17 +101,10 @@ void fors_sign(unsigned char *sig, unsigned char *pk,
         sig += SPX_N * SPX_FORS_HEIGHT;
     }
 
-    /* Hash horizontally across all tree roots to derive the public key. */
     thash(pk, roots, SPX_FORS_TREES, ctx, fors_pk_addr);
 }
 
-/**
- * Derives the FORS public key from a signature.
- * This can be used for verification by comparing to a known public key, or to
- * subsequently verify a signature on the derived public key. The latter is the
- * typical use-case when used as an FTS below an OTS in a hypertree.
- * Assumes m contains at least SPX_FORS_HEIGHT * SPX_FORS_TREES bits.
- */
+// Implements fors pk from sig.
 void fors_pk_from_sig(unsigned char *pk,
                       const unsigned char *sig, const unsigned char *m,
                       const spx_ctx* ctx,
@@ -146,16 +132,13 @@ void fors_pk_from_sig(unsigned char *pk,
         set_tree_height(fors_tree_addr, 0);
         set_tree_index(fors_tree_addr, indices[i] + idx_offset);
 
-        /* Derive the leaf from the included secret key part. */
         fors_sk_to_leaf(leaf, sig, ctx, fors_tree_addr);
         sig += SPX_N;
 
-        /* Derive the corresponding root node of this tree. */
         compute_root(roots + i*SPX_N, leaf, indices[i], idx_offset,
                      sig, SPX_FORS_HEIGHT, ctx, fors_tree_addr);
         sig += SPX_N * SPX_FORS_HEIGHT;
     }
 
-    /* Hash horizontally across all tree roots to derive the public key. */
     thash(pk, roots, SPX_FORS_TREES, ctx, fors_pk_addr);
 }

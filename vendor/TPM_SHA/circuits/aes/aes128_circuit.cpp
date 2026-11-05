@@ -12,18 +12,21 @@ using Wire = vole_backend::Wire;
 using Byte = std::array<Wire, 8>;
 using State = std::array<Byte, 16>;
 
+// Implements xor byte.
 Byte xor_byte(vole_backend::CircuitBuilder& b, const Byte& x, const Byte& y) {
   Byte z{};
   for (unsigned i = 0; i != 8; ++i) z[i] = b.xor_wire(x[i], y[i]);
   return z;
 }
 
+// Implements constant byte.
 Byte constant_byte(vole_backend::CircuitBuilder& b, std::uint8_t value) {
   Byte x{};
   for (unsigned i = 0; i != 8; ++i) x[i] = ((value >> i) & 1U) ? b.one() : b.zero();
   return x;
 }
 
+// Implements square.
 Byte square(vole_backend::CircuitBuilder& b, const Byte& x) {
   std::array<Wire, 15> p{};
   p.fill(b.zero());
@@ -40,6 +43,7 @@ Byte square(vole_backend::CircuitBuilder& b, const Byte& x) {
   return z;
 }
 
+// Implements multiply.
 Byte multiply(vole_backend::CircuitBuilder& b, const Byte& x, const Byte& y) {
   std::array<Wire, 15> p{};
   p.fill(b.zero());
@@ -58,6 +62,7 @@ Byte multiply(vole_backend::CircuitBuilder& b, const Byte& x, const Byte& y) {
   return z;
 }
 
+// Implements sbox.
 Byte sbox(vole_backend::CircuitBuilder& b, const Byte& x) {
   const auto x2 = square(b, x);
   const auto x4 = square(b, x2);
@@ -83,6 +88,7 @@ Byte sbox(vole_backend::CircuitBuilder& b, const Byte& x) {
   return out;
 }
 
+// Implements xtime.
 Byte xtime(vole_backend::CircuitBuilder& b, const Byte& x) {
   Byte y{};
   y[0] = x[7]; y[1] = b.xor_wire(x[0], x[7]); y[2] = x[1];
@@ -91,12 +97,14 @@ Byte xtime(vole_backend::CircuitBuilder& b, const Byte& x) {
   return y;
 }
 
+// Adds round key.
 State add_round_key(vole_backend::CircuitBuilder& b, State s,
                     const std::array<Byte, 176>& keys, unsigned round) {
   for (unsigned i = 0; i != 16; ++i) s[i] = xor_byte(b, s[i], keys[16 * round + i]);
   return s;
 }
 
+// Implements round state.
 State round_state(vole_backend::CircuitBuilder& b, const State& input, bool final) {
   State sub{}, shifted{}, out{};
   for (unsigned i = 0; i != 16; ++i) sub[i] = sbox(b, input[i]);
@@ -115,7 +123,7 @@ State round_state(vole_backend::CircuitBuilder& b, const State& input, bool fina
   return out;
 }
 
-} // namespace
+}
 
 Aes128Circuit::Aes128Circuit() {
   vole_backend::CircuitBuilder b(circuit_);
@@ -153,4 +161,4 @@ Block Aes128Circuit::evaluate(const Block& key, const Block& plaintext) const {
   return out;
 }
 
-} // namespace vole_circuits::aes
+}

@@ -2,7 +2,6 @@
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 test_dir="$(mktemp -d /tmp/daa-wots-test.XXXXXX)"
-# Removes only this test's disposable binary; persistent Cargo caches are never touched.
 cleanup() { rm -f -- "$test_dir/native"; rmdir -- "$test_dir"; }
 trap cleanup EXIT
 flags=(-O2 -g -std=c11 -Wall -Wextra)

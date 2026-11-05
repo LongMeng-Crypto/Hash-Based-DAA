@@ -17,6 +17,7 @@
 #include "cpu.h"
 #include "aesni.h"
 
+// Implements owf 128 aesni.
 ATTR_TARGET_AESNI static void owf_128_aesni(const uint8_t* key, const uint8_t* input,
                                             uint8_t* output) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -30,6 +31,7 @@ ATTR_TARGET_AESNI static void owf_128_aesni(const uint8_t* key, const uint8_t* i
   _mm_storeu_si128((__m128i_u*)output, m);
 }
 
+// Implements owf 192 aesni.
 ATTR_TARGET_AESNI static void owf_192_aesni(const uint8_t* key, const uint8_t* input,
                                             uint8_t* output) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -49,6 +51,7 @@ ATTR_TARGET_AESNI static void owf_192_aesni(const uint8_t* key, const uint8_t* i
   _mm_storeu_si128((__m128i_u*)(output + IV_SIZE), temp[1]);
 }
 
+// Implements owf 256 aesni.
 ATTR_TARGET_AESNI static void owf_256_aesni(const uint8_t* key, const uint8_t* input,
                                             uint8_t* output) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -68,6 +71,7 @@ ATTR_TARGET_AESNI static void owf_256_aesni(const uint8_t* key, const uint8_t* i
   _mm_storeu_si128((__m128i_u*)(output + IV_SIZE), temp[1]);
 }
 
+// Implements owf em 128 aesni.
 ATTR_TARGET_AESNI static void owf_em_128_aesni(const uint8_t* key, const uint8_t* input,
                                                uint8_t* output) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -84,6 +88,7 @@ ATTR_TARGET_AESNI static void owf_em_128_aesni(const uint8_t* key, const uint8_t
 }
 
 #if defined(HAVE_AVX2)
+// Implements owf 128 aesni avx2.
 ATTR_TARGET_AESNI_AVX2 static void owf_128_aesni_avx2(const uint8_t* key, const uint8_t* input,
                                                       uint8_t* output) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -97,6 +102,7 @@ ATTR_TARGET_AESNI_AVX2 static void owf_128_aesni_avx2(const uint8_t* key, const 
   _mm_storeu_si128((__m128i_u*)output, m);
 }
 
+// Implements owf 192 aesni avx2.
 ATTR_TARGET_AESNI_AVX2 static void owf_192_aesni_avx2(const uint8_t* key, const uint8_t* input,
                                                       uint8_t* output) {
   __m128i rk[AES_ROUNDS_192 + 1];
@@ -116,6 +122,7 @@ ATTR_TARGET_AESNI_AVX2 static void owf_192_aesni_avx2(const uint8_t* key, const 
   _mm_storeu_si128((__m128i_u*)(output + IV_SIZE), temp[1]);
 }
 
+// Implements owf 256 aesni avx2.
 ATTR_TARGET_AESNI_AVX2 static void owf_256_aesni_avx2(const uint8_t* key, const uint8_t* input,
                                                       uint8_t* output) {
   __m128i rk[AES_ROUNDS_256 + 1];
@@ -135,6 +142,7 @@ ATTR_TARGET_AESNI_AVX2 static void owf_256_aesni_avx2(const uint8_t* key, const 
   _mm_storeu_si128((__m128i_u*)(output + IV_SIZE), temp[1]);
 }
 
+// Implements owf em 128 aesni avx2.
 ATTR_TARGET_AESNI_AVX2 static void owf_em_128_aesni_avx2(const uint8_t* key, const uint8_t* input,
                                                          uint8_t* output) {
   __m128i rk[AES_ROUNDS_128 + 1];
@@ -152,6 +160,7 @@ ATTR_TARGET_AESNI_AVX2 static void owf_em_128_aesni_avx2(const uint8_t* key, con
 #endif
 #endif
 
+// Implements owf 128.
 void owf_128(const uint8_t* key, const uint8_t* input, uint8_t* output) {
 #if defined(HAVE_AESNI)
 #if defined(HAVE_AVX2)
@@ -178,7 +187,7 @@ void owf_128(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   generic_aes_ecb_free(&ctx);
 }
 
-/* Evaluate the one-block DAA DM relation, including safe in-place operation. */
+// Implements aes128 dm.
 void daa_aes128_dm(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   uint8_t data[16];
   memcpy(data, input, sizeof(data));
@@ -186,6 +195,7 @@ void daa_aes128_dm(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   for (unsigned int i = 0; i < sizeof(data); ++i) output[i] ^= data[i];
 }
 
+// Implements owf 192.
 void owf_192(const uint8_t* key, const uint8_t* input, uint8_t* output) {
 #if defined(HAVE_AESNI)
 #if defined(HAVE_AVX2)
@@ -217,6 +227,7 @@ void owf_192(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   generic_aes_ecb_free(&ctx);
 }
 
+// Implements owf 256.
 void owf_256(const uint8_t* key, const uint8_t* input, uint8_t* output) {
 #if defined(HAVE_AESNI)
 #if defined(HAVE_AVX2)
@@ -248,6 +259,7 @@ void owf_256(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   generic_aes_ecb_free(&ctx);
 }
 
+// Implements owf em 128.
 void owf_em_128(const uint8_t* key, const uint8_t* input, uint8_t* output) {
 #if defined(HAVE_AESNI)
 #if defined(HAVE_AVX2)
@@ -262,11 +274,11 @@ void owf_em_128(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   }
 #endif
 
-  // same as owf_128 with swapped keys and the additional xor
   owf_128(input, key, output);
   xor_u8_array(output, key, output, 16);
 }
 
+// Implements owf em 192.
 void owf_em_192(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   aes_round_keys_t round_keys;
   rijndael192_init_round_keys(&round_keys, input);
@@ -274,6 +286,7 @@ void owf_em_192(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   xor_u8_array(output, key, output, 24);
 }
 
+// Implements owf em 256.
 void owf_em_256(const uint8_t* key, const uint8_t* input, uint8_t* output) {
   aes_round_keys_t round_keys;
   rijndael256_init_round_keys(&round_keys, input);

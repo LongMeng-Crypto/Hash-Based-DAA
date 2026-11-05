@@ -9,6 +9,7 @@
 namespace vole_backend {
 namespace {
 constexpr std::array<std::uint8_t, 8> magic{'V','Q','I','R',1,0,0,0};
+// Appends u32.
 void append_u32(std::vector<std::uint8_t>& out, std::uint32_t x) {
   for (unsigned s = 0; s != 32; s += 8) out.push_back(x >> s);
 }
@@ -17,7 +18,7 @@ std::uint32_t read_u32(std::span<const std::uint8_t> in, std::size_t& p) {
   for (unsigned s = 0; s != 32; s += 8) x |= std::uint32_t(in[p++]) << s;
   return x;
 }
-} // namespace
+}
 
 std::vector<std::uint8_t> serialize_vqir(const QuadraticRelationIR& r) {
   std::vector<std::uint8_t> out(magic.begin(), magic.end());
@@ -30,6 +31,7 @@ std::vector<std::uint8_t> serialize_vqir(const QuadraticRelationIR& r) {
   return out;
 }
 
+// Deserializes vqir.
 QuadraticRelationIR deserialize_vqir(std::span<const std::uint8_t> in) {
   if (in.size() != 32 || !std::equal(magic.begin(), magic.end(), in.begin()) ||
       in[8] != 1 || in[9] != 1 || in[10] != 0 || in[11] != 0)
@@ -50,4 +52,4 @@ std::array<std::uint8_t, 32> relation_hash(const QuadraticRelationIR& r) {
   return out;
 }
 
-} // namespace vole_backend
+}

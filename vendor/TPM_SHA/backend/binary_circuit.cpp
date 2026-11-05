@@ -149,4 +149,4 @@ BinaryCircuit BinaryCircuit::from_canonical(std::vector<Node> nodes,
   return result;
 }
 
-} // namespace vole_backend
+}

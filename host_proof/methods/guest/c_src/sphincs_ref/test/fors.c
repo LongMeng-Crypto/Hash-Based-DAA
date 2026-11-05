@@ -7,9 +7,10 @@
 #include "../randombytes.h"
 #include "../params.h"
 
+// Implements main.
 int main(void)
 {
-    /* Make stdout buffer more responsive. */
+
     setbuf(stdout, NULL);
 
     spx_ctx ctx;

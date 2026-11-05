@@ -16,6 +16,7 @@
 #error "sign_verify_128s_opt.c requires SPHINCS_OPT_LEVEL=2 or SPHINCS_OPT_128S=2"
 #endif
 
+// Implements put u32 be.
 static void put_u32_be(unsigned char *out, uint32_t x)
 {
     out[0] = (unsigned char)(x >> 24);
@@ -24,6 +25,7 @@ static void put_u32_be(unsigned char *out, uint32_t x)
     out[3] = (unsigned char)x;
 }
 
+// Implements bytes to u64 be.
 static uint64_t bytes_to_u64_be(const unsigned char *in, unsigned int inlen)
 {
     uint64_t out = 0;
@@ -33,6 +35,7 @@ static uint64_t bytes_to_u64_be(const unsigned char *in, unsigned int inlen)
     return out;
 }
 
+// Implements addr set tree.
 static void addr_set_tree(unsigned char addr[32], uint64_t tree)
 {
     for (int i = 7; i >= 0; i--) {
@@ -41,17 +44,20 @@ static void addr_set_tree(unsigned char addr[32], uint64_t tree)
     }
 }
 
+// Implements addr copy subtree.
 static void addr_copy_subtree(unsigned char out[32], const unsigned char in[32])
 {
     memcpy(out, in, SPX_OFFSET_TREE + 8);
 }
 
+// Implements addr copy keypair.
 static void addr_copy_keypair(unsigned char out[32], const unsigned char in[32])
 {
     memcpy(out, in, SPX_OFFSET_TREE + 8);
     memcpy(out + SPX_OFFSET_KP_ADDR, in + SPX_OFFSET_KP_ADDR, 4);
 }
 
+// Implements thash opt.
 static void thash_opt(unsigned char *out, const unsigned char *in,
                       unsigned int inblocks, const spx_ctx *ctx,
                       const unsigned char addr[32])
@@ -72,6 +78,7 @@ static void thash_opt(unsigned char *out, const unsigned char *in,
 #endif
 }
 
+// Computes root 128s.
 static void compute_root_128s(unsigned char *root, const unsigned char *leaf,
                               uint32_t leaf_idx, uint32_t idx_offset,
                               const unsigned char *auth_path,
@@ -114,6 +121,7 @@ static void compute_root_128s(unsigned char *root, const unsigned char *leaf,
     thash_opt(root, buffer, 2, ctx, addr);
 }
 
+// Implements message to indices 128s.
 static void message_to_indices_128s(uint32_t indices[SPX_FORS_TREES],
                                     const unsigned char *m)
 {
@@ -128,6 +136,7 @@ static void message_to_indices_128s(uint32_t indices[SPX_FORS_TREES],
     }
 }
 
+// Implements fors pk from sig 128s.
 static void fors_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
                                   const unsigned char *m, const spx_ctx *ctx,
                                   const unsigned char fors_addr[32])
@@ -163,6 +172,7 @@ static void fors_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
     thash_opt(pk, roots, SPX_FORS_TREES, ctx, fors_pk_addr);
 }
 
+// Implements chain lengths 128s.
 static void chain_lengths_128s(unsigned int lengths[SPX_WOTS_LEN],
                                const unsigned char *msg)
 {
@@ -205,11 +215,13 @@ static void chain_lengths_128s(unsigned int lengths[SPX_WOTS_LEN],
     }
 }
 
+// Implements ct ge u32 small.
 static uint32_t ct_ge_u32_small(uint32_t x, uint32_t y)
 {
     return 1u ^ (((x - y) >> 31) & 1u);
 }
 
+// Implements ct select n.
 static void ct_select_n(unsigned char *out, const unsigned char *x,
                         const unsigned char *y, uint32_t b, unsigned int n)
 {
@@ -219,6 +231,7 @@ static void ct_select_n(unsigned char *out, const unsigned char *x,
     }
 }
 
+// Implements zk fixed chain complete 128s.
 static void zk_fixed_chain_complete_128s(unsigned char *out,
                                          const unsigned char *sig_elem,
                                          unsigned int start,
@@ -252,6 +265,7 @@ static void zk_fixed_chain_complete_128s(unsigned char *out,
 #endif
 }
 
+// Implements wots pk from sig 128s.
 static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
                                   const unsigned char *msg, const spx_ctx *ctx,
                                   unsigned char addr[32])
@@ -274,6 +288,7 @@ static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
 #endif
 }
 
+// Implements crypto sign verify.
 int crypto_sign_verify(const uint8_t *sig, size_t siglen,
                        const uint8_t *m, size_t mlen, const uint8_t *pk)
 {

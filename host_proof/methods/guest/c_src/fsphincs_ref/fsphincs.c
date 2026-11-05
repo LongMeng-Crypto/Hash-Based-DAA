@@ -5,7 +5,8 @@
 #include <string.h>
 
 _Static_assert(sizeof(fsphincs_hash_context) == 72, "guest context ABI");
-/* Reject invalid encoding bounds without requiring libc abort in the zkVM. */
+
+// Implements invalid input.
 static _Noreturn void invalid_input(void) {
 #ifdef RISC0_SHA_SYSCALL
     __builtin_trap();
@@ -44,7 +45,7 @@ static fsphincs_profile profile;
 static int profile_layer = -1;
 #endif
 
-/* Clears counters without changing any signature or hash state. */
+// Implements profile reset.
 void fsphincs_profile_reset(void) {
 #ifdef FSPHINCS_PROFILE
     memset(&profile, 0, sizeof(profile));
@@ -52,7 +53,7 @@ void fsphincs_profile_reset(void) {
 #endif
 }
 
-/* Copies profiling counters, or zeros when profiling is disabled. */
+// Implements profile get.
 void fsphincs_profile_get(fsphincs_profile *out) {
     if (out) {
 #ifdef FSPHINCS_PROFILE
@@ -63,7 +64,7 @@ void fsphincs_profile_get(fsphincs_profile *out) {
     }
 }
 
-/* Hashes one preimage and attributes its work to the active domain/layer. */
+// Implements counted sha256.
 static void counted_sha256(uint8_t out[FS_N], const uint8_t *in, size_t inlen,
                            uint8_t domain) {
 #ifdef FSPHINCS_PROFILE
@@ -88,7 +89,7 @@ static void counted_sha256(uint8_t out[FS_N], const uint8_t *in, size_t inlen,
     sha256(out, in, inlen);
 }
 
-/* Absorbs exactly one public prefix block; its 64 bytes count in final padding. */
+// Hashes init.
 void fsphincs_hash_init(fsphincs_hash_context *ctx, const uint8_t pub_seed[FS_N]) {
     _Alignas(4) uint8_t block[64] = {0};
     memcpy(ctx->pub_seed, pub_seed, FS_N);
@@ -104,7 +105,7 @@ void fsphincs_hash_init(fsphincs_hash_context *ctx, const uint8_t pub_seed[FS_N]
 extern void risc0_sys_sha_buffer(uint32_t *, const uint32_t *, const uint8_t *, uint32_t);
 #endif
 
-/* Processes a complete, already padded H1 suffix in one guest SHA syscall. */
+// Implements counted h1.
 static void counted_h1(uint8_t out[FS_NODE_BYTES], const fsphincs_hash_context *ctx,
                        const uint8_t block[128], size_t payload, uint8_t domain) {
     const size_t blocks = (FS_H1_ADDR_BYTES + payload + 9u + 63u) / 64u;
@@ -138,20 +139,19 @@ static void counted_h1(uint8_t out[FS_NODE_BYTES], const fsphincs_hash_context *
 #endif
 }
 
-/* Streams H3 inputs without copying entire messages or truncating SHA-512 state. */
 typedef struct {
     _Alignas(4) uint8_t state[FS_H3_DIGEST_BYTES + 8u];
     _Alignas(4) uint8_t block[FS_H3_BLOCK_BYTES];
     size_t used;
 } h3_context;
 
-/* Initializes a SHA-256/512 context selected by the credential parameter set. */
+// Implements h3 start.
 static void h3_start(h3_context *ctx) {
     ctx->used = 0;
     h3_init(ctx->state);
 }
 
-/* Counts compression work actually executed, including reused H3 prefix states. */
+// Implements h3 count blocks.
 static void h3_count_blocks(size_t blocks) {
 #ifdef FSPHINCS_PROFILE
 #if FS_SECURITY == 256
@@ -164,7 +164,7 @@ static void h3_count_blocks(size_t blocks) {
 #endif
 }
 
-/* Feeds partial blocks through a bounded scratch buffer and full blocks directly. */
+// Implements h3 update.
 static void h3_update(h3_context *ctx, const uint8_t *data, size_t len) {
     if (ctx->used) {
         size_t take = FS_H3_BLOCK_BYTES - ctx->used;
@@ -192,7 +192,7 @@ static void h3_update(h3_context *ctx, const uint8_t *data, size_t len) {
     }
 }
 
-/* Finalizes H3 and accounts separately for SHA-256 and SHA-512 workloads. */
+// Implements h3 finish.
 static void h3_finish(uint8_t out[FS_H3_DIGEST_BYTES], h3_context *ctx) {
 #ifdef FSPHINCS_PROFILE
     ++profile.h3;
@@ -207,18 +207,18 @@ static void h3_finish(uint8_t out[FS_H3_DIGEST_BYTES], h3_context *ctx) {
     h3_finalize(out, ctx->state, ctx->block, ctx->used);
 }
 
-/* Encodes an unsigned 32-bit address field in big-endian order. */
+// Implements put u32.
 static void put_u32(uint8_t out[4], uint32_t x) {
     out[0] = (uint8_t)(x >> 24); out[1] = (uint8_t)(x >> 16);
     out[2] = (uint8_t)(x >> 8); out[3] = (uint8_t)x;
 }
 
-/* Encodes an unsigned 64-bit node index in big-endian order. */
+// Implements put u64.
 static void put_u64(uint8_t out[8], uint64_t x) {
     for (int i = 7; i >= 0; --i) { out[i] = (uint8_t)x; x >>= 8; }
 }
 
-/* Versions H1 independently while retaining every address field and PRF/H2 domain. */
+// Creates addr.
 static void make_addr(uint8_t out[32], uint8_t domain, uint32_t layer,
                       uint64_t node, uint32_t tree, uint32_t height,
                       uint32_t index) {
@@ -239,7 +239,7 @@ static void make_addr(uint8_t out[32], uint8_t domain, uint32_t layer,
     put_u32(out + 24, index);
 }
 
-/* Injectively encodes all H1 fields and prepares fixed SHA padding once per loop. */
+// Initializes h1 block.
 static void init_h1_block(uint8_t block[128], uint8_t domain, uint32_t layer,
                           uint64_t node, uint32_t tree, size_t payload) {
     if (layer > FS_H || node >= (UINT64_C(1) << (FS_LOGQ * layer)) ||
@@ -257,7 +257,7 @@ static void init_h1_block(uint8_t block[128], uint8_t domain, uint32_t layer,
     put_u64(block + bytes - 8u, (64u + len) * 8u);
 }
 
-/* Updates the bounded tree height and 16-bit node index without rebuilding padding. */
+// Implements h1 position.
 static void h1_position(uint8_t block[128], uint32_t height, uint32_t index) {
     if (height > FS_D || index > UINT16_MAX) invalid_input();
     block[13] = (uint8_t)height;
@@ -265,7 +265,7 @@ static void h1_position(uint8_t block[128], uint32_t height, uint32_t index) {
     block[15] = (uint8_t)index;
 }
 
-/* Concatenates bounded preimage fragments and hashes them in the given domain. */
+// Hashes parts.
 static void hash_parts(uint8_t out[FS_N], uint8_t domain,
                        const uint8_t *a, size_t alen,
                        const uint8_t *b, size_t blen,
@@ -279,7 +279,7 @@ static void hash_parts(uint8_t out[FS_N], uint8_t domain,
     counted_sha256(out, buf, len, domain);
 }
 
-/* Expands a domain-separated seed with big-endian counter suffixes. */
+// Implements expand.
 static void expand(uint8_t *out, size_t outlen, uint8_t domain,
                    const uint8_t seed[FS_N], const uint8_t addr[32]) {
     uint8_t in[1 + FS_N + 32 + 4], digest[FS_N];
@@ -297,7 +297,8 @@ static void expand(uint8_t *out, size_t outlen, uint8_t domain,
 }
 
 #ifndef FSPHINCS_VERIFY_ONLY
-/* Encodes every valid leaf-PRF position injectively; invalid fields never truncate. */
+
+// Implements leaf prf address.
 int fsphincs_leaf_prf_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t layer,
                               uint64_t node, uint32_t tree, uint32_t leaf) {
     _Static_assert(FS_H * FS_LOGQ < 64 && FS_K <= 256 && FS_D <= 16,
@@ -316,7 +317,7 @@ int fsphincs_leaf_prf_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t layer,
     return 0;
 }
 
-/* Derives a full 256-bit node seed using the unchanged first PRF. */
+// Derives node seed.
 static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
                              uint32_t layer, uint64_t node) {
     uint8_t addr[32];
@@ -324,7 +325,7 @@ static void derive_node_seed(uint8_t out[FS_N], const uint8_t master[FS_N],
     hash_parts(out, DOM_NODE_SEED, master, FS_N, addr, sizeof(addr), NULL, 0);
 }
 
-/* Derives a security-sized leaf secret from one compact-address SHA-256 block. */
+// Derives leaf secret.
 static void derive_leaf_secret(uint8_t out[FS_LEAF_BYTES], const uint8_t node_seed[FS_N],
                                uint32_t layer, uint64_t node,
                                uint32_t tree, uint32_t leaf) {
@@ -337,7 +338,8 @@ static void derive_leaf_secret(uint8_t out[FS_LEAF_BYTES], const uint8_t node_se
 #endif
 
 #ifndef FSPHINCS_VERIFY_ONLY
-/* Hashes two ordered child nodes with their public tree address. */
+
+// Hashes node.
 static void hash_node(uint8_t out[FS_NODE_BYTES], const uint8_t left[FS_NODE_BYTES],
                       const uint8_t right[FS_NODE_BYTES], const fsphincs_hash_context *ctx,
                       uint32_t layer, uint64_t node, uint32_t tree,
@@ -351,14 +353,14 @@ static void hash_node(uint8_t out[FS_NODE_BYTES], const uint8_t left[FS_NODE_BYT
 }
 #endif
 
-/* Uses two byte loads for both supported d values, never reading past ceil(k*d/8). */
+// Implements md index.
 uint32_t fsphincs_md_index(const uint8_t md[FS_MFORS_MSG_BYTES], uint32_t tree) {
     const uint32_t bit = tree * FS_D, byte = bit >> 3, shift = bit & 7u;
     const uint32_t word = ((uint32_t)md[byte] << 8) | md[byte + 1u];
     return (word >> (16u - shift - FS_D)) & ((1u << FS_D) - 1u);
 }
 
-/* Clears unused low bits of an M-FORS message/public-value encoding. */
+// Implements canonical md.
 static void canonical_md(uint8_t md[FS_MFORS_MSG_BYTES]) {
 #if FS_MFORS_MSG_BITS % 8
     md[FS_MFORS_MSG_BYTES - 1u] &= (uint8_t)(0xffu << (8u - FS_MFORS_MSG_BITS % 8u));
@@ -366,7 +368,7 @@ static void canonical_md(uint8_t md[FS_MFORS_MSG_BYTES]) {
     (void)md;
 }
 
-/* Rejects noncanonical public keys instead of silently ignoring their tail bits. */
+// Implements canonical pk.
 static int canonical_pk(const uint8_t pk[FS_PK_BYTES]) {
 #if FS_MFORS_MSG_BITS % 8
     return (pk[FS_PK_BYTES - 1u] & ((1u << (8u - FS_MFORS_MSG_BITS % 8u)) - 1u)) == 0;
@@ -377,7 +379,8 @@ static int canonical_pk(const uint8_t pk[FS_PK_BYTES]) {
 }
 
 #ifndef FSPHINCS_VERIFY_ONLY
-/* Builds one signing tree and optionally records the target leaf's path. */
+
+// Implements tree root and auth.
 static int tree_root_and_auth(uint8_t root[FS_NODE_BYTES], uint8_t *auth,
                               const uint8_t node_seed[FS_N],
                               const fsphincs_hash_context *ctx,
@@ -416,7 +419,7 @@ static int tree_root_and_auth(uint8_t root[FS_NODE_BYTES], uint8_t *auth,
 }
 #endif
 
-/* Recovers a signing-tree root using reusable preimages and ping-pong states. */
+// Implements root from auth.
 static void root_from_auth(uint8_t root[FS_NODE_BYTES], const uint8_t secret[FS_LEAF_BYTES],
                            const uint8_t *auth, uint32_t target,
                            const fsphincs_hash_context *ctx, uint32_t layer,
@@ -451,7 +454,7 @@ static void root_from_auth(uint8_t root[FS_NODE_BYTES], const uint8_t secret[FS_
     memcpy(root, state[current], FS_NODE_BYTES);
 }
 
-/* Optionally records the aggregation path shared by the two fixed anchor roots. */
+// Implements aggregate roots with path.
 static void aggregate_roots_with_path(uint8_t root[FS_NODE_BYTES], const uint8_t *roots,
                             const fsphincs_hash_context *ctx,
                             uint32_t layer, uint64_t node, uint8_t *path) {
@@ -486,14 +489,14 @@ static void aggregate_roots_with_path(uint8_t root[FS_NODE_BYTES], const uint8_t
     memcpy(root, nodes, FS_NODE_BYTES);
 }
 
-/* Aggregates all roots for ordinary signing and streaming verification. */
+// Implements aggregate roots.
 static void aggregate_roots(uint8_t root[FS_NODE_BYTES], const uint8_t *roots,
                             const fsphincs_hash_context *ctx,
                             uint32_t layer, uint64_t node) {
     aggregate_roots_with_path(root, roots, ctx, layer, node, NULL);
 }
 
-/* Applies H2 and its expansion to encode the canonical M-FORS public value. */
+// Implements root to pk.
 static void root_to_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
                        const uint8_t root[FS_NODE_BYTES], const fsphincs_hash_context *ctx,
                        uint32_t layer, uint64_t node) {
@@ -505,7 +508,8 @@ static void root_to_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
 }
 
 #ifndef FSPHINCS_VERIFY_ONLY
-/* Generates a node public key from all of its seed-derived signing trees. */
+
+// Implements mfors gen pk.
 static int mfors_gen_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
                         const uint8_t master_seed[FS_N],
                         const fsphincs_hash_context *ctx,
@@ -520,7 +524,7 @@ static int mfors_gen_pk(uint8_t pk[FS_MFORS_MSG_BYTES],
     return 0;
 }
 
-/* Signs one node using its own seed, without access to an issuer master seed. */
+// Implements mfors sign node seed.
 static int mfors_sign_node_seed(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
                   const uint8_t md[FS_MFORS_MSG_BYTES],
                   const uint8_t node_seed[FS_N],
@@ -539,7 +543,8 @@ static int mfors_sign_node_seed(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     root_to_pk(pk, aggregate, ctx, layer, node);
     return 0;
 }
-/* Keeps the master-seed API for honest on-demand credential signing. */
+
+// Implements mfors sign ctx.
 static int mfors_sign_ctx(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
                   const uint8_t md[FS_MFORS_MSG_BYTES],
                   const uint8_t master_seed[FS_N], const fsphincs_hash_context *ctx,
@@ -549,7 +554,7 @@ static int mfors_sign_ctx(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     return mfors_sign_node_seed(sig, pk, md, seed, ctx, layer, node);
 }
 
-/* Signs a standalone M-FORS node with one local public-prefix context. */
+// Implements fs mfors sign.
 int fs_mfors_sign(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     const uint8_t md[FS_MFORS_MSG_BYTES], const uint8_t master[FS_N],
     const uint8_t pub_seed[FS_N], uint32_t layer, uint64_t node) {
@@ -558,18 +563,18 @@ int fs_mfors_sign(uint8_t *sig, uint8_t pk[FS_MFORS_MSG_BYTES],
     return mfors_sign_ctx(sig, pk, md, master, &ctx, layer, node);
 }
 
-/* Derives the root-node capability from an honest key; this is not a ZK extractor. */
+// Derives root seed.
 void fsphincs_derive_root_seed(uint8_t out[FS_N], const uint8_t master[FS_N]) {
     derive_node_seed(out, master, 0, 0);
 }
 
-/* Fixes both anchors at leaf zero in root signing trees zero and one. */
+// Implements root anchor address.
 void fsphincs_root_anchor_address(uint8_t out[FS_LEAF_ADDR_BYTES], uint32_t anchor) {
     if (anchor >= FS_ANCHORS || fsphincs_leaf_prf_address(out, 0, 0, anchor, 0) != 0)
         abort();
 }
 
-/* Generates only the required authentication material, not a full anchor signature. */
+// Implements root anchor generate.
 int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
     uint8_t root_pk[FS_MFORS_MSG_BYTES], const uint8_t root_seed[FS_N],
     const uint8_t pub_seed[FS_N]) {
@@ -593,7 +598,7 @@ int fsphincs_root_anchor_generate(uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES],
     return 0;
 }
 
-/* Recovers two inner roots, their shared aggregation path, and the H2 public value. */
+// Implements root anchor recover.
 void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
     const uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t pub_seed[FS_N]) {
     fsphincs_hash_context ctx;
@@ -619,7 +624,7 @@ void fsphincs_root_anchor_recover(uint8_t root_pk[FS_MFORS_MSG_BYTES],
 }
 #endif
 
-/* Recovers one M-FORS public value from disclosed secrets and their paths. */
+// Implements mfors recover ctx.
 static int mfors_recover_ctx(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
                      const uint8_t md[FS_MFORS_MSG_BYTES],
                      const fsphincs_hash_context *ctx,
@@ -643,7 +648,7 @@ static int mfors_recover_ctx(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
     return 0;
 }
 
-/* Recovers a standalone node; complete verifiers instead reuse one context. */
+// Implements fs mfors recover.
 int fs_mfors_recover(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
     const uint8_t md[FS_MFORS_MSG_BYTES], const uint8_t pub_seed[FS_N],
     uint32_t layer, uint64_t node) {
@@ -652,14 +657,14 @@ int fs_mfors_recover(uint8_t pk[FS_MFORS_MSG_BYTES], const uint8_t *sig,
     return mfors_recover_ctx(pk, sig, md, &ctx, layer, node);
 }
 
-/* Consumes a guest streaming layer without recomputing the public prefix. */
+// Verifies layer ctx.
 int fsphincs_verify_layer_ctx(uint8_t value[FS_MFORS_MSG_BYTES],
     const uint8_t layer_sig[FS_MFORS_SIG_BYTES], const fsphincs_hash_context *ctx,
     uint32_t layer, uint64_t node) {
     return mfors_recover_ctx(value, layer_sig, value, ctx, layer, node);
 }
 
-/* Checks a complete M-FORS signature against the expected public value. */
+// Implements fs mfors verify.
 int fs_mfors_verify(const uint8_t *sig,
                     const uint8_t expected_pk[FS_MFORS_MSG_BYTES],
                     const uint8_t md[FS_MFORS_MSG_BYTES],
@@ -672,7 +677,7 @@ int fs_mfors_verify(const uint8_t *sig,
     return diff == 0 ? 0 : -1;
 }
 
-/* H3 v3: SHA-X prehash and MGF1-style SHA-X expansion bind R and the full key. */
+// Implements h3.
 static void h3(uint8_t md[FS_MFORS_MSG_BYTES], uint64_t *idx,
                 const uint8_t randomizer[FS_N], const uint8_t *msg, size_t msglen,
                 const uint8_t pk[FS_PK_BYTES]) {
@@ -719,17 +724,21 @@ static void h3(uint8_t md[FS_MFORS_MSG_BYTES], uint64_t *idx,
     }
 }
 
-/* Returns the selected parameter set's serialized public-key length. */
+// Implements publickeybytes.
 size_t fsphincs_publickeybytes(void) { return FS_PK_BYTES; }
-/* Returns the serialized master-seed/public-key secret-key length. */
+
+// Implements secretkeybytes.
 size_t fsphincs_secretkeybytes(void) { return FS_SK_BYTES; }
-/* Returns the randomizer plus seven serialized M-FORS signature lengths. */
+
+// Implements signaturebytes.
 size_t fsphincs_signaturebytes(void) { return FS_SIG_BYTES; }
-/* Returns the entropy input length for deterministic key generation. */
+
+// Implements seedbytes.
 size_t fsphincs_seedbytes(void) { return FS_SEED_BYTES; }
 
 #ifndef FSPHINCS_VERIFY_ONLY
-/* Generates a keypair from caller-supplied master/public-seed entropy. */
+
+// Implements seed keypair.
 int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed) {
     uint8_t master[FS_N], pub_seed[FS_N], root_pk[FS_MFORS_MSG_BYTES];
     uint8_t tag = DOM_KEY_SEED;
@@ -746,14 +755,14 @@ int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed) {
     return 0;
 }
 
-/* Obtains fresh entropy from the caller's RNG and generates a keypair. */
+// Implements keypair.
 int fsphincs_keypair(uint8_t *pk, uint8_t *sk) {
     uint8_t seed[FS_SEED_BYTES];
     randombytes(seed, sizeof(seed));
     return fsphincs_seed_keypair(pk, sk, seed);
 }
 
-/* Signs the message through all seven layers using an explicit randomizer. */
+// Signs signature with randomizer.
 int fsphincs_sign_signature_with_randomizer(uint8_t *sig, size_t *siglen,
                             const uint8_t *msg, size_t msglen,
                             const uint8_t *sk, const uint8_t randomizer[FS_N]) {
@@ -779,7 +788,7 @@ int fsphincs_sign_signature_with_randomizer(uint8_t *sig, size_t *siglen,
     return 0;
 }
 
-/* Produces a fresh valid credential without ever receiving the original master key. */
+// Signs with root seed.
 int fsphincs_sign_with_root_seed(uint8_t *sig, size_t *siglen,
     const uint8_t *msg, size_t msglen, const uint8_t pk[FS_PK_BYTES],
     const uint8_t root_seed[FS_N], const uint8_t lower_seed[FS_N],
@@ -803,7 +812,7 @@ int fsphincs_sign_with_root_seed(uint8_t *sig, size_t *siglen,
     return memcmp(value, pk + FS_N, FS_MFORS_MSG_BYTES) == 0 ? 0 : -1;
 }
 
-/* Signs with a fresh randomizer obtained from the caller's RNG. */
+// Signs signature.
 int fsphincs_sign_signature(uint8_t *sig, size_t *siglen,
                             const uint8_t *msg, size_t msglen,
                             const uint8_t *sk) {
@@ -814,14 +823,14 @@ int fsphincs_sign_signature(uint8_t *sig, size_t *siglen,
 }
 #endif
 
-/* Compares all bytes without a data-dependent early exit. */
+// Implements ct equal.
 static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len) {
     uint8_t diff = 0;
     for (size_t i = 0; i < len; ++i) diff |= a[i] ^ b[i];
     return diff == 0;
 }
 
-/* Initializes streaming verification with H3's message and node index. */
+// Verifies begin.
 void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
                            uint64_t *leaf_index,
                            const uint8_t randomizer[FS_N],
@@ -830,7 +839,7 @@ void fsphincs_verify_begin(uint8_t value[FS_MFORS_MSG_BYTES],
     h3(value, leaf_index, randomizer, msg, msglen, pk);
 }
 
-/* Consumes one serialized layer and updates the recovered value in place. */
+// Verifies layer.
 int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
                           const uint8_t layer_sig[FS_MFORS_SIG_BYTES],
                           const uint8_t pub_seed[FS_N],
@@ -838,13 +847,13 @@ int fsphincs_verify_layer(uint8_t value[FS_MFORS_MSG_BYTES],
     return fs_mfors_recover(value, layer_sig, value, pub_seed, layer, node);
 }
 
-/* Accepts only a canonical public key matching the recovered root value. */
+// Verifies finish.
 int fsphincs_verify_finish(const uint8_t value[FS_MFORS_MSG_BYTES],
                            const uint8_t pk[FS_PK_BYTES]) {
     return canonical_pk(pk) && ct_equal(value, pk + FS_N, FS_MFORS_MSG_BYTES) ? 0 : -1;
 }
 
-/* Verifies a full signature and optionally records deterministic layer outputs. */
+// Implements trace signature.
 int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *
                               FS_MFORS_MSG_BYTES],
                              uint64_t *leaf_index,
@@ -876,7 +885,7 @@ int fsphincs_trace_signature(uint8_t layer_values[(FS_H + 1u) *
     return ct_equal(value, pk + FS_N, FS_MFORS_MSG_BYTES) ? 0 : -1;
 }
 
-/* Verifies a detached signature without exporting intermediate values. */
+// Verifies the operation result.
 int fsphincs_verify(const uint8_t *sig, size_t siglen,
                     const uint8_t *msg, size_t msglen, const uint8_t *pk) {
     return fsphincs_trace_signature(NULL, NULL, sig, siglen, msg, msglen, pk);

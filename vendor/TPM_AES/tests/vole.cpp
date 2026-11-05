@@ -23,7 +23,7 @@ namespace {
   constexpr std::array<uint8_t, 16> iv{};
 
   constexpr unsigned int max_tries = 1000;
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE(vole)
 
@@ -144,6 +144,7 @@ BOOST_DATA_TEST_CASE(test_convert_to_vole, all_parameters, param_id) {
 
 namespace {
   template <std::size_t HSize, std::size_t CSize>
+  // Tests tv.
   void test_tv(const faest_paramset_t* params, const std::array<uint8_t, CSize>& challenge,
                const std::array<uint8_t, HSize>& expected_h,
                const std::array<uint8_t, 64>& expected_hashed_c,
@@ -207,7 +208,7 @@ namespace {
       for (unsigned int j = 0; j != depth; ++j, ++running_idx) {
         for (unsigned int inner = 0; inner != ell_hat_bytes; ++inner) {
           if ((delta >> j) & 1) {
-            // need to correct the vole correlation
+
             if (i > 0) {
               BOOST_TEST((q[(running_idx)][inner] ^ c[(i - 1) * ell_hat_bytes + inner] ^
                           u[inner]) == v[(running_idx)][inner]);
@@ -221,6 +222,6 @@ namespace {
       }
     }
   }
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE_END()

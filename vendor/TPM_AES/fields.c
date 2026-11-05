@@ -16,21 +16,20 @@
 #define DAA_HAVE_RUNTIME_PCLMUL 1
 #endif
 
-// GF(2^8) with X^8 + X^4 + X^3 + X^1 + 1
 #define bf8_modulus (UINT8_C((1 << 4) | (1 << 3) | (1 << 1) | 1))
-// GF(2^64) with X^64 + X^4 + X^3 + X^1 + 1
+
 #define bf64_modulus (UINT64_C((1 << 4) | (1 << 3) | (1 << 1) | 1))
-// GF(2^128) with X^128 + X^7 + X^2 + X^1 + 1
+
 #define bf128_modulus (UINT64_C((1 << 7) | (1 << 2) | (1 << 1) | 1))
-// GF(2^192) with X^192 + X^7 + X^2 + X^1 + 1
+
 #define bf192_modulus (UINT64_C((1 << 7) | (1 << 2) | (1 << 1) | 1))
-// GF(2^256) with X^256 + X^10 + X^5 + X^2 + 1
+
 #define bf256_modulus (UINT64_C((1 << 10) | (1 << 5) | (1 << 2) | 1))
-// GF(2^384) with X^384 + X^12 + X^3 + X^2 + 1
+
 #define bf384_modulus (UINT64_C((1 << 12) | (1 << 3) | (1 << 2) | 1))
-// GF(2^576) with X^576 + X^13 + X^4 + X^3 + 1
+
 #define bf576_modulus (UINT64_C((1 << 13) | (1 << 4) | (1 << 3) | 1))
-// GF(2^768) with X^768 + X^19 + X^17 + X^4 + 1
+
 #define bf768_modulus (UINT64_C((1 << 19) | (1 << 17) | (1 << 4) | 1))
 
 #define U64C(x0, x1, x2, x3, x4, x5, x6, x7)                                                       \
@@ -39,14 +38,15 @@
 
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
 ATTR_TARGET_PCLMUL
+// Implements bf clmul word.
 static void bf_clmul_word(uint64_t lhs, uint64_t rhs, uint64_t out[2]) {
   const __m128i a = _mm_set_epi64x(0, (long long)lhs);
   const __m128i b = _mm_set_epi64x(0, (long long)rhs);
   _mm_storeu_si128((__m128i*)out, _mm_clmulepi64_si128(a, b, 0x00));
 }
 
-/* Multiply two, three, or four 64-bit limb polynomials with Karatsuba. */
 ATTR_TARGET_PCLMUL
+// Implements bf clmul product 2.
 static void bf_clmul_product_2(const uint64_t lhs[2], const uint64_t rhs[2],
                                uint64_t product[4]) {
   uint64_t p0[2], p1[2], cross[2];
@@ -62,6 +62,7 @@ static void bf_clmul_product_2(const uint64_t lhs[2], const uint64_t rhs[2],
 }
 
 ATTR_TARGET_PCLMUL
+// Implements bf clmul product 3.
 static void bf_clmul_product_3(const uint64_t lhs[3], const uint64_t rhs[3],
                                uint64_t product[6]) {
   uint64_t diagonal[3][2], cross01[2], cross02[2], cross12[2];
@@ -84,6 +85,7 @@ static void bf_clmul_product_3(const uint64_t lhs[3], const uint64_t rhs[3],
 }
 
 ATTR_TARGET_PCLMUL
+// Implements bf clmul product 4.
 static void bf_clmul_product_4(const uint64_t lhs[4], const uint64_t rhs[4],
                                uint64_t product[8]) {
   const uint64_t lhs_cross[2] = {lhs[0] ^ lhs[2], lhs[1] ^ lhs[3]};
@@ -102,6 +104,7 @@ static void bf_clmul_product_4(const uint64_t lhs[4], const uint64_t rhs[4],
 }
 
 ATTR_TARGET_PCLMUL
+// Implements bf clmul product word.
 static void bf_clmul_product_word(const uint64_t* lhs, size_t words, uint64_t rhs,
                                   uint64_t* product) {
   memset(product, 0, (words + 1) * sizeof(*product));
@@ -114,6 +117,7 @@ static void bf_clmul_product_word(const uint64_t* lhs, size_t words, uint64_t rh
 }
 
 ATTR_TARGET_PCLMUL
+// Implements bf reduce word.
 static void bf_reduce_word(uint64_t* product, size_t high_index,
                            size_t field_words, uint64_t modulus) {
   uint64_t reduced[2];
@@ -124,18 +128,15 @@ static void bf_reduce_word(uint64_t* product, size_t high_index,
 }
 
 ATTR_TARGET_PCLMUL
+// Implements bf reduce.
 static void bf_reduce(uint64_t* product, size_t product_words,
                       size_t field_words, uint64_t modulus) {
   for (size_t i = product_words; i-- > field_words;)
     bf_reduce_word(product, i, field_words, modulus);
 }
 
-/* Multiply and reduce asymmetric extension-field operands with PCLMUL.
- *
- * The BAVC leaf hashes use 9x3 and 12x4 limb products for the 192- and
- * 256-bit parameter sets. Keeping this helper generic preserves the exact
- * field representation while replacing the old bit-serial hot path. */
 ATTR_TARGET_PCLMUL
+// Implements bf clmul reduce.
 static void bf_clmul_reduce(uint64_t* dst, const uint64_t* lhs,
                             size_t lhs_words, const uint64_t* rhs,
                             size_t rhs_words, size_t field_words,
@@ -154,12 +155,13 @@ static void bf_clmul_reduce(uint64_t* dst, const uint64_t* lhs,
   for (size_t i = 0; i != field_words; ++i) dst[i] = product[i];
 }
 
+// Implements bf runtime has pclmul.
 static bool bf_runtime_has_pclmul(void) {
   return __builtin_cpu_supports("pclmul");
 }
 
-/* GF(2^64) needs a second reduction fold. */
 ATTR_TARGET_PCLMUL
+// Implements bf64 mul pclmul.
 static uint64_t bf64_mul_pclmul(uint64_t lhs, uint64_t rhs) {
   uint64_t product[2], fold[2];
   bf_clmul_word(lhs, rhs, product);
@@ -170,6 +172,7 @@ static uint64_t bf64_mul_pclmul(uint64_t lhs, uint64_t rhs) {
 }
 #endif
 
+// Implements bits sq.
 ATTR_CONST uint8_t bits_sq(uint8_t x) {
   uint8_t res = set_bit(get_bit(x, 0) ^ get_bit(x, 4) ^ get_bit(x, 6), 0);
   res |= set_bit(get_bit(x, 4) ^ get_bit(x, 6) ^ get_bit(x, 7), 1);
@@ -182,14 +185,14 @@ ATTR_CONST uint8_t bits_sq(uint8_t x) {
   return res;
 }
 
-// GF(2^8) implementation
-
+// Implements bf8 rand.
 bf8_t bf8_rand(void) {
   bf8_t ret;
   rand_bytes(&ret, sizeof(ret));
   return ret;
 }
 
+// Implements bf8 mul.
 bf8_t bf8_mul(bf8_t lhs, bf8_t rhs) {
   bf8_t result = -(rhs & 1) & lhs;
   for (unsigned int idx = 1; idx < 8; ++idx) {
@@ -200,6 +203,7 @@ bf8_t bf8_mul(bf8_t lhs, bf8_t rhs) {
   return result;
 }
 
+// Implements bf8 square.
 bf8_t bf8_square(bf8_t lhs) {
   bf8_t result = -(lhs & 1) & lhs;
   bf8_t rhs    = lhs;
@@ -211,6 +215,7 @@ bf8_t bf8_square(bf8_t lhs) {
   return result;
 }
 
+// Implements bf8 inv.
 bf8_t bf8_inv(bf8_t in) {
   const bf8_t t2   = bf8_square(in);
   const bf8_t t3   = bf8_mul(in, t2);
@@ -225,14 +230,14 @@ bf8_t bf8_inv(bf8_t in) {
   return bf8_mul(t252, t2);
 }
 
-// GF(2^64) implementation
-
+// Implements bf64 rand.
 bf64_t bf64_rand(void) {
   bf64_t ret;
   rand_bytes((uint8_t*)&ret, sizeof(ret));
   return ret;
 }
 
+// Implements bf64 mul.
 bf64_t bf64_mul(bf64_t lhs, bf64_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -249,8 +254,6 @@ bf64_t bf64_mul(bf64_t lhs, bf64_t rhs) {
 }
 
 #define bf64_bit_to_mask(value, bit) -((((uint64_t)(value)) >> (bit)) & 1)
-
-// GF(2^128) implementation
 
 static const bf128_t bf128_alpha[7] = {
     BF128C(U64C(0x0d, 0xce, 0x60, 0x55, 0xac, 0xe8, 0x3f, 0xa1),
@@ -270,11 +273,13 @@ static const bf128_t bf128_alpha[7] = {
 };
 
 #if defined(FAEST_TESTS)
+// Implements bf128 get alpha.
 bf128_t bf128_get_alpha(unsigned int idx) {
   return bf128_alpha[idx];
 }
 #endif
 
+// Implements bf128 byte combine.
 bf128_t bf128_byte_combine(const bf128_t* x) {
   bf128_t bf_out = x[0];
   for (unsigned int i = 1; i < 8; ++i) {
@@ -283,6 +288,7 @@ bf128_t bf128_byte_combine(const bf128_t* x) {
   return bf_out;
 }
 
+// Implements bf128 sq bit.
 void bf128_sq_bit(bf128_t* out_tag, const bf128_t* in_tag) {
   out_tag[0] = bf128_add(in_tag[0], bf128_add(in_tag[4], in_tag[6]));
   out_tag[1] = bf128_add(in_tag[4], bf128_add(in_tag[6], in_tag[7]));
@@ -294,6 +300,7 @@ void bf128_sq_bit(bf128_t* out_tag, const bf128_t* in_tag) {
   out_tag[7] = bf128_add(in_tag[6], in_tag[7]);
 }
 
+// Implements bf128 sq bit inplace.
 void bf128_sq_bit_inplace(bf128_t* tag) {
   tag[0]           = bf128_add(tag[0], bf128_add(tag[4], tag[6]));
   const bf128_t i1 = tag[1];
@@ -310,12 +317,14 @@ void bf128_sq_bit_inplace(bf128_t* tag) {
   tag[7]           = bf128_add(i6, tag[7]);
 }
 
+// Implements bf128 byte combine sq.
 bf128_t bf128_byte_combine_sq(const bf128_t* x) {
   bf128_t bf_tmp[8];
   bf128_sq_bit(bf_tmp, x);
   return bf128_byte_combine(bf_tmp);
 }
 
+// Implements bf128 byte combine bits.
 bf128_t bf128_byte_combine_bits(uint8_t x) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   return bf128_from_bit(get_bit(x, 0)) ^ bf128_mul_bit(bf128_alpha[1 - 1], get_bit(x, 1)) ^
@@ -334,10 +343,12 @@ bf128_t bf128_byte_combine_bits(uint8_t x) {
 #endif
 }
 
+// Implements bf128 byte combine bits sq.
 bf128_t bf128_byte_combine_bits_sq(uint8_t x) {
   return bf128_byte_combine_bits(bits_sq(x));
 }
 
+// Implements bf128 rand.
 bf128_t bf128_rand(void) {
   uint8_t buf[BF128_NUM_BYTES];
   rand_bytes(buf, sizeof(buf));
@@ -348,6 +359,7 @@ bf128_t bf128_rand(void) {
 #define bf128_and_64(lhs, rhs) ((lhs) & (rhs))
 #else
 ATTR_CONST
+// Implements bf128 and 64.
 static inline bf128_t bf128_and_64(bf128_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -360,6 +372,7 @@ static inline bf128_t bf128_and_64(bf128_t lhs, bf64_t rhs) {
 #if __has_builtin(__builtin_shufflevector)
 #define bf128_shift_right_64(v1) __builtin_shufflevector((v1), bf128_zero(), 2, 0)
 #else
+// Implements bf128 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_shift_right_64(bf128_t v1) {
   bf128_t ret;
   BF_VALUE(ret, 0) = 0;
@@ -371,6 +384,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_shift_right_64(bf128_t
 #define bf128_shift_left_1(value) ((value << 1) | bf128_shift_right_64(value >> 63))
 #else
 ATTR_CONST
+// Implements bf128 shift left 1.
 static inline bf128_t bf128_shift_left_1(bf128_t value) {
   value.values[1] = (value.values[1] << 1) | (value.values[0] >> 63);
   value.values[0] = value.values[0] << 1;
@@ -379,6 +393,7 @@ static inline bf128_t bf128_shift_left_1(bf128_t value) {
 #endif
 
 ATTR_CONST
+// Implements bf128 bit to uint64 mask.
 static inline uint64_t bf128_bit_to_uint64_mask(bf128_t value, unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
   const unsigned int bit_idx  = bit % 64;
@@ -386,6 +401,7 @@ static inline uint64_t bf128_bit_to_uint64_mask(bf128_t value, unsigned int bit)
   return -((BF_VALUE(value, byte_idx) >> bit_idx) & 1);
 }
 
+// Implements bf128 mul.
 bf128_t bf128_mul(bf128_t lhs, bf128_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -411,6 +427,7 @@ bf128_t bf128_mul(bf128_t lhs, bf128_t rhs) {
   return result;
 }
 
+// Implements bf128 mul 64.
 bf128_t bf128_mul_64(bf128_t lhs, bf64_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -436,11 +453,13 @@ bf128_t bf128_mul_64(bf128_t lhs, bf64_t rhs) {
 }
 
 #if !defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf128 mul bit.
 bf128_t bf128_mul_bit(bf128_t lhs, uint8_t rhs) {
   return bf128_and_64(lhs, -((uint64_t)rhs & 1));
 }
 #endif
 
+// Implements bf128 dbl.
 ATTR_CONST static inline bf128_t bf128_dbl(bf128_t lhs) {
   uint64_t mask = bf128_bit_to_uint64_mask(lhs, 128 - 1);
   lhs           = bf128_shift_left_1(lhs);
@@ -449,6 +468,7 @@ ATTR_CONST static inline bf128_t bf128_dbl(bf128_t lhs) {
   return lhs;
 }
 
+// Implements bf128 sum poly.
 bf128_t bf128_sum_poly(const bf128_t* xs) {
   bf128_t ret = xs[128 - 1];
   for (size_t i = 1; i < 128; ++i) {
@@ -457,6 +477,7 @@ bf128_t bf128_sum_poly(const bf128_t* xs) {
   return ret;
 }
 
+// Implements bf128 sum poly bits.
 bf128_t bf128_sum_poly_bits(const uint8_t* xs) {
   bf128_t ret = bf128_from_bit(ptr_get_bit(xs, 128 - 1));
   for (size_t i = 1; i < 128; ++i) {
@@ -464,8 +485,6 @@ bf128_t bf128_sum_poly_bits(const uint8_t* xs) {
   }
   return ret;
 }
-
-// GF(2^192) implementation
 
 static const bf192_t bf192_alpha[7] = {
     BF192C(U64C(0x63, 0x97, 0x38, 0x6f, 0xd5, 0xa3, 0xc8, 0xcc),
@@ -492,11 +511,13 @@ static const bf192_t bf192_alpha[7] = {
 };
 
 #if defined(FAEST_TESTS)
+// Implements bf192 get alpha.
 bf192_t bf192_get_alpha(unsigned int idx) {
   return bf192_alpha[idx];
 }
 #endif
 
+// Implements bf192 byte combine.
 bf192_t bf192_byte_combine(const bf192_t* x) {
   bf192_t bf_out = x[0];
   for (unsigned int i = 1; i < 8; ++i) {
@@ -505,6 +526,7 @@ bf192_t bf192_byte_combine(const bf192_t* x) {
   return bf_out;
 }
 
+// Implements bf192 sq bit.
 void bf192_sq_bit(bf192_t* out_tag, const bf192_t* in_tag) {
   out_tag[0] = bf192_add(in_tag[0], bf192_add(in_tag[4], in_tag[6]));
   out_tag[1] = bf192_add(in_tag[4], bf192_add(in_tag[6], in_tag[7]));
@@ -516,6 +538,7 @@ void bf192_sq_bit(bf192_t* out_tag, const bf192_t* in_tag) {
   out_tag[7] = bf192_add(in_tag[6], in_tag[7]);
 }
 
+// Implements bf192 sq bit inplace.
 void bf192_sq_bit_inplace(bf192_t* tag) {
   tag[0]           = bf192_add(tag[0], bf192_add(tag[4], tag[6]));
   const bf192_t i1 = tag[1];
@@ -532,12 +555,14 @@ void bf192_sq_bit_inplace(bf192_t* tag) {
   tag[7]           = bf192_add(i6, tag[7]);
 }
 
+// Implements bf192 byte combine sq.
 bf192_t bf192_byte_combine_sq(const bf192_t* x) {
   bf192_t bf_tmp[8];
   bf192_sq_bit(bf_tmp, x);
   return bf192_byte_combine(bf_tmp);
 }
 
+// Implements bf192 byte combine bits.
 bf192_t bf192_byte_combine_bits(uint8_t x) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   return bf192_from_bit(get_bit(x, 0)) ^ bf192_mul_bit(bf192_alpha[1 - 1], get_bit(x, 1)) ^
@@ -556,10 +581,12 @@ bf192_t bf192_byte_combine_bits(uint8_t x) {
 #endif
 }
 
+// Implements bf192 byte combine bits sq.
 bf192_t bf192_byte_combine_bits_sq(uint8_t x) {
   return bf192_byte_combine_bits(bits_sq(x));
 }
 
+// Implements bf192 rand.
 bf192_t bf192_rand(void) {
   uint8_t buf[BF192_NUM_BYTES];
   rand_bytes(buf, sizeof(buf));
@@ -570,6 +597,7 @@ bf192_t bf192_rand(void) {
 #define bf192_and_64(lhs, rhs) ((lhs) & (rhs))
 #else
 ATTR_CONST
+// Implements bf192 and 64.
 static inline bf192_t bf192_and_64(bf192_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -582,6 +610,7 @@ static inline bf192_t bf192_and_64(bf192_t lhs, bf64_t rhs) {
 #if __has_builtin(__builtin_shufflevector)
 #define bf192_shift_right_64(v1) __builtin_shufflevector((v1), bf192_zero(), 4, 0, 1, 5)
 #else
+// Implements bf192 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_shift_right_64(bf192_t v1) {
   bf192_t ret;
   BF_VALUE(ret, 0) = 0;
@@ -594,6 +623,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_shift_right_64(bf192_t
 #endif
 
 ATTR_CONST
+// Implements bf192 shift left 1.
 static inline bf192_t bf192_shift_left_1(bf192_t value) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf192_t mask = BF192C(0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff);
@@ -607,6 +637,7 @@ static inline bf192_t bf192_shift_left_1(bf192_t value) {
 }
 
 ATTR_CONST
+// Implements bf192 bit to uint64 mask.
 static inline uint64_t bf192_bit_to_uint64_mask(bf192_t value, unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
   const unsigned int bit_idx  = bit % 64;
@@ -614,6 +645,7 @@ static inline uint64_t bf192_bit_to_uint64_mask(bf192_t value, unsigned int bit)
   return -((BF_VALUE(value, byte_idx) >> bit_idx) & 1);
 }
 
+// Implements bf192 mul.
 bf192_t bf192_mul(bf192_t lhs, bf192_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -640,6 +672,7 @@ bf192_t bf192_mul(bf192_t lhs, bf192_t rhs) {
   return result;
 }
 
+// Implements bf192 mul 64.
 bf192_t bf192_mul_64(bf192_t lhs, bf64_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -666,11 +699,13 @@ bf192_t bf192_mul_64(bf192_t lhs, bf64_t rhs) {
 }
 
 #if !defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf192 mul bit.
 bf192_t bf192_mul_bit(bf192_t lhs, uint8_t rhs) {
   return bf192_and_64(lhs, -((uint64_t)rhs & 1));
 }
 #endif
 
+// Implements bf192 dbl.
 ATTR_CONST static inline bf192_t bf192_dbl(bf192_t lhs) {
   uint64_t mask = bf192_bit_to_uint64_mask(lhs, 192 - 1);
   lhs           = bf192_shift_left_1(lhs);
@@ -679,6 +714,7 @@ ATTR_CONST static inline bf192_t bf192_dbl(bf192_t lhs) {
   return lhs;
 }
 
+// Implements bf192 sum poly.
 bf192_t bf192_sum_poly(const bf192_t* xs) {
   bf192_t ret = xs[192 - 1];
   for (size_t i = 1; i < 192; ++i) {
@@ -687,6 +723,7 @@ bf192_t bf192_sum_poly(const bf192_t* xs) {
   return ret;
 }
 
+// Implements bf192 sum poly bits.
 bf192_t bf192_sum_poly_bits(const uint8_t* xs) {
   bf192_t ret = bf192_from_bit(ptr_get_bit(xs, 192 - 1));
   for (size_t i = 1; i < 192; ++i) {
@@ -694,8 +731,6 @@ bf192_t bf192_sum_poly_bits(const uint8_t* xs) {
   }
   return ret;
 }
-
-// GF(2^256) implementation
 
 static const bf256_t bf256_alpha[7] = {
     BF256C(U64C(0xe7, 0xfe, 0xde, 0x0b, 0x42, 0x88, 0x97, 0x96),
@@ -729,11 +764,13 @@ static const bf256_t bf256_alpha[7] = {
 };
 
 #if defined(FAEST_TESTS)
+// Implements bf256 get alpha.
 bf256_t bf256_get_alpha(unsigned int idx) {
   return bf256_alpha[idx];
 }
 #endif
 
+// Implements bf256 byte combine.
 bf256_t bf256_byte_combine(const bf256_t* x) {
   bf256_t bf_out = x[0];
   for (unsigned int i = 1; i < 8; ++i) {
@@ -742,6 +779,7 @@ bf256_t bf256_byte_combine(const bf256_t* x) {
   return bf_out;
 }
 
+// Implements bf256 sq bit.
 void bf256_sq_bit(bf256_t* out_tag, const bf256_t* in_tag) {
   out_tag[0] = bf256_add(in_tag[0], bf256_add(in_tag[4], in_tag[6]));
   out_tag[1] = bf256_add(in_tag[4], bf256_add(in_tag[6], in_tag[7]));
@@ -753,6 +791,7 @@ void bf256_sq_bit(bf256_t* out_tag, const bf256_t* in_tag) {
   out_tag[7] = bf256_add(in_tag[6], in_tag[7]);
 }
 
+// Implements bf256 sq bit inplace.
 void bf256_sq_bit_inplace(bf256_t* tag) {
   tag[0]           = bf256_add(tag[0], bf256_add(tag[4], tag[6]));
   const bf256_t i1 = tag[1];
@@ -769,12 +808,14 @@ void bf256_sq_bit_inplace(bf256_t* tag) {
   tag[7]           = bf256_add(i6, tag[7]);
 }
 
+// Implements bf256 byte combine sq.
 bf256_t bf256_byte_combine_sq(const bf256_t* x) {
   bf256_t bf_tmp[8];
   bf256_sq_bit(bf_tmp, x);
   return bf256_byte_combine(bf_tmp);
 }
 
+// Implements bf256 byte combine bits.
 bf256_t bf256_byte_combine_bits(uint8_t x) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   return bf256_from_bit(get_bit(x, 0)) ^ bf256_mul_bit(bf256_alpha[1 - 1], get_bit(x, 1)) ^
@@ -793,10 +834,12 @@ bf256_t bf256_byte_combine_bits(uint8_t x) {
 #endif
 }
 
+// Implements bf256 byte combine bits sq.
 bf256_t bf256_byte_combine_bits_sq(uint8_t x) {
   return bf256_byte_combine_bits(bits_sq(x));
 }
 
+// Implements bf256 rand.
 bf256_t bf256_rand(void) {
   uint8_t buf[BF256_NUM_BYTES];
   rand_bytes(buf, sizeof(buf));
@@ -807,6 +850,7 @@ bf256_t bf256_rand(void) {
 #define bf256_and_64(lhs, rhs) ((lhs) & (rhs))
 #else
 ATTR_CONST
+// Implements bf256 and 64.
 static inline bf256_t bf256_and_64(bf256_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -819,6 +863,7 @@ static inline bf256_t bf256_and_64(bf256_t lhs, bf64_t rhs) {
 #if __has_builtin(__builtin_shufflevector)
 #define bf256_shift_right_64(v1) __builtin_shufflevector((v1), bf256_zero(), 4, 0, 1, 2)
 #else
+// Implements bf256 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_shift_right_64(bf256_t v1) {
   bf256_t ret;
   BF_VALUE(ret, 0) = 0;
@@ -832,6 +877,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_shift_right_64(bf256_t
 #define bf256_shift_left_1(value) ((value << 1) | bf256_shift_right_64(value >> 63))
 #else
 ATTR_CONST
+// Implements bf256 shift left 1.
 static inline bf256_t bf256_shift_left_1(bf256_t value) {
   value.values[3] = (value.values[3] << 1) | (value.values[2] >> 63);
   value.values[2] = (value.values[2] << 1) | (value.values[1] >> 63);
@@ -841,6 +887,7 @@ static inline bf256_t bf256_shift_left_1(bf256_t value) {
 }
 #endif
 
+// Implements bf256 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf256_bit_to_uint64_mask(bf256_t value,
                                                                               unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
@@ -849,6 +896,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf256_bit_to_uint64_mask(bf
   return -((BF_VALUE(value, byte_idx) >> bit_idx) & 1);
 }
 
+// Implements bf256 mul.
 bf256_t bf256_mul(bf256_t lhs, bf256_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -883,6 +931,7 @@ bf256_t bf256_mul(bf256_t lhs, bf256_t rhs) {
   return result;
 }
 
+// Implements bf256 mul 64.
 bf256_t bf256_mul_64(bf256_t lhs, bf64_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -917,11 +966,13 @@ bf256_t bf256_mul_64(bf256_t lhs, bf64_t rhs) {
 }
 
 #if !defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf256 mul bit.
 bf256_t bf256_mul_bit(bf256_t lhs, uint8_t rhs) {
   return bf256_and_64(lhs, -((uint64_t)rhs & 1));
 }
 #endif
 
+// Implements bf256 dbl.
 ATTR_CONST static inline bf256_t bf256_dbl(bf256_t lhs) {
   uint64_t mask = bf256_bit_to_uint64_mask(lhs, 256 - 1);
   lhs           = bf256_shift_left_1(lhs);
@@ -934,6 +985,7 @@ ATTR_CONST static inline bf256_t bf256_dbl(bf256_t lhs) {
 #endif
 }
 
+// Implements bf256 sum poly.
 bf256_t bf256_sum_poly(const bf256_t* xs) {
   bf256_t ret = xs[256 - 1];
   for (size_t i = 1; i < 256; ++i) {
@@ -942,6 +994,7 @@ bf256_t bf256_sum_poly(const bf256_t* xs) {
   return ret;
 }
 
+// Implements bf256 sum poly bits.
 bf256_t bf256_sum_poly_bits(const uint8_t* xs) {
   bf256_t ret = bf256_from_bit(ptr_get_bit(xs, 256 - 1));
   for (size_t i = 1; i < 256; ++i) {
@@ -950,10 +1003,9 @@ bf256_t bf256_sum_poly_bits(const uint8_t* xs) {
   return ret;
 }
 
-// GF(2^384)
-
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 ATTR_CONST
+// Implements bf384 and 64.
 static inline bf384_t bf384_and_64(bf384_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] &= rhs;
@@ -962,6 +1014,7 @@ static inline bf384_t bf384_and_64(bf384_t lhs, bf64_t rhs) {
 }
 #else
 ATTR_CONST
+// Implements bf384 and 64.
 static inline bf384_t bf384_and_64(bf384_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -972,6 +1025,7 @@ static inline bf384_t bf384_and_64(bf384_t lhs, bf64_t rhs) {
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #if __has_builtin(__builtin_shufflevector)
+// Implements bf384 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf384_t bf384_shift_right_64(bf384_t v1) {
   bf384_t ret;
   ret.inner[0] = __builtin_shufflevector(v1.inner[0], bf128_zero(), 2, 0);
@@ -982,6 +1036,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf384_t bf384_shift_right_64(bf384_t
   return ret;
 }
 #else
+// Implements bf384 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf384_t bf384_shift_right_64(bf384_t v1) {
   bf384_t ret;
   BF_VALUE(ret.inner[0], 0) = 0;
@@ -995,6 +1050,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf384_t bf384_shift_right_64(bf384_t
 #endif
 
 ATTR_CONST
+// Implements bf384 shift left 1.
 static inline bf384_t bf384_shift_left_1(bf384_t value) {
   const bf384_t rhs = bf384_shift_right_64(value);
   for (unsigned int i = 0; i != ARRAY_SIZE(value.inner); ++i) {
@@ -1003,6 +1059,7 @@ static inline bf384_t bf384_shift_left_1(bf384_t value) {
   return value;
 }
 
+// Implements bf384 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf384_bit_to_uint64_mask(bf384_t value,
                                                                               unsigned int bit) {
   const unsigned int inner_idx = bit / 128;
@@ -1014,6 +1071,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf384_bit_to_uint64_mask(bf
 }
 #else
 ATTR_CONST
+// Implements bf384 shift left 1.
 static inline bf384_t bf384_shift_left_1(bf384_t value) {
   for (unsigned int i = ARRAY_SIZE(value.values) - 1; i; --i) {
     value.values[i] = (value.values[i] << 1) | (value.values[i - 1] >> 63);
@@ -1022,6 +1080,7 @@ static inline bf384_t bf384_shift_left_1(bf384_t value) {
   return value;
 }
 
+// Implements bf384 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf384_bit_to_uint64_mask(bf384_t value,
                                                                               unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
@@ -1031,6 +1090,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf384_bit_to_uint64_mask(bf
 }
 #endif
 
+// Implements bf384 mul 128.
 bf384_t bf384_mul_128(bf384_t lhs, bf128_t rhs) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   const bf128_t mod = BF128C(bf384_modulus, 0);
@@ -1050,10 +1110,9 @@ bf384_t bf384_mul_128(bf384_t lhs, bf128_t rhs) {
   return result;
 }
 
-// GF(2^576)
-
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 ATTR_CONST
+// Implements bf576 and 64.
 static inline bf576_t bf576_and_64(bf576_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] &= rhs;
@@ -1062,6 +1121,7 @@ static inline bf576_t bf576_and_64(bf576_t lhs, bf64_t rhs) {
 }
 #else
 ATTR_CONST
+// Implements bf576 and 64.
 static inline bf576_t bf576_and_64(bf576_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -1072,6 +1132,7 @@ static inline bf576_t bf576_and_64(bf576_t lhs, bf64_t rhs) {
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #if __has_builtin(__builtin_shufflevector)
+// Implements bf576 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf576_t bf576_shift_right_64(bf576_t v1) {
   bf576_t ret;
   ret.inner[0] = __builtin_shufflevector(v1.inner[0], bf256_zero(), 4, 0, 1, 7);
@@ -1082,6 +1143,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf576_t bf576_shift_right_64(bf576_t
   return ret;
 }
 #else
+// Implements bf576 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf576_t bf576_shift_right_64(bf576_t v1) {
   bf576_t ret;
   BF_VALUE(ret.inner[0], 0) = 0;
@@ -1098,6 +1160,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf576_t bf576_shift_right_64(bf576_t
 #endif
 
 ATTR_CONST
+// Implements bf576 shift left 1.
 static inline bf576_t bf576_shift_left_1(bf576_t value) {
   const bf576_t rhs = bf576_shift_right_64(value);
   for (unsigned int i = 0; i != ARRAY_SIZE(value.inner); ++i) {
@@ -1106,6 +1169,7 @@ static inline bf576_t bf576_shift_left_1(bf576_t value) {
   return value;
 }
 
+// Implements bf576 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf576_bit_to_uint64_mask(bf576_t value,
                                                                               unsigned int bit) {
   const unsigned int inner_idx = bit / 192;
@@ -1117,6 +1181,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf576_bit_to_uint64_mask(bf
 }
 #else
 ATTR_CONST
+// Implements bf576 shift left 1.
 static inline bf576_t bf576_shift_left_1(bf576_t value) {
   for (unsigned int i = ARRAY_SIZE(value.values) - 1; i; --i) {
     value.values[i] = (value.values[i] << 1) | (value.values[i - 1] >> 63);
@@ -1125,6 +1190,7 @@ static inline bf576_t bf576_shift_left_1(bf576_t value) {
   return value;
 }
 
+// Implements bf576 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf576_bit_to_uint64_mask(bf576_t value,
                                                                               unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
@@ -1134,6 +1200,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf576_bit_to_uint64_mask(bf
 }
 #endif
 
+// Implements bf576 mul 192.
 bf576_t bf576_mul_192(bf576_t lhs, bf192_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {
@@ -1165,10 +1232,9 @@ bf576_t bf576_mul_192(bf576_t lhs, bf192_t rhs) {
   return result;
 }
 
-// GF(2^768)
-
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 ATTR_CONST
+// Implements bf768 and 64.
 static inline bf768_t bf768_and_64(bf768_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] &= rhs;
@@ -1177,6 +1243,7 @@ static inline bf768_t bf768_and_64(bf768_t lhs, bf64_t rhs) {
 }
 #else
 ATTR_CONST
+// Implements bf768 and 64.
 static inline bf768_t bf768_and_64(bf768_t lhs, bf64_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] &= rhs;
@@ -1187,6 +1254,7 @@ static inline bf768_t bf768_and_64(bf768_t lhs, bf64_t rhs) {
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #if __has_builtin(__builtin_shufflevector)
+// Implements bf768 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf768_t bf768_shift_right_64(bf768_t v1) {
   bf768_t ret;
   ret.inner[0] = __builtin_shufflevector(v1.inner[0], bf256_zero(), 4, 0, 1, 2);
@@ -1197,6 +1265,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf768_t bf768_shift_right_64(bf768_t
   return ret;
 }
 #else
+// Implements bf768 shift right 64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf768_t bf768_shift_right_64(bf768_t v1) {
   bf768_t ret;
   BF_VALUE(ret.inner[0], 0) = 0;
@@ -1216,6 +1285,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline bf768_t bf768_shift_right_64(bf768_t
 #endif
 
 ATTR_CONST
+// Implements bf768 shift left 1.
 static inline bf768_t bf768_shift_left_1(bf768_t value) {
   bf768_t rhs = bf768_shift_right_64(value);
   for (unsigned int i = 0; i != ARRAY_SIZE(value.inner); ++i) {
@@ -1224,6 +1294,7 @@ static inline bf768_t bf768_shift_left_1(bf768_t value) {
   return value;
 }
 
+// Implements bf768 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf768_bit_to_uint64_mask(bf768_t value,
                                                                               unsigned int bit) {
   const unsigned int inner_idx = bit / 256;
@@ -1235,6 +1306,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf768_bit_to_uint64_mask(bf
 }
 #else
 ATTR_CONST
+// Implements bf768 shift left 1.
 static inline bf768_t bf768_shift_left_1(bf768_t value) {
   for (unsigned int i = ARRAY_SIZE(value.values) - 1; i; --i) {
     value.values[i] = (value.values[i] << 1) | (value.values[i - 1] >> 63);
@@ -1243,6 +1315,7 @@ static inline bf768_t bf768_shift_left_1(bf768_t value) {
   return value;
 }
 
+// Implements bf768 bit to uint64 mask.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf768_bit_to_uint64_mask(bf768_t value,
                                                                               unsigned int bit) {
   const unsigned int byte_idx = bit / 64;
@@ -1252,6 +1325,7 @@ ATTR_CONST ATTR_ALWAYS_INLINE static inline uint64_t bf768_bit_to_uint64_mask(bf
 }
 #endif
 
+// Implements bf768 mul 256.
 bf768_t bf768_mul_256(bf768_t lhs, bf256_t rhs) {
 #if defined(DAA_HAVE_RUNTIME_PCLMUL)
   if (bf_runtime_has_pclmul()) {

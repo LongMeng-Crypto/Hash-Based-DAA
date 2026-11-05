@@ -1,8 +1,6 @@
 #include "cycles.h"
 
 #if defined(__aarch64__) && defined(__APPLE__)
-// Adapted from
-// https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/blob/master/2021/03/24/
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -27,6 +25,7 @@ KPERF_LIST
 uint64_t g_counters[10];
 uint64_t g_config[10];
 
+// Implements configure rdtsc.
 static void configure_rdtsc(void) {
   if (kpc_set_config(3, g_config)) {
     printf("kpc_set_config failed\n");
@@ -49,6 +48,7 @@ static void configure_rdtsc(void) {
   }
 }
 
+// Initializes cpucycles.
 void init_cpucycles(void) {
   void *kperf = dlopen(
       "/System/Library/PrivateFrameworks/kperf.framework/Versions/A/kperf",
@@ -83,6 +83,7 @@ void init_cpucycles(void) {
   configure_rdtsc();
 }
 
+// Implements cpucycles.
 unsigned long long cpucycles(void) {
   static int warned = 0;
   if (kpc_get_thread_counters(0, 10, g_counters)) {
@@ -92,14 +93,15 @@ unsigned long long cpucycles(void) {
     }
     return 1;
   }
-  // g_counters[3 + 2] gives you the number of instructions 'decoded'
-  // whereas g_counters[1] might give you the number of instructions 'retired'.
+
   return g_counters[0 + 2];
 }
 #else
+// Initializes cpucycles.
 void init_cpucycles(void) {
 }
 
+// Implements cpucycles.
 unsigned long long cpucycles(void)
 {
   unsigned long long result;

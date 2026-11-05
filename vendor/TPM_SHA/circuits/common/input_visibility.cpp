@@ -27,6 +27,7 @@ std::size_t parse_index(std::string_view value) {
   return result;
 }
 
+// Parses range.
 VisibilityRange parse_range(std::string_view token) {
   token = trim(token);
   const auto first = token.find(':');
@@ -49,7 +50,7 @@ VisibilityRange parse_range(std::string_view token) {
           parse_index(token.substr(second + 1))};
 }
 
-} // namespace
+}
 
 InputVisibilityLayout InputVisibilityLayout::all_secret(
     std::size_t message_bits) {
@@ -183,4 +184,4 @@ std::vector<std::uint8_t> pack_input_bits(
   return packed;
 }
 
-} // namespace vole_circuits
+}

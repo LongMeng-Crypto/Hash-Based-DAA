@@ -6,22 +6,19 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Exact certificate size for this parameter set. */
+
 size_t sphincs_issuer_anchor_certificate_bytes(void);
-/* Generates one ordinary Setup signature and extracts FORS trees zero and
- * one. The caller supplies capacity in *len; success returns the exact size. */
+
 int sphincs_issuer_anchor_generate(uint8_t *certificate, size_t *len,
                                    const uint8_t *pk, const uint8_t *sk);
-/* Builds the certificate using only PK and a normal signature on message 0x49.
- */
+
 int sphincs_issuer_anchor_from_signature(uint8_t *certificate, size_t *len,
                                          const uint8_t *pk,
                                          const uint8_t *signature,
                                          size_t signature_len);
 int sphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
                                  const uint8_t *pk);
-/* Derives the canonical public two-compression statement without a secret key.
- */
+
 int sphincs_issuer_anchor_statement(uint8_t state[32], uint8_t address[44],
                                     uint8_t value[2 * SPX_N],
                                     const uint8_t *certificate, size_t len,

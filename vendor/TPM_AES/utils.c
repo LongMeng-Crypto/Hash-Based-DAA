@@ -11,13 +11,14 @@
 #include <assert.h>
 #include <string.h>
 
+// Implements num rec 2.
 static inline uint16_t num_rec_2(const uint8_t* v) {
   uint16_t r;
   memcpy(&r, v, sizeof(r));
   return le16toh(r);
 }
 
-// DecodeChall_3
+// Decodes chall 3.
 static bool decode_chall_3(uint8_t* decoded_chall, const uint8_t* chall, unsigned int i,
                            const faest_paramset_t* params) {
   if (i >= params->tau) {
@@ -40,13 +41,14 @@ static bool decode_chall_3(uint8_t* decoded_chall, const uint8_t* chall, unsigne
   }
 
   assert(hi - lo == k || hi - lo == k - 1);
-  // TODO: this could be implemented more efficiently using bit shifts
+
   for (unsigned int j = lo; j < hi; ++j) {
     ptr_set_bit(decoded_chall, j - lo, ptr_get_bit(chall, j));
   }
   return true;
 }
 
+// Decodes all chall 3.
 bool decode_all_chall_3(uint16_t* decoded_chall, const uint8_t* chall,
                         const faest_paramset_t* params) {
   for (unsigned int i = 0; i != params->tau; ++i) {

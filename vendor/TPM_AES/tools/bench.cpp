@@ -29,6 +29,7 @@ using std::chrono::microseconds;
 
 namespace {
 #if defined(HAVE_PTHREAD_SETAFFINITY_NP)
+  // Sets thread affinity.
   void set_thread_affinity(const std::vector<unsigned int>& cpus) {
     if (cpus.empty()) {
       return;
@@ -54,6 +55,7 @@ namespace {
     unsigned long long sig_bytes;
   };
 
+  // Parses args.
   unsigned int parse_args(int argc, char** argv) {
     using namespace boost::program_options;
 
@@ -88,10 +90,10 @@ namespace {
     }
   }
 
+  // Implements print timings.
   void print_timings(const std::vector<timing_and_size_t>& timings) {
     if (timings.empty()) return;
 
-    // Compute averages
     double avg_keygen = 0, avg_sign = 0, avg_verify = 0;
     unsigned long long sig_bytes = timings[0].sig_bytes;
     for (const auto& t : timings) {
@@ -108,7 +110,6 @@ namespace {
     double avg_verify_ms = avg_verify / 1000.0;
     double sig_kb        = sig_bytes  / 1024.0;
 
-    // Header
     std::cout << std::string(84, '-') << "\n";
     std::cout << std::left
               << std::setw(12) << "Scheme"
@@ -133,6 +134,7 @@ namespace {
     std::cout << std::string(84, '-') << "\n";
   }
 
+  // Benchmarks sign and verify.
   void bench_sign_and_verify(unsigned int iter) {
     std::vector<timing_and_size_t> timings;
     timings.reserve(iter);
@@ -154,7 +156,6 @@ namespace {
       std::array<uint8_t, CRYPTO_PUBLICKEYBYTES> pk;
       std::array<uint8_t, CRYPTO_SECRETKEYBYTES> sk;
 
-      // Generate the public/private keypair
       auto start_time = high_resolution_clock::now();
       auto ret        = crypto_sign_keypair(pk.data(), sk.data());
       timing.keygen   = duration_cast<microseconds>(high_resolution_clock::now() - start_time);
@@ -190,8 +191,9 @@ namespace {
 
     print_timings(timings);
   }
-} // namespace
+}
 
+// Implements main.
 int main(int argc, char** argv) {
   unsigned int iter = parse_args(argc, argv);
   if (!iter) {

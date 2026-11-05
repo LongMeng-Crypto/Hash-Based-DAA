@@ -21,6 +21,7 @@
 #include <asm/hwcap.h>
 #include <sys/auxv.h>
 
+// Initializes caps.
 static unsigned int init_caps(void) {
   unsigned int caps = 0;
   if (getauxval(AT_HWCAP) & HWCAP_NEON) {
@@ -35,6 +36,7 @@ static unsigned int init_caps(void) {
 #ifdef _MSC_VER
 #include <intrin.h>
 
+// Initializes caps.
 static unsigned init_caps(void) {
   unsigned int caps = 0;
 
@@ -73,6 +75,7 @@ static unsigned init_caps(void) {
 #else
 #include <cpuid.h>
 
+// Initializes caps.
 static unsigned init_caps(void) {
   unsigned int caps = 0;
   unsigned int eax, ebx, ecx, edx;
@@ -101,6 +104,7 @@ static unsigned init_caps(void) {
 
 #else
 
+// Initializes caps.
 static unsigned init_caps(void) {
   return 0;
 }
@@ -111,6 +115,7 @@ static unsigned init_caps(void) {
 
 static unsigned int cpu_caps = UINT_MAX;
 
+// Implements cpu supports.
 bool cpu_supports(unsigned int caps) {
   if (cpu_caps == UINT_MAX) {
     cpu_caps = init_caps();

@@ -12,9 +12,7 @@ static void thash_512(unsigned char *out, const unsigned char *in, unsigned int 
            const spx_ctx *ctx, uint32_t addr[8]);
 #endif
 
-/**
- * Takes an array of inblocks concatenated arrays of SPX_N bytes.
- */
+// Implements thash.
 void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
            const spx_ctx *ctx, uint32_t addr[8])
 {
@@ -34,7 +32,6 @@ void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
     memcpy(buf + SPX_N, addr, SPX_SHA256_ADDR_BYTES);
     mgf1_256(bitmask, inblocks * SPX_N, buf, SPX_N + SPX_SHA256_ADDR_BYTES);
 
-    /* Retrieve precomputed state containing pub_seed */
     memcpy(sha2_state, ctx->state_seeded, 40 * sizeof(uint8_t));
 
     for (i = 0; i < inblocks * SPX_N; i++) {
@@ -47,6 +44,7 @@ void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
 }
 
 #if SPX_SHA512
+// Implements thash 512.
 static void thash_512(unsigned char *out, const unsigned char *in, unsigned int inblocks,
            const spx_ctx *ctx, uint32_t addr[8])
 {
@@ -60,7 +58,6 @@ static void thash_512(unsigned char *out, const unsigned char *in, unsigned int 
     memcpy(buf + SPX_N, addr, SPX_SHA256_ADDR_BYTES);
     mgf1_512(bitmask, inblocks * SPX_N, buf, SPX_N + SPX_SHA256_ADDR_BYTES);
 
-    /* Retrieve precomputed state containing pub_seed */
     memcpy(sha2_state, ctx->state_seeded_512, 72 * sizeof(uint8_t));
 
     for (i = 0; i < inblocks * SPX_N; i++) {

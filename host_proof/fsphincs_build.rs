@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-/// Loads the canonical six-set registry and emits matching Rust/C parameters.
+// Implements configure.
 pub fn configure(header: &str, sphincs_params: &str) -> (String, String) {
     println!("cargo:rerun-if-changed={header}");
     println!("cargo:rerun-if-env-changed=FSPHINCS_PARAMS");

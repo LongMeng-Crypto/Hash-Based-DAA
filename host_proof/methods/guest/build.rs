@@ -3,39 +3,12 @@ mod fsphincs_build;
 use std::env;
 use std::path::Path;
 
-/// Builds parameter-matched verification and Setup relations for the RISC0 guests.
+// Implements main.
 fn main() {
     let dir = "c_src/sphincs_ref";
     if !Path::new(dir).exists() {
         panic!("C source dir not found: {}", dir);
     }
-
-    // -----------------------------------------------------------------------
-    // Parameter set selection
-    //
-    // Set SPHINCS_PARAMS in the environment before building to choose a
-    // parameter set.  Default: sphincs-sha2-128s
-    //
-    // Valid values (18 parameter sets):
-    //   SHA-2 based (SHA-256 syscall-accelerated on RISC-V for 128/192):
-    //     sphincs-sha2-128f  sphincs-sha2-128s   <- fastest on RISC-V (SHA-256)
-    //     sphincs-sha2-192f  sphincs-sha2-192s   <- SHA-256 for PRF, SHA-512 for thash
-    //     sphincs-sha2-256f  sphincs-sha2-256s   <- SHA-512 dominant (software)
-    //
-    //   SHAKE based (Keccak-p[1600], 64-bit lanes, software on RISC-V):
-    //     sphincs-shake-128f sphincs-shake-128s
-    //     sphincs-shake-192f sphincs-shake-192s
-    //     sphincs-shake-256f sphincs-shake-256s
-    //
-    //   Haraka based (bit-sliced software AES, portable):
-    //     sphincs-haraka-128f sphincs-haraka-128s
-    //     sphincs-haraka-192f sphincs-haraka-192s
-    //     sphincs-haraka-256f sphincs-haraka-256s
-    //
-    // Tweakable-hash variant selection via SPHINCS_THASH:
-    //   simple  (default) - no bitmask step, ~30% faster thash calls
-    //   robust            - MGF1 bitmask, stronger non-malleability guarantee
-    // -----------------------------------------------------------------------
 
     let params = env::var("SPHINCS_PARAMS").unwrap_or_else(|_| "sphincs-sha2-128s".to_string());
     let thash = env::var("SPHINCS_THASH").unwrap_or_else(|_| "simple".to_string());
@@ -65,7 +38,6 @@ fn main() {
     let opt_level = opt_level_from_new.max(opt_level_from_compat);
     let opt_128_sha256_glue = opt_level > 0;
 
-    // Validate params
     const VALID_PARAMS: &[&str] = &[
         "sphincs-sha2-128f",
         "sphincs-sha2-128s",
@@ -106,7 +78,6 @@ fn main() {
         panic!("SPHINCS_OPT_LEVEL=1 is only meaningful for SHA2-128s/f; use SPHINCS_OPT_LEVEL=2 for SHA2-192/256");
     }
 
-    // Derive hash backend
     let hash_backend = if params.contains("-sha2-") {
         "sha2"
     } else if params.contains("-shake-") {
@@ -120,11 +91,6 @@ fn main() {
         panic!("Params header not found: {}", params_header);
     }
 
-    // -----------------------------------------------------------------------
-    // Explicit file lists — avoids duplicate-symbol bugs from glob inclusion
-    // -----------------------------------------------------------------------
-
-    // Core files used by every backend
     let core_files: &[&str] = if opt_level >= 2 {
         &[
             "sign_verify_128s_opt.c",
@@ -147,7 +113,6 @@ fn main() {
         ]
     };
 
-    // Backend-specific implementation files
     let backend_files: &[&str] = match hash_backend {
         "sha2" => &["sha2.c", "hash_sha2.c"],
         "shake" => &["fips202.c", "hash_shake.c"],
@@ -155,12 +120,7 @@ fn main() {
         _ => unreachable!(),
     };
 
-    // Exactly one tweakable-hash file: thash_{backend}_{simple|robust}.c
     let thash_file = format!("thash_{}_{}.c", hash_backend, thash);
-
-    // -----------------------------------------------------------------------
-    // Configure and run the C compiler
-    // -----------------------------------------------------------------------
 
     let mut build = cc::Build::new();
     build.include(dir);
@@ -172,8 +132,6 @@ fn main() {
     build.opt_level(3);
     build.warnings(false);
 
-    // Enable RISC0 SHA-256 syscall hook in sha2.c.
-    // For shake/haraka backends sha2.c is not compiled, so this is a no-op.
     build.define("RISC0_SHA_SYSCALL", None);
     if profile {
         build.define("SPHINCS_PROFILE", None);
@@ -191,7 +149,6 @@ fn main() {
         build.define("SPHINCS_OPT_ZK_WOTS_FAST", None);
     }
 
-    // Add all source files
     for &f in core_files.iter().chain(backend_files.iter()) {
         let path = format!("{}/{}", dir, f);
         assert!(
@@ -212,10 +169,6 @@ fn main() {
     build.file(&thash_path);
     build.file(format!("{}/issuer_wots_verify.c", dir));
 
-    // F-SPHINCS+ guest archive: verification only. Host-only key generation,
-    // signing, 2 MiB tree buffers, and randombytes references are excluded.
-    // Compile before sphincs_ref so its SHA-256 references resolve from the
-    // following archive under static link ordering.
     let fs_dir = "c_src/fsphincs_ref";
     let mut fs_build = cc::Build::new();
     fs_build
@@ -232,7 +185,6 @@ fn main() {
 
     build.compile("sphincs_ref");
 
-    // Rebuild triggers
     println!("cargo:rerun-if-changed={}", dir);
     println!("cargo:rerun-if-changed={}", params_header);
     println!("cargo:rerun-if-env-changed=SPHINCS_PARAMS");
@@ -246,7 +198,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
     println!("cargo:rerun-if-env-changed=FSPHINCS_K");
 
-    // Security level → cfg flag + SPHINCS_N byte count
     let sec_level = if params.contains("-128") {
         "128"
     } else if params.contains("-192") {
@@ -304,9 +255,7 @@ fn main() {
 
     let default_opt5_pad_blocks = if opt_level == 5 {
         match params.as_str() {
-            // These defaults target a single visible segment-size bin for the
-            // estimated WOTS min/max range. They can be tuned without code
-            // changes via SPHINCS_OPT5_PAD_BLOCKS.
+
             "sphincs-sha2-128s" => "4500",
             "sphincs-sha2-128f" => "52000",
             "sphincs-sha2-192s" => "11000",
@@ -326,7 +275,6 @@ fn main() {
     println!("cargo:rustc-env=SPHINCS_PK_BYTES={}", spx_pk_bytes);
     println!("cargo:rustc-env=SPHINCS_SIG_BYTES={}", spx_sig_bytes);
 
-    // Expose selections to guest Rust code via env!() macro
     println!("cargo:rustc-env=SPHINCS_PARAMS={}", params);
     println!("cargo:rustc-env=SPHINCS_THASH={}", thash);
     println!("cargo:rustc-env=SPHINCS_HASH_BACKEND={}", hash_backend);

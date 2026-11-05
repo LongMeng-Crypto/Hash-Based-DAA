@@ -25,8 +25,14 @@ use aes::Aes256;
 mod daa_sha_hook;
 
 extern "C" {
+
+    // Implements crypto sign keypair.
     fn crypto_sign_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+
+    // Implements crypto sign.
     fn crypto_sign(sm: *mut u8, smlen: *mut u64, m: *const u8, mlen: u64, sk: *const u8) -> i32;
+
+    // Implements crypto sign verify.
     fn crypto_sign_verify(
         sig: *const u8,
         siglen: usize,
@@ -34,18 +40,26 @@ extern "C" {
         mlen: usize,
         pk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor certificate bytes.
     fn sphincs_issuer_anchor_certificate_bytes() -> usize;
+
+    // Implements issuer anchor generate.
     fn sphincs_issuer_anchor_generate(
         certificate: *mut u8,
         certificate_len: *mut usize,
         pk: *const u8,
         sk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor verify.
     fn sphincs_issuer_anchor_verify(
         certificate: *const u8,
         certificate_len: usize,
         pk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor relation.
     fn sphincs_issuer_anchor_relation(
         seed: *mut u8,
         seeded_state: *mut u8,
@@ -56,13 +70,29 @@ extern "C" {
         pk: *const u8,
         sk: *const u8,
     ) -> i32;
+
+    // Implements sig bytes.
     fn sphincs_sig_bytes() -> usize;
+
+    // Implements pk bytes.
     fn sphincs_pk_bytes() -> usize;
+
+    // Implements sk bytes.
     fn sphincs_sk_bytes() -> usize;
+
+    // Implements publickeybytes.
     fn fsphincs_publickeybytes() -> usize;
+
+    // Implements secretkeybytes.
     fn fsphincs_secretkeybytes() -> usize;
+
+    // Implements signaturebytes.
     fn fsphincs_signaturebytes() -> usize;
+
+    // Implements keypair.
     fn fsphincs_keypair(pk: *mut u8, sk: *mut u8) -> i32;
+
+    // Signs signature.
     fn fsphincs_sign_signature(
         sig: *mut u8,
         siglen: *mut usize,
@@ -70,6 +100,8 @@ extern "C" {
         msglen: usize,
         sk: *const u8,
     ) -> i32;
+
+    // Verifies the operation result.
     fn fsphincs_verify(
         sig: *const u8,
         siglen: usize,
@@ -77,18 +109,26 @@ extern "C" {
         msglen: usize,
         pk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor certificate bytes.
     fn fsphincs_issuer_anchor_certificate_bytes() -> usize;
+
+    // Implements issuer anchor generate.
     fn fsphincs_issuer_anchor_generate(
         certificate: *mut u8,
         certificate_len: usize,
         pk: *const u8,
         sk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor verify.
     fn fsphincs_issuer_anchor_verify(
         certificate: *const u8,
         certificate_len: usize,
         pk: *const u8,
     ) -> i32;
+
+    // Implements issuer anchor relation.
     fn fsphincs_issuer_anchor_relation(
         root_seed: *mut u8,
         leaf_address: *mut u8,
@@ -107,10 +147,12 @@ mod fs_params {
 }
 const FSPHINCS_LAYER_SIG_BYTES: usize = fs_params::MFORS_SIG_BYTES;
 
+// Implements credential is fsphincs.
 fn credential_is_fsphincs() -> bool {
     env!("DAA_CREDENTIAL_SCHEME") == "fsphincs"
 }
 
+// Implements credential pk bytes.
 fn credential_pk_bytes() -> usize {
     unsafe {
         if credential_is_fsphincs() {
@@ -121,6 +163,7 @@ fn credential_pk_bytes() -> usize {
     }
 }
 
+// Implements credential sk bytes.
 fn credential_sk_bytes() -> usize {
     unsafe {
         if credential_is_fsphincs() {
@@ -131,6 +174,7 @@ fn credential_sk_bytes() -> usize {
     }
 }
 
+// Implements credential sig bytes.
 fn credential_sig_bytes() -> usize {
     unsafe {
         if credential_is_fsphincs() {
@@ -141,6 +185,7 @@ fn credential_sig_bytes() -> usize {
     }
 }
 
+// Implements receipt kind from env.
 fn receipt_kind_from_env() -> ReceiptKind {
     match env::var("RISC0_RECEIPT_KIND")
         .unwrap_or_else(|_| "composite".to_string())
@@ -155,6 +200,7 @@ fn receipt_kind_from_env() -> ReceiptKind {
     }
 }
 
+// Implements prover opts from env.
 fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
     let receipt_kind = receipt_kind_from_env();
     let opts = match receipt_kind {
@@ -166,13 +212,14 @@ fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
         .with_receipt_kind(receipt_kind)
 }
 
+// Implements verifier context for hashfn.
 fn verifier_context_for_hashfn(backend_hash: &str, _seg_po2: u32) -> VerifierContext {
-    // Succinct and identity receipts commit to the complete default control
-    // set, independently of the execution segment limit selected for a run.
+
     VerifierContext::from_max_po2_with_hashfn_public(backend_hash, DEFAULT_MAX_PO2)
         .expect("unsupported verifier context hash function")
 }
 
+// Implements identity wrap enabled.
 fn identity_wrap_enabled() -> bool {
     matches!(
         env::var("RISC0_IDENTITY_WRAP").as_deref(),
@@ -180,6 +227,7 @@ fn identity_wrap_enabled() -> bool {
     )
 }
 
+// Implements maybe identity wrap receipt.
 fn maybe_identity_wrap_receipt(receipt: Receipt) -> Receipt {
     if !identity_wrap_enabled() {
         return receipt;
@@ -199,6 +247,8 @@ fn maybe_identity_wrap_receipt(receipt: Receipt) -> Receipt {
 }
 
 #[no_mangle]
+
+// Implements randombytes.
 pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     use rand::RngCore;
     use rand_chacha::ChaCha20Rng;
@@ -214,22 +264,23 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     rng.fill_bytes(slice);
 }
 
-// ── AES hook variants ──────────────────────────────────────────────────────
-// lambda=128: key=16B, et_u=16B → hk = AES_s(et_u) XOR et_u.
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes128::new(GenericArray::from_slice(s));
     let mut block = GenericArray::clone_from_slice(et_u);
     cipher.encrypt_block(&mut block);
-    // AES-128-DM feed-forward uses the same hidden et as the TPM relation.
+
     for (byte, input) in block.iter_mut().zip(et_u.iter()) {
         *byte ^= input;
     }
     block.to_vec()
 }
 
-// lambda=192: key=24B (AES-192), et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_192))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes192::new(GenericArray::from_slice(s));
     let mut hk = Vec::with_capacity(32);
@@ -242,8 +293,9 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     hk
 }
 
-// lambda=256: key=32B (AES-256), et_u=32B → hk = AES_s(et_u[0..15]) || AES_s(et_u[16..31])
 #[cfg(all(not(daa_tpm_sha2), lambda_256))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     let cipher = Aes256::new(GenericArray::from_slice(s));
     let mut hk = Vec::with_capacity(32);
@@ -257,21 +309,29 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha256_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha384_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
 #[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
+
+// Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha512_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_128))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let (hk, cet) =
         daa_sha_hook::sha256_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
@@ -279,6 +339,8 @@ fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_192))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let (hk, cet) =
         daa_sha_hook::sha384_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
@@ -286,14 +348,14 @@ fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
 }
 
 #[cfg(all(daa_tpm_sha_chen23, lambda_256))]
+
+// Implements cdenw23 hooks.
 fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
     let (hk, cet) =
         daa_sha_hook::sha512_cdenw23_hooks(sst.try_into().unwrap(), et_u.try_into().unwrap());
     (hk.to_vec(), cet.to_vec())
 }
 
-// ── Compile-time sizes (bytes) ─────────────────────────────────────────────
-// AES retains its historical lengths. SHA mode carries full SHA-2 digests.
 #[cfg(all(not(daa_tpm_sha2), lambda_128))]
 const ET_BYTES: usize = 16;
 #[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
@@ -333,7 +395,7 @@ const CET_BYTES: usize = 0;
 #[cfg(daa_tpm_sha_chen23)]
 const CET_BYTES: usize = ET_BYTES;
 
-/// Dispatches protocol/Setup commands or runs the standalone host benchmark.
+// Implements main.
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.get(1).map(String::as_str) == Some("prove-protocol")
@@ -363,7 +425,6 @@ fn main() {
         env!("SPHINCS_N"),
     );
 
-    // ── 1) SPHINCS+ keygen ────────────────────────────────────────────────
     let pk_bytes = unsafe { sphincs_pk_bytes() };
     let sk_bytes = unsafe { sphincs_sk_bytes() };
     let sig_bytes = unsafe { sphincs_sig_bytes() };
@@ -380,10 +441,6 @@ fn main() {
     let keygen_ms = t_keygen.elapsed().as_micros() as f64 / 1000.0;
     assert_eq!(r, 0);
 
-    // ── 2) Construct message = et_u || gr_u ───────────────────────────────
-    // et_u: entry token  (TPM secret, 16 B for lambda=128, 32 B for 192/256)
-    // gr_u: issuer-provided nonce (separate from the hook digest length)
-    // The DAA host proves: SPHINCS+ sig is valid over et_u || gr_u
     use rand::RngCore;
     use rand_core::SeedableRng;
     let deterministic = std::env::var("DAA_DETERMINISTIC").ok().as_deref() == Some("1");
@@ -398,13 +455,10 @@ fn main() {
         rand::thread_rng().fill_bytes(&mut issuer_nonce);
     }
 
-    // msg fed to SPHINCS+ sign = et_u || gr_u
-    // SPHINCS+ internally applies hash_message (acting as H3) to derive mt_u || idx
     let mut msg = Vec::with_capacity(ET_BYTES + NONCE_BYTES);
     msg.extend_from_slice(&et_u);
     msg.extend_from_slice(&issuer_nonce);
 
-    // ── 3) Sign ───────────────────────────────────────────────────────────
     let mut sm_buf = vec![0u8; sig_bytes + msg.len() + 64];
     let mut smlen: u64 = 0;
 
@@ -444,8 +498,6 @@ fn main() {
         ET_BYTES,
     );
 
-    // ── 4) TPM hook witnesses ─────────────────────────────────────────────
-    // Ours uses s as the secret hook preimage; CDENW'23 uses the hidden sst.
     let mut hook_secret = vec![0u8; HOOK_SECRET_BYTES];
     if deterministic {
         deterministic_rng.fill_bytes(&mut hook_secret);
@@ -463,7 +515,6 @@ fn main() {
         cet.len()
     );
 
-    // ── 5) Build guest env ────────────────────────────────────────────────
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|v| v.parse().ok())
@@ -476,9 +527,6 @@ fn main() {
         );
     }
 
-    // All values are private witnesses fed to the zkVM guest.
-    // The guest reconstructs msg = et_u || gr_u internally — et_u is never exposed.
-    // Order must match guest env::read() order exactly.
     let mut env_builder = ExecutorEnv::builder();
     env_builder
         .segment_limit_po2(seg_po2)
@@ -493,7 +541,6 @@ fn main() {
         .write_slice(&issuer_nonce);
     let env = env_builder.build().unwrap();
 
-    // ── 6) Prove ──────────────────────────────────────────────────────────
     let prover = default_prover();
     let backend_hash =
         std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_string());
@@ -546,7 +593,6 @@ fn main() {
         stats.segments,
     );
 
-    // ── 7) Verify ─────────────────────────────────────────────────────────
     let verifier_ctx = verifier_context_for_hashfn(&backend_hash, seg_po2);
     let t1 = Instant::now();
     receipt
@@ -560,7 +606,7 @@ fn main() {
     println!("verifier_us={}", verify_elapsed.as_micros());
 }
 
-/// Dispatches the existing credential/protocol commands and alternative Setup proof.
+// Implements protocol cli.
 fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     match args[1].as_str() {
         "prove-protocol" if args.len() == 4 => {
@@ -593,6 +639,7 @@ fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+// Implements protocol issuer keygen.
 fn protocol_issuer_keygen(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let pk_bytes = credential_pk_bytes();
     let sk_bytes = credential_sk_bytes();
@@ -617,6 +664,7 @@ fn protocol_issuer_keygen(output_path: &Path) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
+// Implements protocol issuer sign.
 fn protocol_issuer_sign(
     input_path: &Path,
     output_path: &Path,
@@ -669,6 +717,7 @@ fn protocol_issuer_sign(
     Ok(())
 }
 
+// Implements protocol issuer verify.
 fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parts = read_parts(input_path)?;
     if parts.len() != 3 {
@@ -699,7 +748,7 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
-/// Builds native anchor material from an existing issuer keypair.
+// Implements protocol issuer anchor.
 fn protocol_issuer_anchor(
     input_path: &Path,
     output_path: &Path,
@@ -729,7 +778,6 @@ fn protocol_issuer_anchor(
     Ok(())
 }
 
-/// Carries the native certificate and exact public/private NIZK relation fields.
 struct NativeAnchorMaterial {
     certificate: Vec<u8>,
     witness: Vec<u8>,
@@ -740,7 +788,7 @@ struct NativeAnchorMaterial {
     verify_us: u128,
 }
 
-/// Generates, verifies, mutation-tests, and exports one scheme-specific anchor.
+// Generates anchor material.
 fn generate_anchor_material(
     pk: &[u8],
     sk: &[u8],
@@ -871,7 +919,7 @@ fn generate_anchor_material(
     })
 }
 
-/// Emits stable machine-readable native anchor benchmark metrics.
+// Implements print anchor metrics.
 fn print_anchor_metrics(material: &NativeAnchorMaterial) {
     println!("accepted=1");
     println!("anchor_generation_us={}", material.generation_us);
@@ -880,7 +928,7 @@ fn print_anchor_metrics(material: &NativeAnchorMaterial) {
     println!("certificate_mutation_test=ok");
 }
 
-/// Performs issuer key generation and anchor construction as one Setup command.
+// Implements protocol issuer setup anchor.
 fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut pk = vec![0u8; credential_pk_bytes()];
     let mut sk = vec![0u8; credential_sk_bytes()];
@@ -916,7 +964,7 @@ fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-/// Verifies a serialized public anchor certificate without secret material.
+// Implements protocol issuer anchor verify.
 fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let parts = read_parts(input_path)?;
     if parts.len() != 2 || parts[0].len() != credential_pk_bytes() {
@@ -953,6 +1001,7 @@ struct ProtocolInput {
     issuer_nonce: Vec<u8>,
 }
 
+// Implements protocol prove.
 fn protocol_prove(
     input_path: &Path,
     receipt_path: &Path,
@@ -1028,6 +1077,7 @@ fn protocol_prove(
     Ok(())
 }
 
+// Validates protocol witness.
 fn validate_protocol_witness(input: &ProtocolInput) -> Result<(), Box<dyn std::error::Error>> {
     if input.issuer_pk.len() != credential_pk_bytes() {
         return Err("host proof issuer public-key length mismatch".into());
@@ -1059,6 +1109,7 @@ fn validate_protocol_witness(input: &ProtocolInput) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+// Implements protocol verify.
 fn protocol_verify(
     input_path: &Path,
     receipt_path: &Path,
@@ -1093,6 +1144,7 @@ fn protocol_verify(
     Ok(())
 }
 
+// Checks protocol journal.
 fn check_protocol_journal(
     receipt: &Receipt,
     issuer_pk: &[u8],
@@ -1125,6 +1177,7 @@ fn check_protocol_journal(
     Ok(())
 }
 
+// Reads protocol input.
 fn read_protocol_input(path: &Path) -> Result<ProtocolInput, Box<dyn std::error::Error>> {
     let bytes = fs::read(path)?;
     let mut pos = 0usize;
@@ -1152,6 +1205,7 @@ fn read_protocol_input(path: &Path) -> Result<ProtocolInput, Box<dyn std::error:
     })
 }
 
+// Reads parts.
 fn read_parts(path: &Path) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
     let bytes = fs::read(path)?;
     let mut pos = 0usize;
@@ -1162,6 +1216,7 @@ fn read_parts(path: &Path) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
     Ok(parts)
 }
 
+// Writes parts.
 fn write_parts(path: &Path, parts: &[&[u8]]) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = fs::File::create(path)?;
     for part in parts {
@@ -1171,6 +1226,7 @@ fn write_parts(path: &Path, parts: &[&[u8]]) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
+// Reads part.
 fn read_part(bytes: &[u8], pos: &mut usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     if *pos + 8 > bytes.len() {
         return Err("truncated protocol input length".into());
@@ -1187,6 +1243,7 @@ fn read_part(bytes: &[u8], pos: &mut usize) -> Result<Vec<u8>, Box<dyn std::erro
     Ok(out)
 }
 
+// Writes receipt words.
 fn write_receipt_words(path: &Path, receipt: &Receipt) -> Result<(), Box<dyn std::error::Error>> {
     let words: Vec<u32> = risc0_zkvm::serde::to_vec(receipt)?;
     let mut file = fs::File::create(path)?;
@@ -1196,6 +1253,7 @@ fn write_receipt_words(path: &Path, receipt: &Receipt) -> Result<(), Box<dyn std
     Ok(())
 }
 
+// Reads receipt words.
 fn read_receipt_words(path: &Path) -> Result<Receipt, Box<dyn std::error::Error>> {
     let bytes = fs::read(path)?;
     if bytes.len() % 4 != 0 {
@@ -1210,6 +1268,7 @@ fn read_receipt_words(path: &Path) -> Result<Receipt, Box<dyn std::error::Error>
     Ok(risc0_zkvm::serde::from_slice(&words)?)
 }
 
+// Implements print and check segment hashes.
 fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
     match &receipt.inner {
         InnerReceipt::Composite(inner) => {
@@ -1252,6 +1311,8 @@ fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
 }
 
 #[cfg(sphincs_profile)]
+
+// Implements print profile.
 fn print_profile(bytes: &[u8]) {
     const NAMES: [&str; 16] = [
         "verify",

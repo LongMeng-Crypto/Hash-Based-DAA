@@ -121,26 +121,29 @@ typedef struct {
 
 ATTR_CONST uint8_t bits_sq(uint8_t x);
 
-// GF(2^8) implementation
-
+// Implements bf8 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf8_t bf8_load(const uint8_t* src) {
   return *src;
 }
 
+// Implements bf8 store.
 ATTR_ALWAYS_INLINE static inline void bf8_store(uint8_t* dst, bf8_t src) {
   *dst = src;
 }
 
+// Implements bf8 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf8_t bf8_zero(void) {
   return 0;
 }
 
+// Implements bf8 one.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf8_t bf8_one(void) {
   return 1;
 }
 
 bf8_t bf8_rand(void);
 
+// Implements bf8 add.
 ATTR_CONST ATTR_ALWAYS_INLINE inline bf8_t bf8_add(bf8_t lhs, bf8_t rhs) {
   return lhs ^ rhs;
 }
@@ -149,12 +152,12 @@ ATTR_CONST bf8_t bf8_mul(bf8_t lhs, bf8_t rhs);
 ATTR_CONST bf8_t bf8_square(bf8_t lhs);
 ATTR_CONST bf8_t bf8_inv(bf8_t lhs);
 
+// Implements bf8 from bit.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf8_t bf8_from_bit(uint8_t bit) {
   return bit & 1;
 }
 
-// GF(2^64) implementation
-
+// Implements bf64 load.
 ATTR_PURE ATTR_ALWAYS_INLINE inline bf64_t bf64_load(const uint8_t* src) {
   bf64_t ret;
   memcpy(&ret, src, sizeof(ret));
@@ -164,6 +167,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE inline bf64_t bf64_load(const uint8_t* src) {
   return ret;
 }
 
+// Implements bf64 store.
 ATTR_ALWAYS_INLINE inline void bf64_store(uint8_t* dst, bf64_t src) {
 #if defined(FAEST_IS_BIG_ENDIAN)
   src = htole64(src);
@@ -171,28 +175,31 @@ ATTR_ALWAYS_INLINE inline void bf64_store(uint8_t* dst, bf64_t src) {
   memcpy(dst, &src, sizeof(src));
 }
 
+// Implements bf64 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf64_t bf64_zero(void) {
   return 0;
 }
 
+// Implements bf64 one.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf64_t bf64_one(void) {
   return 1;
 }
 
 bf64_t bf64_rand(void);
 
+// Implements bf64 add.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf64_t bf64_add(bf64_t lhs, bf64_t rhs) {
   return lhs ^ rhs;
 }
 
 ATTR_CONST bf64_t bf64_mul(bf64_t lhs, bf64_t rhs);
 
+// Implements bf64 from bit.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf64_t bf64_from_bit(uint8_t bit) {
   return bit & 1;
 }
 
-// GF(2^128) implementation
-
+// Implements bf128 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf128_t bf128_load(const uint8_t* src) {
   bf128_t ret;
 #if defined(FAEST_IS_BIG_ENDIAN)
@@ -206,6 +213,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf128_t bf128_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf128 store.
 ATTR_ALWAYS_INLINE static inline void bf128_store(uint8_t* dst, bf128_t src) {
 #if defined(FAEST_IS_BIG_ENDIAN)
   for (unsigned int i = 0; i != BF128_NUM_BYTES / sizeof(uint64_t); ++i, dst += sizeof(uint64_t)) {
@@ -217,27 +225,32 @@ ATTR_ALWAYS_INLINE static inline void bf128_store(uint8_t* dst, bf128_t src) {
 #endif
 }
 
+// Implements bf128 from bf64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_from_bf64(bf64_t src) {
   bf128_t ret      = BF128C(0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf128 from bf8.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_from_bf8(bf8_t src) {
   bf128_t ret      = BF128C(0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf128 from bit.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_from_bit(uint8_t bit) {
   return bf128_from_bf8(bit & 1);
 }
 
+// Implements bf128 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_zero(void) {
   const bf128_t ret = BF128C(0, 0);
   return ret;
 }
 
+// Implements bf128 one.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf128_t bf128_one(void) {
   const bf128_t ret = BF128C(1, 0);
   return ret;
@@ -257,6 +270,7 @@ bf128_t bf128_rand(void);
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #define bf128_add(lhs, rhs) ((lhs) ^ (rhs))
 #else
+// Implements bf128 add.
 ATTR_CONST static inline bf128_t bf128_add(bf128_t lhs, bf128_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];
@@ -275,8 +289,7 @@ ATTR_CONST bf128_t bf128_mul_bit(bf128_t lhs, uint8_t rhs);
 ATTR_PURE bf128_t bf128_sum_poly(const bf128_t* xs);
 ATTR_PURE bf128_t bf128_sum_poly_bits(const uint8_t* xs);
 
-// GF(2^192) implemenation
-
+// Implements bf192 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf192_t bf192_load(const uint8_t* src) {
   bf192_t ret;
 #if defined(FAEST_IS_BIG_ENDIAN)
@@ -293,6 +306,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf192_t bf192_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf192 store.
 ATTR_ALWAYS_INLINE static inline void bf192_store(uint8_t* dst, bf192_t src) {
 #if defined(FAEST_IS_BIG_ENDIAN)
   for (unsigned int i = 0; i != BF192_NUM_BYTES / sizeof(uint64_t); ++i, dst += sizeof(uint64_t)) {
@@ -304,27 +318,32 @@ ATTR_ALWAYS_INLINE static inline void bf192_store(uint8_t* dst, bf192_t src) {
 #endif
 }
 
+// Implements bf192 from bf64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_from_bf64(bf64_t src) {
   bf192_t ret      = BF192C(0, 0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf192 from bf8.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_from_bf8(bf8_t src) {
   bf192_t ret      = BF192C(0, 0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf192 from bit.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_from_bit(uint8_t bit) {
   return bf192_from_bf8(bit & 1);
 }
 
+// Implements bf192 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_zero(void) {
   const bf192_t ret = BF192C(0, 0, 0);
   return ret;
 }
 
+// Implements bf192 one.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf192_t bf192_one(void) {
   const bf192_t ret = BF192C(1, 0, 0);
   return ret;
@@ -344,6 +363,7 @@ bf192_t bf192_rand(void);
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #define bf192_add(lhs, rhs) ((lhs) ^ (rhs))
 #else
+// Implements bf192 add.
 ATTR_CONST static inline bf192_t bf192_add(bf192_t lhs, bf192_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];
@@ -362,8 +382,7 @@ ATTR_CONST bf192_t bf192_mul_bit(bf192_t lhs, uint8_t rhs);
 ATTR_PURE bf192_t bf192_sum_poly(const bf192_t* xs);
 ATTR_PURE bf192_t bf192_sum_poly_bits(const uint8_t* xs);
 
-// GF(2^256) implementation
-
+// Implements bf256 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf256_t bf256_load(const uint8_t* src) {
   bf256_t ret;
 #if defined(FAEST_IS_BIG_ENDIAN)
@@ -377,6 +396,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf256_t bf256_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf256 store.
 ATTR_ALWAYS_INLINE static inline void bf256_store(uint8_t* dst, bf256_t src) {
 #if defined(FAEST_IS_BIG_ENDIAN)
   for (unsigned int i = 0; i != BF256_NUM_BYTES / sizeof(uint64_t); ++i, dst += sizeof(uint64_t)) {
@@ -388,27 +408,32 @@ ATTR_ALWAYS_INLINE static inline void bf256_store(uint8_t* dst, bf256_t src) {
 #endif
 }
 
+// Implements bf256 from bf64.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_from_bf64(bf64_t src) {
   bf256_t ret      = BF256C(0, 0, 0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf256 from bf8.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_from_bf8(bf8_t src) {
   bf256_t ret      = BF256C(0, 0, 0, 0);
   BF_VALUE(ret, 0) = src;
   return ret;
 }
 
+// Implements bf256 from bit.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_from_bit(uint8_t bit) {
   return bf256_from_bf8(bit & 1);
 }
 
+// Implements bf256 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_zero(void) {
   const bf256_t ret = BF256C(0, 0, 0, 0);
   return ret;
 }
 
+// Implements bf256 one.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf256_t bf256_one(void) {
   const bf256_t ret = BF256C(1, 0, 0, 0);
   return ret;
@@ -428,6 +453,7 @@ bf256_t bf256_rand(void);
 #if defined(HAVE_ATTR_VECTOR_SIZE)
 #define bf256_add(lhs, rhs) ((lhs) ^ (rhs))
 #else
+// Implements bf256 add.
 ATTR_CONST static inline bf256_t bf256_add(bf256_t lhs, bf256_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];
@@ -446,8 +472,7 @@ ATTR_CONST bf256_t bf256_mul_bit(bf256_t lhs, uint8_t rhs);
 ATTR_PURE bf256_t bf256_sum_poly(const bf256_t* xs);
 ATTR_PURE bf256_t bf256_sum_poly_bits(const uint8_t* xs);
 
-// GF(2^384) implementation
-
+// Implements bf384 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf384_t bf384_load(const uint8_t* src) {
   bf384_t ret;
 #if defined(HAVE_ATTR_VECTOR_SIZE)
@@ -467,6 +492,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf384_t bf384_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf384 store.
 ATTR_ALWAYS_INLINE static inline void bf384_store(uint8_t* dst, bf384_t src) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   for (unsigned int i = 0; i != BF384_NUM_BYTES / BF128_NUM_BYTES; ++i, dst += BF128_NUM_BYTES) {
@@ -484,12 +510,14 @@ ATTR_ALWAYS_INLINE static inline void bf384_store(uint8_t* dst, bf384_t src) {
 #endif
 }
 
+// Implements bf384 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf384_t bf384_zero(void) {
   const bf384_t ret = BF384C(0, 0, 0, 0, 0, 0);
   return ret;
 }
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf384 add.
 ATTR_CONST static inline bf384_t bf384_add(bf384_t lhs, bf384_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] ^= rhs.inner[i];
@@ -497,6 +525,7 @@ ATTR_CONST static inline bf384_t bf384_add(bf384_t lhs, bf384_t rhs) {
   return lhs;
 }
 #else
+// Implements bf384 add.
 ATTR_CONST static inline bf384_t bf384_add(bf384_t lhs, bf384_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];
@@ -507,8 +536,7 @@ ATTR_CONST static inline bf384_t bf384_add(bf384_t lhs, bf384_t rhs) {
 
 ATTR_CONST bf384_t bf384_mul_128(bf384_t lhs, bf128_t rhs);
 
-// GF(2^576) implementation
-
+// Implements bf576 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf576_t bf576_load(const uint8_t* src) {
   bf576_t ret;
 #if defined(HAVE_ATTR_VECTOR_SIZE)
@@ -528,6 +556,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf576_t bf576_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf576 store.
 ATTR_ALWAYS_INLINE static inline void bf576_store(uint8_t* dst, bf576_t src) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   for (unsigned int i = 0; i != BF576_NUM_BYTES / BF192_NUM_BYTES; ++i, dst += BF192_NUM_BYTES) {
@@ -545,12 +574,14 @@ ATTR_ALWAYS_INLINE static inline void bf576_store(uint8_t* dst, bf576_t src) {
 #endif
 }
 
+// Implements bf576 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf576_t bf576_zero(void) {
   const bf576_t ret = BF576C(0, 0, 0, 0, 0, 0, 0, 0, 0);
   return ret;
 }
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf576 add.
 ATTR_CONST static inline bf576_t bf576_add(bf576_t lhs, bf576_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] ^= rhs.inner[i];
@@ -558,6 +589,7 @@ ATTR_CONST static inline bf576_t bf576_add(bf576_t lhs, bf576_t rhs) {
   return lhs;
 }
 #else
+// Implements bf576 add.
 ATTR_CONST static inline bf576_t bf576_add(bf576_t lhs, bf576_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];
@@ -568,8 +600,7 @@ ATTR_CONST static inline bf576_t bf576_add(bf576_t lhs, bf576_t rhs) {
 
 ATTR_CONST bf576_t bf576_mul_192(bf576_t lhs, bf192_t rhs);
 
-// GF(2^768) implementation
-
+// Implements bf768 load.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bf768_t bf768_load(const uint8_t* src) {
   bf768_t ret;
 #if defined(HAVE_ATTR_VECTOR_SIZE)
@@ -589,6 +620,7 @@ ATTR_PURE ATTR_ALWAYS_INLINE static inline bf768_t bf768_load(const uint8_t* src
   return ret;
 }
 
+// Implements bf768 store.
 ATTR_ALWAYS_INLINE static inline void bf768_store(uint8_t* dst, bf768_t src) {
 #if defined(HAVE_ATTR_VECTOR_SIZE)
   for (unsigned int i = 0; i != BF768_NUM_BYTES / BF256_NUM_BYTES; ++i, dst += BF256_NUM_BYTES) {
@@ -606,12 +638,14 @@ ATTR_ALWAYS_INLINE static inline void bf768_store(uint8_t* dst, bf768_t src) {
 #endif
 }
 
+// Implements bf768 zero.
 ATTR_CONST ATTR_ALWAYS_INLINE static inline bf768_t bf768_zero(void) {
   const bf768_t ret = BF768C(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
   return ret;
 }
 
 #if defined(HAVE_ATTR_VECTOR_SIZE)
+// Implements bf768 add.
 ATTR_CONST static inline bf768_t bf768_add(bf768_t lhs, bf768_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.inner); ++i) {
     lhs.inner[i] ^= rhs.inner[i];
@@ -619,6 +653,7 @@ ATTR_CONST static inline bf768_t bf768_add(bf768_t lhs, bf768_t rhs) {
   return lhs;
 }
 #else
+// Implements bf768 add.
 ATTR_CONST static inline bf768_t bf768_add(bf768_t lhs, bf768_t rhs) {
   for (unsigned int i = 0; i != ARRAY_SIZE(lhs.values); ++i) {
     lhs.values[i] ^= rhs.values[i];

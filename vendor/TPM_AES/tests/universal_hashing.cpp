@@ -16,7 +16,7 @@
 namespace {
   static constexpr size_t xs        = 8;
   static constexpr unsigned int ell = 32;
-} // namespace
+}
 
 BOOST_AUTO_TEST_SUITE(universal_hashing)
 
@@ -588,12 +588,12 @@ namespace {
       0x4f, 0x6a, 0x21, 0xea, 0xef, 0xc3, 0x83, 0x9c, 0x5d, 0xb4, 0x8a, 0xfa, 0x61, 0xb9, 0xec,
       0x01, 0xd7, 0x6c, 0x89, 0xf6, 0x36, 0xa6, 0x3d,
   };
-} // namespace
+}
 
 using boost::unit_test::data::xrange;
 
 BOOST_DATA_TEST_CASE(test_vole_hash_128_tv, xrange(TEST_VECTORS), i) {
-  // TODO: generate new vectors with longer input
+
   return;
   std::array<uint8_t, sizeof(bf128::bytes) + UNIVERSAL_HASH_B> digest, expected_digest;
   vole_hash_128(
@@ -606,7 +606,7 @@ BOOST_DATA_TEST_CASE(test_vole_hash_128_tv, xrange(TEST_VECTORS), i) {
 }
 
 BOOST_DATA_TEST_CASE(test_vole_hash_192_tv, xrange(TEST_VECTORS), i) {
-  // TODO: generate new vectors with longer input
+
   return;
   std::array<uint8_t, sizeof(bf192::bytes) + UNIVERSAL_HASH_B> digest, expected_digest;
   vole_hash_192(
@@ -619,7 +619,7 @@ BOOST_DATA_TEST_CASE(test_vole_hash_192_tv, xrange(TEST_VECTORS), i) {
 }
 
 BOOST_DATA_TEST_CASE(test_vole_hash_256_tv, xrange(TEST_VECTORS), i) {
-  // TODO: generate new vectors with longer input
+
   return;
   std::array<uint8_t, sizeof(bf256::bytes) + UNIVERSAL_HASH_B> digest, expected_digest;
   vole_hash_256(

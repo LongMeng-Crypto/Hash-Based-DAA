@@ -9,7 +9,7 @@
 
 static uint64_t rng_state = UINT64_C(0x46535048494e4353);
 
-/* The parallel SPHINCS+ sha2.c MGF helper references this namespaced utility. */
+// Implements spx u32 to bytes.
 void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {
     out[0] = (unsigned char)(in >> 24);
     out[1] = (unsigned char)(in >> 16);
@@ -17,7 +17,7 @@ void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {
     out[3] = (unsigned char)in;
 }
 
-/* Generates reproducible benchmark bytes only; never use this RNG in production. */
+// Implements randombytes.
 void randombytes(unsigned char *out, size_t outlen) {
     for (size_t i = 0; i < outlen; ++i) {
         rng_state ^= rng_state << 13;
@@ -27,13 +27,13 @@ void randombytes(unsigned char *out, size_t outlen) {
     }
 }
 
-/* Converts a monotonic clock interval to fractional seconds. */
+// Implements seconds since.
 static double seconds_since(struct timespec start, struct timespec end) {
     return (double)(end.tv_sec - start.tv_sec) +
            (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
 }
 
-/* Measures native operations and checks mutations/root capability outside timings. */
+// Implements main.
 int main(void) {
     uint8_t msg[3u * (FS_SECURITY / 8u)];
     for (size_t i = 0; i < sizeof(msg); ++i) msg[i] = (uint8_t)i;
@@ -126,7 +126,6 @@ int main(void) {
         }
     }
 
-    /* Exercise exactly the guest's layer-streaming API and compact boundaries. */
     uint8_t streamed[FS_MFORS_MSG_BYTES];
     uint64_t streamed_index;
     fsphincs_hash_context stream_ctx;
@@ -187,7 +186,7 @@ int main(void) {
         return 9;
     }
     printf("round-trip and mutation test: ok\n");
-    /* Extract S_root, erase the master key, then sign two new messages. */
+
     const size_t certlen = fsphincs_issuer_anchor_certificate_bytes();
     uint8_t *cert = malloc(certlen);
     uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_LEAF_BYTES];
@@ -197,7 +196,7 @@ int main(void) {
         return 12;
     memset(sk, 0, FS_SK_BYTES);
     if (fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 13;
-    cert[8] = 6; /* Former H1-v6 certificate format must be rejected. */
+    cert[8] = 6;
     if (!fsphincs_issuer_anchor_verify(cert, certlen, pk)) return 19;
     cert[8] = FS_CERTIFICATE_VERSION;
     if (!fsphincs_issuer_anchor_verify(cert, certlen - 1, pk) ||

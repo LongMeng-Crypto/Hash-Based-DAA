@@ -6,31 +6,31 @@
 
 #include "sha2_compat.h"
 
-/* KAT generation must never use an implicit random source. */
+// Implements randombytes.
 void randombytes(unsigned char *out, size_t len) {
     (void)out; (void)len; abort();
 }
 
-/* Supplies the parallel SHA library's namespaced MGF utility. */
+// Implements spx u32 to bytes.
 void SPX_u32_to_bytes(unsigned char *out, uint32_t in) {
     for (unsigned i = 0; i < 4; ++i) out[i] = (uint8_t)(in >> (24 - 8*i));
 }
 
-/* Emits one deterministic binary fixture in a portable, unambiguous encoding. */
+// Implements hex.
 static void hex(const char *label, const uint8_t *data, size_t len) {
     printf("%s=", label);
     for (size_t i = 0; i < len; ++i) printf("%02x", data[i]);
     puts("");
 }
 
-/* Emits a compact fingerprint for the committed KAT manifest. */
+// Implements fingerprint.
 static void fingerprint(const char *label, const uint8_t *data, size_t len) {
     uint8_t digest[32];
     sha256(digest, data, len);
     hex(label, digest, sizeof(digest));
 }
 
-/* Exhausts local positions and checks boundary/range handling without hashing. */
+// Checks compact addresses.
 static int check_compact_addresses(void) {
     uint8_t address[FS_LEAF_ADDR_BYTES], previous[FS_LEAF_ADDR_BYTES];
     memset(previous, 0xff, sizeof(previous));
@@ -63,7 +63,7 @@ static int check_compact_addresses(void) {
     return 0;
 }
 
-/* Exercises deterministic keys, H3 boundaries, signatures and root certificates. */
+// Implements main.
 int main(void) {
     const uint8_t message[] = "F-SPHINCS+ deterministic format-v3 KAT";
     uint8_t seed[FS_SEED_BYTES], R[FS_N], pk[FS_PK_BYTES], sk[FS_SK_BYTES];
@@ -104,7 +104,7 @@ int main(void) {
         snprintf(label, sizeof(label), "kat_layer_%u", layer);
         fingerprint(label, layers + layer * FS_MFORS_MSG_BYTES, FS_MFORS_MSG_BYTES);
     }
-    /* The independent verifier checks full paths, not merely our fingerprints. */
+
     hex("fixture_pk", pk, sizeof(pk));
     hex("fixture_sk", sk, sizeof(sk));
     hex("fixture_sig", sig, siglen);

@@ -3,7 +3,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* All buffers have compile-time SPHINCS+ parameter-dependent sizes. */
 size_t sphincs_issuer_wots_certificate_bytes(void);
 size_t sphincs_issuer_wots_witness_bytes(void);
 int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len,

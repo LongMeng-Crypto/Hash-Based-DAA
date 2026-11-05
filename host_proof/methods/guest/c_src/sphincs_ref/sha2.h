@@ -4,7 +4,7 @@
 #include "params.h"
 
 #define SPX_SHA256_BLOCK_BYTES 64
-#define SPX_SHA256_OUTPUT_BYTES 32  /* This does not necessarily equal SPX_N */
+#define SPX_SHA256_OUTPUT_BYTES 32
 
 #define SPX_SHA512_BLOCK_BYTES 128
 #define SPX_SHA512_OUTPUT_BYTES 64
@@ -60,6 +60,5 @@ void sha256_wots_variable_pk_from_sig(uint8_t *pk,
                                       const uint8_t *sig,
                                       const unsigned int *lengths);
 #endif
-
 
 #endif

@@ -36,14 +36,14 @@ typedef enum faest_paramid_t {
   FAEST_EM_192F           = 10,
   FAEST_EM_256S           = 11,
   FAEST_EM_256F           = 12,
-  /* DAA joining protocol — original single-AES FAEST parameter sets */
+
   DAA_FAEST_128S          = 20,
   DAA_FAEST_128F          = 21,
   DAA_FAEST_192S          = 22,
   DAA_FAEST_192F          = 23,
   DAA_FAEST_256S          = 24,
   DAA_FAEST_256F          = 25,
-  /* 128-bit VOLE profiles for 256-bit Rijndael Davies--Meyer relations. */
+
   DAA_RDM_JOIN_128S       = 26,
   DAA_RDM_JOIN_128F       = 27,
   DAA_RDM_SIGN_128S       = 28,
@@ -52,20 +52,18 @@ typedef enum faest_paramid_t {
 } faest_paramid_t;
 
 typedef struct faest_paramset_t {
-  // main parameters
+
   uint16_t lambda;
   uint8_t tau;
   uint8_t w_grind;
   uint16_t T_open;
   uint16_t l;
 
-  // extra parameters
   uint16_t k;
   uint8_t tau0;
   uint8_t tau1;
   uint32_t L;
 
-  // OWF parameters
   uint16_t Nst;
   uint16_t Ske;
   uint16_t R;
@@ -73,7 +71,6 @@ typedef struct faest_paramset_t {
   uint16_t Lke;
   uint16_t Lenc;
 
-  // additional parameters
   uint16_t sig_size;
   uint8_t owf_input_size;
   uint8_t owf_output_size;
@@ -82,8 +79,9 @@ typedef struct faest_paramset_t {
 const char* ATTR_CONST faest_get_param_name(faest_paramid_t paramid);
 const faest_paramset_t* ATTR_CONST faest_get_paramset(faest_paramid_t paramid);
 
+// Implements faest is em.
 static inline bool ATTR_PURE faest_is_em(const faest_paramset_t* params) {
-  // EM instances do not have key expansion constraints
+
   return params->Ske == 0;
 }
 

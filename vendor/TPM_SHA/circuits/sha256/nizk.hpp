@@ -28,6 +28,6 @@ bool verify(const faest::sha256_circuit::Circuit& circuit,
             std::span<const std::uint8_t> context,
             std::span<const std::uint8_t> serialized_proof);
 
-} // namespace vole_sha256
+}
 
 #endif

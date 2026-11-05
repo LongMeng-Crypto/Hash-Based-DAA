@@ -34,11 +34,16 @@ constexpr std::array<std::uint32_t, 64> round_constants = {
 
 class Builder {
 public:
+  // Implements builder.
   explicit Builder(vole_backend::BinaryCircuit& circuit) : circuit_(circuit) {}
 
+  // Implements zero.
   Wire zero() const { return vole_backend::BinaryCircuit::zero(); }
+  // Implements one.
   Wire one() const { return vole_backend::BinaryCircuit::one(); }
+  // Implements xor.
   Wire xor_(Wire a, Wire b) { return circuit_.xor_wire(a, b); }
+  // Implements and.
   Wire and_(Wire a, Wire b) {
     const auto before = circuit_.nodes().size();
     const auto result = circuit_.and_wire(a, b);
@@ -47,33 +52,39 @@ public:
   }
   std::size_t multiplications() const { return multiplications_; }
 
+  // Implements constant word.
   Word constant_word(std::uint32_t value) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = ((value >> bit) & 1U) != 0 ? one() : zero();
     return out;
   }
+  // Implements xor word.
   Word xor_word(const Word& a, const Word& b) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = xor_(a[bit], b[bit]);
     return out;
   }
+  // Implements xor word.
   Word xor_word(const Word& a, const Word& b, const Word& c) {
     return xor_word(xor_word(a, b), c);
   }
+  // Implements rotr.
   Word rotr(const Word& value, std::size_t amount) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = value[(bit + amount) % value.size()];
     return out;
   }
+  // Implements shr.
   Word shr(const Word& value, std::size_t amount) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = bit + amount < value.size() ? value[bit + amount] : zero();
     return out;
   }
+  // Adds the operation result.
   Word add(const Word& a, const Word& b) {
     Word sum{};
     Wire carry = zero();
@@ -85,21 +96,27 @@ public:
     }
     return sum;
   }
+  // Implements choice.
   Word choice(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = xor_(z[bit], and_(x[bit], xor_(y[bit], z[bit])));
     return out;
   }
+  // Implements majority.
   Word majority(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
       out[bit] = xor_(x[bit], and_(xor_(x[bit], y[bit]), xor_(x[bit], z[bit])));
     return out;
   }
+  // Implements big sigma0.
   Word big_sigma0(const Word& x) { return xor_word(rotr(x, 2), rotr(x, 13), rotr(x, 22)); }
+  // Implements big sigma1.
   Word big_sigma1(const Word& x) { return xor_word(rotr(x, 6), rotr(x, 11), rotr(x, 25)); }
+  // Implements small sigma0.
   Word small_sigma0(const Word& x) { return xor_word(rotr(x, 7), rotr(x, 18), shr(x, 3)); }
+  // Implements small sigma1.
   Word small_sigma1(const Word& x) { return xor_word(rotr(x, 17), rotr(x, 19), shr(x, 10)); }
 
 private:
@@ -107,8 +124,9 @@ private:
   std::size_t multiplications_ = 0;
 };
 
-} // namespace
+}
 
+// Builds sha256.
 Sha256DigestWires build_sha256(
     vole_backend::BinaryCircuit& circuit,
     std::span<const vole_backend::Wire> message_fips_bits,
@@ -177,6 +195,7 @@ Sha256DigestWires build_sha256(
   return digest;
 }
 
+// Builds sha256 compression.
 Sha256DigestWires build_sha256_compression(
     vole_backend::BinaryCircuit& circuit,
     std::span<const vole_backend::Wire> initial_state_fips_bits,
@@ -244,6 +263,7 @@ Sha256DigestWires build_sha256_compression(
   return digest;
 }
 
+// Adds sha256 digest outputs.
 void add_sha256_digest_outputs(vole_backend::BinaryCircuit& circuit,
                                const Sha256DigestWires& digest) {
   if (digest.fips_bits.size() != 256)
@@ -253,4 +273,4 @@ void add_sha256_digest_outputs(vole_backend::BinaryCircuit& circuit,
       circuit.add_output(digest.fips_bits[8 * byte + (7 - storage_bit)]);
 }
 
-} // namespace vole_circuits::sha2
+}

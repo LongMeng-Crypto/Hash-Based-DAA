@@ -8,16 +8,19 @@
 namespace vole_backend {
 namespace {
 
+// Returns bit.
 bool get_bit(const PackedWitness& packed, std::size_t bit) {
   return ((packed[bit / 8] >> (bit % 8)) & 1U) != 0;
 }
 
+// Sets bit.
 void set_bit(PackedWitness& packed, std::size_t bit, bool value) {
   if (value) packed[bit / 8] |= static_cast<std::uint8_t>(1U << (bit % 8));
 }
 
-} // namespace
+}
 
+// Implements witness layout.
 WitnessLayout witness_layout(const BinaryCircuit& circuit) {
   const auto stats = circuit.statistics();
   const auto logical = stats.private_inputs + stats.multiplication_gates;
@@ -26,6 +29,7 @@ WitnessLayout witness_layout(const BinaryCircuit& circuit) {
           vole - logical};
 }
 
+// Builds witness.
 PackedWitness build_witness(const BinaryCircuit& circuit,
                             std::span<const std::uint8_t> private_inputs,
                             std::span<const std::uint8_t> public_inputs) {
@@ -39,6 +43,7 @@ PackedWitness build_witness(const BinaryCircuit& circuit,
   return packed;
 }
 
+// Implements unpack witness.
 UnpackedWitness unpack_witness(const BinaryCircuit& circuit, const PackedWitness& packed) {
   const auto layout = witness_layout(circuit);
   if (packed.size() != layout.vole_bytes) throw std::invalid_argument("wrong generic witness size");
@@ -55,6 +60,7 @@ UnpackedWitness unpack_witness(const BinaryCircuit& circuit, const PackedWitness
   return result;
 }
 
+// Verifies witness.
 bool verify_witness(const BinaryCircuit& circuit, const PackedWitness& packed,
                     std::span<const std::uint8_t> public_inputs,
                     std::span<const std::uint8_t> expected_outputs) {
@@ -69,4 +75,4 @@ bool verify_witness(const BinaryCircuit& circuit, const PackedWitness& packed,
   }
 }
 
-} // namespace vole_backend
+}

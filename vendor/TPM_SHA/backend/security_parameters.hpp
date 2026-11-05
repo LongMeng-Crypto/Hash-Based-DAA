@@ -46,6 +46,6 @@ std::string_view vole_profile_name(VoleProfile profile);
 std::uint8_t security_level_code(SecurityLevel level);
 std::uint8_t vole_profile_code(VoleProfile profile);
 
-} // namespace vole_backend
+}
 
 #endif

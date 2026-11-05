@@ -21,6 +21,7 @@ BOOST_AUTO_TEST_SUITE(owf)
 
 namespace {
   template <size_t KeySize, size_t InputSize, size_t OutputSize>
+  // Tests owf tv.
   void test_owf_tv(const faest_paramid_t param_id, const std::array<uint8_t, KeySize>& owf_key,
                    const std::array<uint8_t, InputSize>& owf_input,
                    const std::array<uint8_t, OutputSize>& expected_owf_output) {
@@ -50,7 +51,7 @@ namespace {
 
     BOOST_TEST(owf_output == expected_owf_output);
   }
-} // namespace
+}
 
 BOOST_AUTO_TEST_CASE(tv_owf_128) {
   test_owf_tv(FAEST_128F, owf_tvs::FAEST_128F::key, owf_tvs::FAEST_128F::input,

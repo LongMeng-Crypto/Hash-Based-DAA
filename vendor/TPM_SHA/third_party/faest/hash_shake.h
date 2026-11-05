@@ -12,7 +12,7 @@
 #include "endian_compat.h"
 
 #if defined(WITH_SHAKE_S390_CPACF)
-/* use the KIMD/KLMD instructions from CPACF for SHAKE support on S390 */
+
 #include "sha3/s390_cpacf.h"
 #elif defined(WITH_SHAKE_OPENSSL)
 #include <openssl/evp.h>
@@ -21,10 +21,7 @@ typedef struct hash_context_openssl_s {
   EVP_MD_CTX* ctx;
 } hash_context;
 
-/**
- * Initialize hash context based on the security parameter. If the security parameter is 128,
- * SHAKE128 is used, otherwise SHAKE256 is used.
- */
+// Hashes init.
 static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   const EVP_MD* md = NULL;
   if (security_param == 128) {
@@ -40,10 +37,12 @@ static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   }
 }
 
+// Hashes copy.
 static inline void hash_copy(hash_context* dst, const hash_context* src) {
   dst->ctx = EVP_MD_CTX_dup(src->ctx);
 }
 
+// Hashes update.
 static inline void hash_update(hash_context* ctx, const uint8_t* data, size_t size) {
   EVP_DigestUpdate(ctx->ctx, data, size);
 }
@@ -53,10 +52,12 @@ static inline void hash_update(hash_context* ctx, const uint8_t* data, size_t si
     (void)ctx;                                                                                     \
   }
 
+// Hashes squeeze.
 static inline void hash_squeeze(hash_context* ctx, uint8_t* buffer, size_t buflen) {
   EVP_DigestSqueeze(ctx->ctx, buffer, buflen);
 }
 
+// Hashes clear.
 static inline void hash_clear(hash_context* ctx) {
   EVP_MD_CTX_free(ctx->ctx);
   ctx->ctx = NULL;
@@ -73,10 +74,7 @@ typedef struct hash_context_oqs_s {
   unsigned char shake256;
 } hash_context;
 
-/**
- * Initialize hash context based on the security parameter. If the security parameter is 128,
- * SHAKE128 is used, otherwise SHAKE256 is used.
- */
+// Hashes init.
 static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   if (security_param == 128) {
     OQS_SHA3_shake128_inc_init(&ctx->shake128_ctx);
@@ -87,6 +85,7 @@ static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   }
 }
 
+// Hashes copy.
 static inline void hash_copy(hash_context* dst, const hash_context* src) {
   if (!src->shake256) {
     OQS_SHA3_shake128_inc_init(&dst->shake128_ctx);
@@ -99,6 +98,7 @@ static inline void hash_copy(hash_context* dst, const hash_context* src) {
   }
 }
 
+// Hashes update.
 static inline void hash_update(hash_context* ctx, const uint8_t* data, size_t size) {
   if (ctx->shake256) {
     OQS_SHA3_shake256_inc_absorb(&ctx->shake256_ctx, data, size);
@@ -107,6 +107,7 @@ static inline void hash_update(hash_context* ctx, const uint8_t* data, size_t si
   }
 }
 
+// Hashes final.
 static inline void hash_final(hash_context* ctx) {
   if (ctx->shake256) {
     OQS_SHA3_shake256_inc_finalize(&ctx->shake256_ctx);
@@ -115,6 +116,7 @@ static inline void hash_final(hash_context* ctx) {
   }
 }
 
+// Hashes squeeze.
 static inline void hash_squeeze(hash_context* ctx, uint8_t* buffer, size_t buflen) {
   if (ctx->shake256) {
     OQS_SHA3_shake256_inc_squeeze(buffer, buflen, &ctx->shake256_ctx);
@@ -123,6 +125,7 @@ static inline void hash_squeeze(hash_context* ctx, uint8_t* buffer, size_t bufle
   }
 }
 
+// Hashes clear.
 static inline void hash_clear(hash_context* ctx) {
   if (ctx->shake256) {
     OQS_SHA3_shake256_inc_ctx_release(&ctx->shake256_ctx);
@@ -136,22 +139,19 @@ static inline void hash_clear(hash_context* ctx) {
 #if defined(__cplusplus)
 extern "C" {
 #endif
-/* use SHAKE implementation in sha3/ */
+
 #include "sha3/KeccakHash.h"
 #if defined(__cplusplus)
 }
 #endif
 #else
-/* use SUPERCOP implementation */
+
 #include <libkeccak.a.headers/KeccakHash.h>
 #endif
 
 typedef Keccak_HashInstance hash_context;
 
-/**
- * Initialize hash context based on the security parameter. If the security parameter is 128,
- * SHAKE128 is used, otherwise SHAKE256 is used.
- */
+// Hashes init.
 static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   if (security_param == 128) {
     Keccak_HashInitialize_SHAKE128(ctx);
@@ -160,18 +160,22 @@ static inline void hash_init(hash_context* ctx, unsigned int security_param) {
   }
 }
 
+// Hashes copy.
 static inline void hash_copy(hash_context* dst, const hash_context* src) {
   memcpy(dst, src, sizeof(*dst));
 }
 
+// Hashes update.
 static inline void hash_update(hash_context* ctx, const uint8_t* data, size_t size) {
   Keccak_HashUpdate(ctx, data, size << 3);
 }
 
+// Hashes final.
 static inline void hash_final(hash_context* ctx) {
   Keccak_HashFinal(ctx, NULL);
 }
 
+// Hashes squeeze.
 static inline void hash_squeeze(hash_context* ctx, uint8_t* buffer, size_t buflen) {
   Keccak_HashSqueeze(ctx, buffer, buflen << 3);
 }
@@ -182,11 +186,13 @@ static inline void hash_squeeze(hash_context* ctx, uint8_t* buffer, size_t bufle
   }
 #endif
 
+// Hashes update uint32 le.
 static inline void hash_update_uint32_le(hash_context* ctx, uint32_t data) {
   data = htole32(data);
   hash_update(ctx, (const uint8_t*)&data, sizeof(data));
 }
 
+// Hashes init prefix.
 static inline void hash_init_prefix(hash_context* ctx, unsigned int security_param,
                                     const uint8_t prefix) {
   hash_init(ctx, security_param);

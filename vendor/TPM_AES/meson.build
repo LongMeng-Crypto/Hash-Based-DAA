@@ -16,7 +16,6 @@ cc = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
 conf_data = configuration_data()
 
-# compile flags and defines
 flags = []
 c_flags = []
 cpp_flags = []
@@ -36,25 +35,15 @@ if cc.get_id() != 'msvc'
   endif
 else
   warnings = []
-  # function inlining
   warnings += ['4710', '4711']
-  # padding of structs
   warnings += ['4820', '4324']
-  # .. in include paths
   warnings += '4464'
-  # undefined macros evaluating to 0 in MSVC headers
   warnings += '4668'
-  # Spectre mitigation
   warnings += '5045'
-  # initialization of aggregate types with non-constant values is valid C99
   warnings += '4204'
-  # nameless structs/unions are part of C11
   warnings += '4201'
-  # conditional expression is constant
   warnings += '4127'
-  # unary minus of unsigned types
   warnings += '4146'
-  # 'inline' used more than once
   warnings += '4141'
 
   foreach w : warnings
@@ -67,7 +56,6 @@ c_flags = cc.get_supported_arguments(flags) + cc.get_supported_arguments(c_flags
 cpp_flags = cpp.get_supported_arguments(flags) + cc.get_supported_arguments(cpp_flags)
 linker_flags = cc.get_supported_link_arguments(flags)
 
-# check compiler if compiler supports __builtin_cpu_supports
 has_usable_builtin = cc.compiles(
   '''
 #include "cpu.h"
@@ -80,7 +68,6 @@ has_usable_builtin = cc.compiles(
   include_directories: include_directories('.'),
 )
 
-# check compiler if compiler supports AES-NI
 aesni_flag = cc.get_supported_arguments('-maes')
 supports_aesni = cc.links(
   '''
@@ -98,7 +85,6 @@ conf_data.set(
   get_option('aesni').require(supports_aesni, error_message: 'AES ISA support enabled but not available').allowed(),
 )
 
-# check compiler if compiler supports AVX2
 avx2_flag = cc.get_supported_arguments(['-mavx2', '-mbmi2'])
 supports_avx2 = cc.links(
   '''
@@ -130,12 +116,10 @@ int main() {
 )
 conf_data.set('HAVE_MM_LOADU_SI64', supports_loadu_si64)
 
-# check availability of some headers
 conf_data.set('HAVE_ASM_HWCAP_H', cc.has_header('asm/hwcap.h'))
 conf_data.set('HAVE_SYS_RANDOM_H', cc.has_header('sys/random.h'))
 conf_data.set('HAVE_SYS_AUXV_H', cc.has_header('sys/auxv.h'))
 
-# check availability of some functions
 conf_data.set(
   'HAVE_ALIGNED_ALLOC',
   cc.has_header_symbol('stdlib.h', 'aligned_alloc', args: defines),
@@ -170,13 +154,10 @@ conf_data.set(
   cc.has_header_symbol('pthread.h', 'pthread_setaffinity_np', args: defines),
 )
 
-# parameter sets
-# After changing the parameter sets, be sure to run crypto_sign_generator.py to create the corresponding meson files.
 parameter_sets = []
 
 
 
-# parameter set: FAEST-128s
 param_128s = configuration_data()
 param_128s.set('PARAM', '128S')
 param_128s.set('PARAM_L', '128s')
@@ -200,7 +181,6 @@ param_128s.set('OWF_OUTPUT_SIZE', 32)    # was 16
 
 parameter_sets += param_128s
 
-# parameter set: FAEST-128f
 param_128f = configuration_data()
 param_128f.set('PARAM', '128F')
 param_128f.set('PARAM_L', '128f')
@@ -230,7 +210,6 @@ parameter_sets += param_128f
 
 
 
-# parameter set: FAEST-EM-128s
 param_em_128s = configuration_data()
 param_em_128s.set('PARAM', 'EM_128S')
 param_em_128s.set('PARAM_L', 'em_128s')
@@ -253,7 +232,6 @@ param_em_128s.set('OWF_INPUT_SIZE', 16)
 param_em_128s.set('OWF_OUTPUT_SIZE', 16)
 parameter_sets += param_em_128s
 
-# parameter set: FAEST-EM-128f
 param_em_128f = configuration_data()
 param_em_128f.set('PARAM', 'EM_128F')
 param_em_128f.set('PARAM_L', 'em_128f')
@@ -276,7 +254,6 @@ param_em_128f.set('OWF_INPUT_SIZE', 16)
 param_em_128f.set('OWF_OUTPUT_SIZE', 16)
 parameter_sets += param_em_128f
 
-# parameter set: FAEST-192s
 param_192s = configuration_data()
 param_192s.set('PARAM', '192S')
 param_192s.set('PARAM_L', '192s')
@@ -299,7 +276,6 @@ param_192s.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
 param_192s.set('OWF_OUTPUT_SIZE', 64)  # slt||hk (2 x 32 bytes)
 parameter_sets += param_192s
 
-# parameter set: FAEST-192f
 param_192f = configuration_data()
 param_192f.set('PARAM', '192F')
 param_192f.set('PARAM_L', '192f')
@@ -322,7 +298,6 @@ param_192f.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
 param_192f.set('OWF_OUTPUT_SIZE', 64)  # slt||hk (2 x 32 bytes)
 parameter_sets += param_192f
 
-# parameter set: FAEST-EM-192s
 param_em_192s = configuration_data()
 param_em_192s.set('PARAM', 'EM_192S')
 param_em_192s.set('PARAM_L', 'em_192s')
@@ -345,7 +320,6 @@ param_em_192s.set('OWF_INPUT_SIZE', 24)
 param_em_192s.set('OWF_OUTPUT_SIZE', 24)
 parameter_sets += param_em_192s
 
-# parameter set: FAEST-EM-192f
 param_em_192f = configuration_data()
 param_em_192f.set('PARAM', 'EM_192F')
 param_em_192f.set('PARAM_L', 'em_192f')
@@ -368,7 +342,6 @@ param_em_192f.set('OWF_INPUT_SIZE', 24)
 param_em_192f.set('OWF_OUTPUT_SIZE', 24)
 parameter_sets += param_em_192f
 
-# parameter set: FAEST-256s
 param_256s = configuration_data()
 param_256s.set('PARAM', '256S')
 param_256s.set('PARAM_L', '256s')
@@ -391,7 +364,6 @@ param_256s.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
 param_256s.set('OWF_OUTPUT_SIZE', 64)  # slt||hk (2 x 32 bytes)
 parameter_sets += param_256s
 
-# parameter set: FAEST-256f
 param_256f = configuration_data()
 param_256f.set('PARAM', '256F')
 param_256f.set('PARAM_L', '256f')
@@ -414,7 +386,6 @@ param_256f.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
 param_256f.set('OWF_OUTPUT_SIZE', 64)  # slt||hk (2 x 32 bytes)
 parameter_sets += param_256f
 
-# parameter set: FAEST-EM-256s
 param_em_256s = configuration_data()
 param_em_256s.set('PARAM', 'EM_256S')
 param_em_256s.set('PARAM_L', 'em_256s')
@@ -437,7 +408,6 @@ param_em_256s.set('OWF_INPUT_SIZE', 32)
 param_em_256s.set('OWF_OUTPUT_SIZE', 32)
 parameter_sets += param_em_256s
 
-# parameter set: FAEST-EM-256f
 param_em_256f = configuration_data()
 param_em_256f.set('PARAM', 'EM_256F')
 param_em_256f.set('PARAM_L', 'em_256f')
@@ -460,15 +430,10 @@ param_em_256f.set('OWF_INPUT_SIZE', 32)
 param_em_256f.set('OWF_OUTPUT_SIZE', 32)
 parameter_sets += param_em_256f
 
-############################################################################################
-# Keep all parameter sets for generating parameters.h (instances.c expects all macros).
 parameter_sets_all = parameter_sets
 
-# Only build the instances we care about (compile-time scope).
 parameter_sets_build = [param_128s, param_128f, param_192s, param_192f, param_256s, param_256f]
-############################################################################################
 
-# also make data from all parameter sets available "globally"
 parameter_data = configuration_data()
 foreach parameter_set : parameter_sets_all                             # Was parameter_sets
   parameter_set_prefix = 'FAEST_@0@'.format(parameter_set.get('PARAM'))
@@ -480,7 +445,6 @@ parameter_data.set('FAEST_128_LAMBDA', 128)
 parameter_data.set('FAEST_192_LAMBDA', 192)
 parameter_data.set('FAEST_256_LAMBDA', 256)
 
-# dependencies
 openssl = dependency('openssl', required: get_option('openssl'))
 valgrind = dependency('valgrind', required: get_option('valgrind'))
 valgrind_exec = find_program('valgrind', required: valgrind.found())
@@ -500,12 +464,10 @@ pymod = import('python')
 python = pymod.find_installation('python3', required: true)
 
 if host_machine.system() == 'windows'
-  # require new enough Windows for bcrypt to be available with automatic memory management (Windows 7)
   defines += '-D_WIN32_WINNT=0x0601'
   build_dependencies += cc.find_library('bcrypt')
 endif
 
-# catch2 for benchmarks
 if get_option('benchmarks').enabled() and get_option('catch2').enabled()
   libcatch2 = static_library(
     'catch2',
@@ -524,11 +486,9 @@ if get_option('benchmarks').enabled() and get_option('catch2').enabled()
   )
 endif
 
-# generate config.h
 config_header = configure_file(output: 'config.h', output_format: 'c', configuration: conf_data)
 defines += '-DHAVE_CONFIG_H'
 
-# generate parameters.h
 parameters_header = configure_file(output: 'parameters.h', output_format: 'c', configuration: parameter_data)
 
 faest_128_data = configuration_data()
@@ -583,7 +543,6 @@ faest_aes_rijndael256_128 = configure_file(
 
 include_directories = [include_directories('.')]
 
-# source files
 faest_sources = files(
   'aes.c',
   'bavc.c',
@@ -609,13 +568,11 @@ if has_usable_builtin == false
   faest_sources += ['cpu.c']
 endif
 
-# header files to install
 headers = files(
   'faest.h',
   'faest_defines.h',
 )
 
-# SHA3 implementation
 sha3 = get_option('SHA3')
 if sha3 == 'auto'
   if cc.sizeof('void*') == 4
@@ -659,14 +616,12 @@ else
     )
   endif
 
-  # 32 bit ARM is in general unhappy with unaligned access, hence disable it in this case
   if host_machine.cpu_family() == 'arm'
     defines += '-DDISABLE_MISALIGNED_ACCESS=1'
   endif
 endif
 
 
-# generate files for parameter sets
 foreach parameter_set : parameter_sets_build    # Was parameter_sets
   headers += configure_file(
     input: 'faest_param.h.in',
@@ -681,7 +636,6 @@ foreach parameter_set : parameter_sets_build    # Was parameter_sets
 endforeach
 
 
-# static faest library
 libfaest_no_random_static = static_library(
   'faest_no_random',
   faest_sources,
@@ -714,7 +668,6 @@ libfaest_static_dependency = declare_dependency(
   compile_args: ['-DFAEST_EXPORT='],
 )
 
-# shared library
 visibility_define = []
 if host_machine.system() == 'windows'
   visibility_define += '-DFAEST_EXPORT=__declspec(dllexport)'
@@ -734,23 +687,14 @@ libfaest = shared_library(
 )
 libfaest_dependency = declare_dependency(link_with: libfaest, include_directories: include_directories)
 
-# install headers
 install_headers(headers)
 
-# install pkg config file
 pkg = import('pkgconfig')
 pkg.generate(name: 'faest', description: 'FAEST signature scheme', libraries: [libfaest])
 
 
 
-# SUPERCOP / NIST files
-#all_names = []
-#foreach parameter_set : parameter_sets
-#  all_names += 'faest_@0@'.format(parameter_set.get('PARAM_L'))
-#  subdir('faest_@0@'.format(parameter_set.get('PARAM_L')))
-#endforeach
 
-# SUPERCOP / NIST files
 fs = import('fs')
 
 
@@ -759,7 +703,6 @@ foreach parameter_set : parameter_sets_build
   name = 'faest_@0@'.format(parameter_set.get('PARAM_L'))
   all_names += name
 
-  # Skip missing subdirs to keep build working even if unused parameter-set folders are absent.
   subdir_path = join_paths(meson.project_source_root(), name)
   if fs.is_dir(subdir_path)
     subdir(name)
@@ -782,7 +725,6 @@ run_target(
 
 )
 
-# DAA Joining Protocol benchmark
 executable('daa_joining',
   files('daa_joining.c', 'daa_faest.c'),
   dependencies: [libfaest_static_dependency] + build_dependencies,
@@ -821,7 +763,5 @@ executable('daa_rijndael_dm_profile',
 
 subdir('doc')
 
-# TEMP: disable tests to focus on building library
-# subdir('tests')
 
 subdir('tools')

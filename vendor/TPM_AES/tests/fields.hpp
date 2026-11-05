@@ -19,6 +19,7 @@ using namespace NTL;
 
 namespace {
 #if defined(HAVE_NTL)
+  // Implements div mod.
   static inline GF2X DivMod(const GF2X& lhs, const GF2X& rhs, const GF2XModulus& modulus) {
     const auto denom = InvMod(rhs, modulus);
     return MulMod(lhs, denom, modulus);
@@ -70,6 +71,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements as ntl.
     GF2X as_ntl() const {
       GF2X ret;
       auto v = value;
@@ -80,6 +82,7 @@ namespace {
     }
 #endif
 
+    // Implements as internal.
     bf8_t as_internal() const {
       return value;
     }
@@ -91,6 +94,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements ntl residue.
     static GF2X ntl_residue() {
       GF2X residue;
       SetCoeff(residue, 8);
@@ -102,14 +106,17 @@ namespace {
     }
 #endif
 
+    // Implements random.
     static bf8 random() {
       return bf8_rand();
     }
 
+    // Implements zero.
     static bf8 zero() {
       return bf8_zero();
     }
 
+    // Implements one.
     static bf8 one() {
       return bf8_one();
     }
@@ -164,6 +171,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements as ntl.
     GF2X as_ntl() const {
       GF2X ret;
       auto v = value;
@@ -174,10 +182,12 @@ namespace {
     }
 #endif
 
+    // Implements as internal.
     bf64_t as_internal() const {
       return value;
     }
 
+    // Implements as uint8.
     bytes as_uint8() const {
       bytes ret;
       bf64_store(ret.data(), value);
@@ -185,6 +195,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements ntl residue.
     static GF2X ntl_residue() {
       GF2X residue;
       SetCoeff(residue, 64);
@@ -196,14 +207,17 @@ namespace {
     }
 #endif
 
+    // Implements random.
     static bf64 random() {
       return bf64_rand();
     }
 
+    // Implements zero.
     static bf64 zero() {
       return bf64_zero();
     }
 
+    // Implements one.
     static bf64 one() {
       return bf64_one();
     }
@@ -265,6 +279,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements as ntl.
     GF2X as_ntl() const {
       GF2X ret;
       auto v = BF_VALUE(value, 0);
@@ -279,10 +294,12 @@ namespace {
     }
 #endif
 
+    // Implements as internal.
     bf128_t as_internal() const {
       return value;
     }
 
+    // Implements as uint8.
     bytes as_uint8() const {
       bytes ret;
       bf128_store(ret.data(), value);
@@ -290,6 +307,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements ntl residue.
     static GF2X ntl_residue() {
       GF2X residue;
       SetCoeff(residue, 128);
@@ -301,14 +319,17 @@ namespace {
     }
 #endif
 
+    // Implements random.
     static bf128 random() {
       return bf128_rand();
     }
 
+    // Implements zero.
     static bf128 zero() {
       return bf128_zero();
     }
 
+    // Implements one.
     static bf128 one() {
       return bf128_one();
     }
@@ -372,6 +393,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements as ntl.
     GF2X as_ntl() const {
       GF2X ret;
       auto v = BF_VALUE(value, 0);
@@ -390,10 +412,12 @@ namespace {
     }
 #endif
 
+    // Implements as internal.
     bf192_t as_internal() const {
       return value;
     }
 
+    // Implements as uint8.
     bytes as_uint8() const {
       bytes ret;
       bf192_store(ret.data(), value);
@@ -401,6 +425,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements ntl residue.
     static GF2X ntl_residue() {
       GF2X residue;
       SetCoeff(residue, 192);
@@ -412,14 +437,17 @@ namespace {
     }
 #endif
 
+    // Implements random.
     static bf192 random() {
       return bf192_rand();
     }
 
+    // Implements zero.
     static bf192 zero() {
       return bf192_zero();
     }
 
+    // Implements one.
     static bf192 one() {
       return bf192_one();
     }
@@ -485,6 +513,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements as ntl.
     GF2X as_ntl() const {
       GF2X ret;
       auto v = BF_VALUE(value, 0);
@@ -507,10 +536,12 @@ namespace {
     }
 #endif
 
+    // Implements as internal.
     bf256_t as_internal() const {
       return value;
     }
 
+    // Implements as uint8.
     bytes as_uint8() const {
       bytes ret;
       bf256_store(ret.data(), value);
@@ -518,6 +549,7 @@ namespace {
     }
 
 #if defined(HAVE_NTL)
+    // Implements ntl residue.
     static GF2X ntl_residue() {
       GF2X residue;
       SetCoeff(residue, 256);
@@ -529,14 +561,17 @@ namespace {
     }
 #endif
 
+    // Implements random.
     static bf256 random() {
       return bf256_rand();
     }
 
+    // Implements zero.
     static bf256 zero() {
       return bf256_zero();
     }
 
+    // Implements one.
     static bf256 one() {
       return bf256_one();
     }
@@ -548,6 +583,6 @@ namespace {
                   BF_VALUE(value, 1) % BF_VALUE(value, 0);
     return stream;
   }
-} // namespace
+}
 
 #endif

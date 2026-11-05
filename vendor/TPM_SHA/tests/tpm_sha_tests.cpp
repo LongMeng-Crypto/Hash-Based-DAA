@@ -23,6 +23,7 @@ extern "C" {
 
 namespace {
 
+// Checks the operation result.
 void check(bool condition, std::string_view message) {
   if (!condition) throw std::runtime_error(std::string(message));
 }
@@ -65,6 +66,7 @@ std::vector<std::uint8_t> tagged(std::uint8_t tag,
   return message;
 }
 
+// Runs level.
 void run_level(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
   const auto key_bytes = daa_tpm_sha_key_bytes(level);
   const auto digest_bytes = daa_tpm_sha_digest_bytes(level);
@@ -240,6 +242,7 @@ void run_level(daa_tpm_sha_level level, daa_tpm_sha_profile profile) {
         "wrong context accepted");
 }
 
+// Runs chen23 level.
 void run_chen23_level(daa_tpm_sha_level level,
                       daa_tpm_sha_profile profile) {
   const auto key_bytes = daa_tpm_sha_key_bytes(level);
@@ -360,6 +363,7 @@ void run_chen23_level(daa_tpm_sha_level level,
         "tampered Chen23 cet accepted");
 }
 
+// Runs bf64 kat.
 void run_bf64_kat() {
   struct Vector {
     bf64_t lhs;
@@ -432,6 +436,7 @@ std::array<std::uint8_t, 16> reference_bf128_mul(
   return reference_field_mul(lhs, rhs, UINT64_C(0x87));
 }
 
+// Checks bf128 mul.
 void check_bf128_mul(const std::array<std::uint8_t, 16>& lhs_bytes,
                      const std::array<std::uint8_t, 16>& rhs_bytes,
                      const std::array<std::uint8_t, 16>& expected) {
@@ -451,6 +456,7 @@ void check_bf128_mul(const std::array<std::uint8_t, 16>& lhs_bytes,
   check(output == expected, "bf128 PCLMUL in-place KAT mismatch");
 }
 
+// Runs bf128 kat.
 void run_bf128_kat() {
   check_bf128_mul(
       bytes128("00000000000000000000000000000000"),
@@ -495,6 +501,7 @@ void run_bf128_kat() {
         "bf128 mixed-width PCLMUL KAT mismatch");
 }
 
+// Checks bf192 mul.
 void check_bf192_mul(const std::array<std::uint8_t, 24>& lhs_bytes,
                      const std::array<std::uint8_t, 24>& rhs_bytes,
                      const std::array<std::uint8_t, 24>& expected) {
@@ -512,6 +519,7 @@ void check_bf192_mul(const std::array<std::uint8_t, 24>& lhs_bytes,
   check(output == expected, "bf192 Karatsuba PCLMUL in-place KAT mismatch");
 }
 
+// Runs bf192 kat.
 void run_bf192_kat() {
   check_bf192_mul(
       field_bytes<24>("35526f8ca9c6e3001d3a577491aecbe805223f5c7996b3d0"),
@@ -541,6 +549,7 @@ void run_bf192_kat() {
         "bf192 mixed-width PCLMUL KAT mismatch");
 }
 
+// Checks bf256 mul.
 void check_bf256_mul(const std::array<std::uint8_t, 32>& lhs_bytes,
                      const std::array<std::uint8_t, 32>& rhs_bytes,
                      const std::array<std::uint8_t, 32>& expected) {
@@ -558,6 +567,7 @@ void check_bf256_mul(const std::array<std::uint8_t, 32>& lhs_bytes,
   check(output == expected, "bf256 Karatsuba PCLMUL in-place KAT mismatch");
 }
 
+// Runs bf256 kat.
 void run_bf256_kat() {
   check_bf256_mul(
       field_bytes<32>(
@@ -590,6 +600,7 @@ void run_bf256_kat() {
         "bf256 mixed-width PCLMUL KAT mismatch");
 }
 
+// Runs field batch kat.
 void run_field_batch_kat() {
   constexpr auto rhs64 = UINT64_C(0x9e3779b97f4a7c15);
   {
@@ -719,6 +730,7 @@ std::vector<std::uint8_t> reference_prg(
   return output;
 }
 
+// Runs prg kat.
 void run_prg_kat() {
   const std::array<std::size_t, 2> lengths{128, 137};
   for (const auto security_bits : {128U, 192U, 256U}) {
@@ -739,6 +751,7 @@ void run_prg_kat() {
   }
 }
 
+// Implements reference convert to vole.
 unsigned int reference_convert_to_vole(
     const std::uint8_t* iv, const std::uint8_t* seeds, bool seed_zero_bottom,
     unsigned int tree_index, unsigned int output_bytes, std::uint8_t* u,
@@ -776,6 +789,7 @@ unsigned int reference_convert_to_vole(
   return depth;
 }
 
+// Runs convert to vole kat.
 void run_convert_to_vole_kat() {
   for (const auto parameter_id :
        {FAEST_128S, FAEST_128F, FAEST_192S, FAEST_192F, FAEST_256S,
@@ -816,8 +830,9 @@ void run_convert_to_vole_kat() {
   }
 }
 
-} // namespace
+}
 
+// Implements main.
 int main() {
   try {
     run_bf64_kat();

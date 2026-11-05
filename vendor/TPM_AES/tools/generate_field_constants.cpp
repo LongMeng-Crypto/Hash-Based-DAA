@@ -13,10 +13,12 @@
 #include <iostream>
 
 namespace {
+  // Implements print u64.
   void print_u64(uint64_t v) {
     std::cout << boost::format("UINT64_C(0x%016x)") % v;
   }
 
+  // Implements print bf128.
   void print_bf128(bf128_t v) {
     std::cout << "BF128C(";
     print_u64(BF_VALUE(v, 0));
@@ -25,6 +27,7 @@ namespace {
     std::cout << ")";
   }
 
+  // Implements print bf192.
   void print_bf192(bf192_t v) {
     std::cout << "BF192C(";
     print_u64(BF_VALUE(v, 0));
@@ -35,6 +38,7 @@ namespace {
     std::cout << ")";
   }
 
+  // Implements print bf256.
   void print_bf256(bf256_t v) {
     std::cout << "BF256C(";
     print_u64(BF_VALUE(v, 0));
@@ -49,8 +53,9 @@ namespace {
 
   constexpr uint8_t sbox_x[9]    = {0x05, 0x09, 0xf9, 0x25, 0xf4, 0x01, 0xb5, 0x8f, 0x63};
   constexpr uint8_t sbox_x_sq[9] = {0x11, 0x41, 0x07, 0x7d, 0x56, 0x01, 0xfc, 0xcf, 0xc2};
-} // namespace
+}
 
+// Implements main.
 int main() {
   {
     bf128_t beta = bf128_add(bf128_get_alpha(5), bf128_get_alpha(3));

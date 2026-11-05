@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <string.h>
 
+// Computes h1.
 static bf64_t compute_h1(const uint8_t* t, const uint8_t* x, unsigned int lambda,
                          unsigned int ell) {
   const bf64_t b_t = bf64_load(t);
@@ -37,6 +38,7 @@ static bf64_t compute_h1(const uint8_t* t, const uint8_t* x, unsigned int lambda
   return h1;
 }
 
+// Implements vole hash 128.
 void vole_hash_128(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int ell) {
   const uint8_t* r0 = sd;
   const uint8_t* r1 = sd + 1 * BF128_NUM_BYTES;
@@ -72,6 +74,7 @@ void vole_hash_128(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int
   xor_u8_array(h, x1, h, BF128_NUM_BYTES + UNIVERSAL_HASH_B);
 }
 
+// Implements vole hash 192.
 void vole_hash_192(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int ell) {
   const uint8_t* r0 = sd;
   const uint8_t* r1 = sd + 1 * BF192_NUM_BYTES;
@@ -107,6 +110,7 @@ void vole_hash_192(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int
   xor_u8_array(h, x1, h, BF192_NUM_BYTES + UNIVERSAL_HASH_B);
 }
 
+// Implements vole hash 256.
 void vole_hash_256(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int ell) {
   const uint8_t* r0 = sd;
   const uint8_t* r1 = sd + 1 * BF256_NUM_BYTES;
@@ -142,6 +146,7 @@ void vole_hash_256(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int
   xor_u8_array(h, x1, h, BF256_NUM_BYTES + UNIVERSAL_HASH_B);
 }
 
+// Implements vole hash.
 void vole_hash(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int ell, uint32_t lambda) {
   switch (lambda) {
   case 256:
@@ -156,6 +161,7 @@ void vole_hash(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int ell
   }
 }
 
+// Implements zk hash 128 init.
 void zk_hash_128_init(zk_hash_128_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF128_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF128_NUM_BYTES;
@@ -167,11 +173,13 @@ void zk_hash_128_init(zk_hash_128_ctx* ctx, const uint8_t* sd) {
   ctx->sd = sd;
 }
 
+// Implements zk hash 128 update.
 void zk_hash_128_update(zk_hash_128_ctx* ctx, bf128_t v) {
   ctx->h0 = bf128_add(bf128_mul(ctx->h0, ctx->s), v);
   ctx->h1 = bf128_add(bf128_mul_64(ctx->h1, ctx->t), v);
 }
 
+// Implements zk hash 128 finalize.
 void zk_hash_128_finalize(uint8_t* h, zk_hash_128_ctx* ctx, bf128_t x1) {
   const uint8_t* r0 = ctx->sd;
   const uint8_t* r1 = ctx->sd + BF128_NUM_BYTES;
@@ -181,6 +189,7 @@ void zk_hash_128_finalize(uint8_t* h, zk_hash_128_ctx* ctx, bf128_t x1) {
                            x1));
 }
 
+// Implements zk hash 128 3 init.
 void zk_hash_128_3_init(zk_hash_128_3_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF128_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF128_NUM_BYTES;
@@ -196,6 +205,7 @@ void zk_hash_128_3_init(zk_hash_128_3_ctx* ctx, const uint8_t* sd) {
   ctx->sd    = sd;
 }
 
+// Implements zk hash 128 3 update.
 void zk_hash_128_3_update(zk_hash_128_3_ctx* ctx, bf128_t v_0, bf128_t v_1, bf128_t v_2) {
   ctx->h0[0] = bf128_add(bf128_mul(ctx->h0[0], ctx->s), v_0);
   ctx->h1[0] = bf128_add(bf128_mul_64(ctx->h1[0], ctx->t), v_0);
@@ -205,10 +215,12 @@ void zk_hash_128_3_update(zk_hash_128_3_ctx* ctx, bf128_t v_0, bf128_t v_1, bf12
   ctx->h1[2] = bf128_add(bf128_mul_64(ctx->h1[2], ctx->t), v_2);
 }
 
+// Implements zk hash 128 3 raise and update.
 void zk_hash_128_3_raise_and_update(zk_hash_128_3_ctx* ctx, bf128_t v_1, bf128_t v_2) {
   zk_hash_128_3_update(ctx, bf128_zero(), v_1, v_2);
 }
 
+// Implements zk hash 128 3 finalize.
 void zk_hash_128_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_128_3_ctx* ctx,
                             bf128_t x1_0, bf128_t x1_1, bf128_t x1_2) {
   const bf128_t r0 = bf128_load(ctx->sd);
@@ -222,6 +234,7 @@ void zk_hash_128_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_12
               bf128_add(bf128_add(bf128_mul(r0, ctx->h0[2]), bf128_mul(r1, ctx->h1[2])), x1_2));
 }
 
+// Implements zk hash 192 init.
 void zk_hash_192_init(zk_hash_192_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF192_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF192_NUM_BYTES;
@@ -233,11 +246,13 @@ void zk_hash_192_init(zk_hash_192_ctx* ctx, const uint8_t* sd) {
   ctx->sd = sd;
 }
 
+// Implements zk hash 192 update.
 void zk_hash_192_update(zk_hash_192_ctx* ctx, bf192_t v) {
   ctx->h0 = bf192_add(bf192_mul(ctx->h0, ctx->s), v);
   ctx->h1 = bf192_add(bf192_mul_64(ctx->h1, ctx->t), v);
 }
 
+// Implements zk hash 192 finalize.
 void zk_hash_192_finalize(uint8_t* h, zk_hash_192_ctx* ctx, bf192_t x1) {
   const uint8_t* r0 = ctx->sd;
   const uint8_t* r1 = ctx->sd + BF192_NUM_BYTES;
@@ -247,6 +262,7 @@ void zk_hash_192_finalize(uint8_t* h, zk_hash_192_ctx* ctx, bf192_t x1) {
                            x1));
 }
 
+// Implements zk hash 192 3 init.
 void zk_hash_192_3_init(zk_hash_192_3_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF192_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF192_NUM_BYTES;
@@ -262,6 +278,7 @@ void zk_hash_192_3_init(zk_hash_192_3_ctx* ctx, const uint8_t* sd) {
   ctx->sd    = sd;
 }
 
+// Implements zk hash 192 3 update.
 void zk_hash_192_3_update(zk_hash_192_3_ctx* ctx, bf192_t v_0, bf192_t v_1, bf192_t v_2) {
   ctx->h0[0] = bf192_add(bf192_mul(ctx->h0[0], ctx->s), v_0);
   ctx->h1[0] = bf192_add(bf192_mul_64(ctx->h1[0], ctx->t), v_0);
@@ -271,10 +288,12 @@ void zk_hash_192_3_update(zk_hash_192_3_ctx* ctx, bf192_t v_0, bf192_t v_1, bf19
   ctx->h1[2] = bf192_add(bf192_mul_64(ctx->h1[2], ctx->t), v_2);
 }
 
+// Implements zk hash 192 3 raise and update.
 void zk_hash_192_3_raise_and_update(zk_hash_192_3_ctx* ctx, bf192_t v_1, bf192_t v_2) {
   zk_hash_192_3_update(ctx, bf192_zero(), v_1, v_2);
 }
 
+// Implements zk hash 192 3 finalize.
 void zk_hash_192_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_192_3_ctx* ctx,
                             bf192_t x1_0, bf192_t x1_1, bf192_t x1_2) {
   const bf192_t r0 = bf192_load(ctx->sd);
@@ -288,6 +307,7 @@ void zk_hash_192_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_19
               bf192_add(bf192_add(bf192_mul(r0, ctx->h0[2]), bf192_mul(r1, ctx->h1[2])), x1_2));
 }
 
+// Implements zk hash 256 init.
 void zk_hash_256_init(zk_hash_256_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF256_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF256_NUM_BYTES;
@@ -299,11 +319,13 @@ void zk_hash_256_init(zk_hash_256_ctx* ctx, const uint8_t* sd) {
   ctx->sd = sd;
 }
 
+// Implements zk hash 256 update.
 void zk_hash_256_update(zk_hash_256_ctx* ctx, bf256_t v) {
   ctx->h0 = bf256_add(bf256_mul(ctx->h0, ctx->s), v);
   ctx->h1 = bf256_add(bf256_mul_64(ctx->h1, ctx->t), v);
 }
 
+// Implements zk hash 256 finalize.
 void zk_hash_256_finalize(uint8_t* h, zk_hash_256_ctx* ctx, bf256_t x1) {
   const uint8_t* r0 = ctx->sd;
   const uint8_t* r1 = ctx->sd + BF256_NUM_BYTES;
@@ -313,6 +335,7 @@ void zk_hash_256_finalize(uint8_t* h, zk_hash_256_ctx* ctx, bf256_t x1) {
                            x1));
 }
 
+// Implements zk hash 256 3 init.
 void zk_hash_256_3_init(zk_hash_256_3_ctx* ctx, const uint8_t* sd) {
   const uint8_t* s = sd + 2 * BF256_NUM_BYTES;
   const uint8_t* t = sd + 3 * BF256_NUM_BYTES;
@@ -328,6 +351,7 @@ void zk_hash_256_3_init(zk_hash_256_3_ctx* ctx, const uint8_t* sd) {
   ctx->sd    = sd;
 }
 
+// Implements zk hash 256 3 update.
 void zk_hash_256_3_update(zk_hash_256_3_ctx* ctx, bf256_t v_0, bf256_t v_1, bf256_t v_2) {
   ctx->h0[0] = bf256_add(bf256_mul(ctx->h0[0], ctx->s), v_0);
   ctx->h1[0] = bf256_add(bf256_mul_64(ctx->h1[0], ctx->t), v_0);
@@ -337,10 +361,12 @@ void zk_hash_256_3_update(zk_hash_256_3_ctx* ctx, bf256_t v_0, bf256_t v_1, bf25
   ctx->h1[2] = bf256_add(bf256_mul_64(ctx->h1[2], ctx->t), v_2);
 }
 
+// Implements zk hash 256 3 raise and update.
 void zk_hash_256_3_raise_and_update(zk_hash_256_3_ctx* ctx, bf256_t v_1, bf256_t v_2) {
   zk_hash_256_3_update(ctx, bf256_zero(), v_1, v_2);
 }
 
+// Implements zk hash 256 3 finalize.
 void zk_hash_256_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_256_3_ctx* ctx,
                             bf256_t x1_0, bf256_t x1_1, bf256_t x1_2) {
   const bf256_t r0 = bf256_load(ctx->sd);
@@ -355,6 +381,7 @@ void zk_hash_256_3_finalize(uint8_t* h_0, uint8_t* h_1, uint8_t* h_2, zk_hash_25
 }
 
 #if defined(FAEST_TESTS)
+// Implements zk hash 128.
 void zk_hash_128(uint8_t* h, const uint8_t* sd, const bf128_t* x, unsigned int ell) {
   zk_hash_128_ctx ctx;
   zk_hash_128_init(&ctx, sd);
@@ -364,6 +391,7 @@ void zk_hash_128(uint8_t* h, const uint8_t* sd, const bf128_t* x, unsigned int e
   zk_hash_128_finalize(h, &ctx, x[ell]);
 }
 
+// Implements zk hash 192.
 void zk_hash_192(uint8_t* h, const uint8_t* sd, const bf192_t* x, unsigned int ell) {
   zk_hash_192_ctx ctx;
   zk_hash_192_init(&ctx, sd);
@@ -373,6 +401,7 @@ void zk_hash_192(uint8_t* h, const uint8_t* sd, const bf192_t* x, unsigned int e
   zk_hash_192_finalize(h, &ctx, x[ell]);
 }
 
+// Implements zk hash 256.
 void zk_hash_256(uint8_t* h, const uint8_t* sd, const bf256_t* x, unsigned int ell) {
   zk_hash_256_ctx ctx;
   zk_hash_256_init(&ctx, sd);
@@ -383,6 +412,7 @@ void zk_hash_256(uint8_t* h, const uint8_t* sd, const bf256_t* x, unsigned int e
 }
 #endif
 
+// Implements leaf hash 128.
 void leaf_hash_128(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   const uint8_t* x0 = x;
   const uint8_t* x1 = x + BF128_NUM_BYTES;
@@ -390,6 +420,7 @@ void leaf_hash_128(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   bf384_store(h, bf384_add(bf384_mul_128(bf384_load(uhash), bf128_load(x0)), bf384_load(x1)));
 }
 
+// Implements leaf hash 192.
 void leaf_hash_192(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   const uint8_t* x0 = x;
   const uint8_t* x1 = x + BF192_NUM_BYTES;
@@ -397,6 +428,7 @@ void leaf_hash_192(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   bf576_store(h, bf576_add(bf576_mul_192(bf576_load(uhash), bf192_load(x0)), bf576_load(x1)));
 }
 
+// Implements leaf hash 256.
 void leaf_hash_256(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   const uint8_t* x0 = x;
   const uint8_t* x1 = x + BF256_NUM_BYTES;
@@ -404,6 +436,7 @@ void leaf_hash_256(uint8_t* h, const uint8_t* uhash, const uint8_t* x) {
   bf768_store(h, bf768_add(bf768_mul_256(bf768_load(uhash), bf256_load(x0)), bf768_load(x1)));
 }
 
+// Implements leaf hash.
 void leaf_hash(uint8_t* h, const uint8_t* sd, const uint8_t* x, unsigned int lambda) {
   switch (lambda) {
   case 256:

@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "sphincs_profile.h"
 
+// Implements crypto sign verify.
 int crypto_sign_verify(const uint8_t *sig, size_t siglen,
                        const uint8_t *m, size_t mlen, const uint8_t *pk)
 {

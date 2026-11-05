@@ -1,6 +1,4 @@
 #!/bin/bash
-# Run all four FAEST-TPM benchmarks and print a combined summary table.
-# Usage: ./bench_all.sh [-i <iterations>] [-d <builddir>]
 
 set -euo pipefail
 
@@ -18,7 +16,6 @@ done
 
 PARAMS="faest_128s faest_128f faest_192s faest_192f faest_256s faest_256f"
 
-# Print header once
 echo "------------------------------------------------------------------------------------"
 printf "%-12s %14s %14s %14s %14s %16s\n" \
   "Scheme" "KeyGen (us)" "Sign (ms)" "Verify (ms)" "SigSize (B)" "SigSize (KB)"
@@ -30,7 +27,6 @@ for p in $PARAMS; do
     echo "  [skipped: $bench not found]"
     continue
   fi
-  # Extract the data row (4th line of the 5-line output)
   "$bench" -i "$ITER" 2>/dev/null | sed -n '4p'
 done
 

@@ -11,10 +11,6 @@ export RISC0_BACKEND_HASH="${RISC0_BACKEND_HASH:-sha-256}"
 unset FSPHINCS_SECURITY FSPHINCS_K RISC0_SKIP_BUILD
 export DAA_DETERMINISTIC="${DAA_DETERMINISTIC:-1}"
 
-local_recursion_zkr="${HOME}/RISC0-SHA256/vendor/risc0_sha256_backend/crates/risc0-circuit-recursion/src/recursion_zkr.zip"
-if [[ -z "${RECURSION_SRC_PATH:-}" && -f "${local_recursion_zkr}" ]]; then
-  export RECURSION_SRC_PATH="${local_recursion_zkr}"
-fi
 
 iterations="${ITERATIONS:-1}"
 segment_po2="${SEGMENT_PO2:-20}"
@@ -116,10 +112,6 @@ run_host_case() {
 {
   printf '%s\n' 'Complete selectable-hook Host proof benchmark'
   printf 'date             : %s\n' "$(date --iso-8601=seconds)"
-  printf 'DAA commit       : %s\n' "$(git rev-parse --short HEAD)"
-  if [[ -d "${HOME}/RISC0-SHA256/.git" ]]; then
-    printf 'backend commit   : %s\n' "$(git -C "${HOME}/RISC0-SHA256" rev-parse --short HEAD)"
-  fi
   printf 'cargo target     : %s\n' "${CARGO_TARGET_DIR}"
   printf 'segment_po2      : %s\n' "${segment_po2}"
   printf 'iterations       : %s\n' "${iterations}"
@@ -128,15 +120,12 @@ run_host_case() {
   printf 'summary TSV      : %s\n' "${summary_file}"
   printf 'per-case logs    : %s\n' "${case_dir}"
 
-  # Existing Direct SPHINCS+ relation: opt2 verification followed by the
-  # already-supported SHA-256 Succinct and Identity recursion layers.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
       direct "${hook_mode}" sphincs "${parameter}" 2 succinct 1 \
       daa_sha256_backend_host
   done
 
-  # Existing ZK-WOTS+ relation: opt4, with no Identity wrapper.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
       zkwots "${hook_mode}" sphincs "${parameter}" 4 composite 0 \
@@ -146,14 +135,13 @@ run_host_case() {
       daa_sha256_backend_host
   done
 
-  # Six F-SPHINCS+ alternatives use the selected Host hook relation.
   for parameter in 128s 128f 192s 192f 256s 256f; do
     for receipt in composite succinct; do
       run_host_case fsphincs "${hook_mode}" fsphincs "${parameter}" 2 "${receipt}" 0 bench_fsphincs_risc0
     done
   done
 
-  printf '\n%s\n' 'All 30 existing Host benchmark cases completed.'
+  printf '\n%s\n' 'All 30 Host benchmark cases completed.'
   printf 'Combined log: %s\n' "${log_file}"
   printf 'Summary TSV : %s\n' "${summary_file}"
   printf 'Per-case log: %s\n' "${case_dir}"

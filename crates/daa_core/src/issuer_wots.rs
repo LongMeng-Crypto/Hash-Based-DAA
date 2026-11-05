@@ -1,4 +1,4 @@
-//! External RISC0 runner integration for the alternative Setup-only WOTS proof.
+
 use super::*;
 
 pub(super) struct FixedWotsMeasurement {
@@ -15,7 +15,8 @@ pub(super) struct PrivateFiles {
 }
 
 impl PrivateFiles {
-    /// Creates a private temporary directory before writing any issuer witness material.
+
+    // Creates the operation result.
     pub(super) fn new() -> DaaResult<Self> {
         let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
         let dir = std::env::temp_dir().join(format!("sedaa-wots-{}-{stamp}", std::process::id()));
@@ -33,7 +34,8 @@ impl PrivateFiles {
 }
 
 impl Drop for PrivateFiles {
-    /// Removes only this invocation's input/receipt files, including on error paths.
+
+    // Implements drop.
     fn drop(&mut self) {
         for name in ["input", "receipt"] {
             let _ = std::fs::remove_file(self.dir.join(name));
@@ -42,7 +44,7 @@ impl Drop for PrivateFiles {
     }
 }
 
-/// Runs and times pi_I inside the host process, excluding Cargo and subprocess startup.
+// Implements fixed wots prove external.
 pub(super) fn fixed_wots_prove_external(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
@@ -82,7 +84,7 @@ pub(super) fn fixed_wots_prove_external(
     })
 }
 
-/// Verifies the selected RISC0 statement using public material only, never the WOTS witness.
+// Implements fixed wots verify external.
 pub(super) fn fixed_wots_verify_external(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,

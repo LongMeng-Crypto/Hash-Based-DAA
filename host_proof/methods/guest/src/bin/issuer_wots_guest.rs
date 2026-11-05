@@ -7,8 +7,14 @@ use risc0_zkvm::guest::env;
 risc0_zkvm::guest::entry!(main);
 
 extern "C" {
+
+    // Implements issuer wots certificate bytes.
     fn sphincs_issuer_wots_certificate_bytes() -> usize;
+
+    // Implements issuer wots witness bytes.
     fn sphincs_issuer_wots_witness_bytes() -> usize;
+
+    // Implements issuer wots relation.
     fn sphincs_issuer_wots_relation(
         cert: *const u8,
         len: usize,
@@ -18,7 +24,7 @@ extern "C" {
     ) -> i32;
 }
 
-/// Proves the complete top WOTS key and commits only its public certificate and issuer key.
+// Implements main.
 fn main() {
     let pk_len: usize = env!("SPHINCS_PK_BYTES").parse().unwrap();
     let cert_len = unsafe { sphincs_issuer_wots_certificate_bytes() };
@@ -42,7 +48,7 @@ fn main() {
         },
         0
     );
-    // The public path is checked by pi_I's verifier against this exact public journal.
+
     env::commit_slice(b"DAA-PI-I-FIXED-WOTS-v1");
     env::commit_slice(&pk[..pk_len]);
     env::commit_slice(&cert[..cert_len]);

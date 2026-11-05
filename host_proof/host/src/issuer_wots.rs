@@ -1,10 +1,16 @@
-//! Setup-time proof of a complete top WOTS+ key, independent of master-seed consistency.
+
 use super::*;
 use methods::{ISSUER_WOTS_GUEST_ELF, ISSUER_WOTS_GUEST_ID};
 
 extern "C" {
+
+    // Implements issuer wots certificate bytes.
     fn sphincs_issuer_wots_certificate_bytes() -> usize;
+
+    // Implements issuer wots witness bytes.
     fn sphincs_issuer_wots_witness_bytes() -> usize;
+
+    // Implements issuer wots generate.
     fn sphincs_issuer_wots_generate(
         cert: *mut u8,
         cert_len: usize,
@@ -13,7 +19,11 @@ extern "C" {
         pk: *const u8,
         sk: *const u8,
     ) -> i32;
+
+    // Implements issuer wots verify.
     fn sphincs_issuer_wots_verify(cert: *const u8, len: usize, pk: *const u8) -> i32;
+
+    // Implements issuer wots relation.
     fn sphincs_issuer_wots_relation(
         cert: *const u8,
         len: usize,
@@ -21,6 +31,8 @@ extern "C" {
         witness: *const u8,
         witness_len: usize,
     ) -> i32;
+
+    // Implements issuer wots capability test.
     fn sphincs_issuer_wots_capability_test(
         cert: *const u8,
         pk: *const u8,
@@ -30,7 +42,7 @@ extern "C" {
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-/// Parses the Setup-only selector without changing the credential or host-signature protocol.
+// Implements enabled.
 pub(super) fn enabled() -> bool {
     match env::var("DAA_ISSUER_ANCHOR_MODE").as_deref() {
         Err(_) | Ok("seed-anchor") => false,
@@ -39,7 +51,7 @@ pub(super) fn enabled() -> bool {
     }
 }
 
-/// Rejects credential/hash combinations not implemented by the fixed-top WOTS relation.
+// Implements supported.
 fn supported() -> Result<()> {
     if credential_is_fsphincs()
         || env!("SPHINCS_HASH_BACKEND") != "sha2"
@@ -50,7 +62,7 @@ fn supported() -> Result<()> {
     Ok(())
 }
 
-/// Builds the compressed public certificate and checks native extraction capability.
+// Generates the operation result.
 pub(super) fn generate(pk: &[u8], sk: &[u8]) -> Result<NativeAnchorMaterial> {
     supported()?;
     if pk.len() != credential_pk_bytes() || sk.len() != credential_sk_bytes() {
@@ -76,7 +88,7 @@ pub(super) fn generate(pk: &[u8], sk: &[u8]) -> Result<NativeAnchorMaterial> {
     let started = Instant::now();
     check_certificate(pk, &certificate)?;
     let verify_us = started.elapsed().as_micros();
-    // Native differential and negative tests are excluded from benchmark timers.
+
     let mut wrong = witness.clone();
     wrong[0] ^= 1;
     if unsafe {
@@ -116,7 +128,7 @@ pub(super) fn generate(pk: &[u8], sk: &[u8]) -> Result<NativeAnchorMaterial> {
     })
 }
 
-/// Checks the public top-tree certificate without reading any secret WOTS material.
+// Checks certificate.
 pub(super) fn check_certificate(pk: &[u8], cert: &[u8]) -> Result<()> {
     supported()?;
     if pk.len() != credential_pk_bytes()
@@ -127,15 +139,14 @@ pub(super) fn check_certificate(pk: &[u8], cert: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Constructs the exact public journal; full bytes bind the image, key, index and authentication path.
+// Implements journal.
 fn journal(pk: &[u8], cert: &[u8]) -> Vec<u8> {
     [b"DAA-PI-I-FIXED-WOTS-v1".as_slice(), pk, cert].concat()
 }
 
-/// Verifies the proof, complete public statement and top authentication certificate.
+// Verifies receipt.
 fn verify_receipt(receipt: &Receipt, pk: &[u8], cert: &[u8], hash: &str) -> Result<()> {
-    // pi_I.Verify = public PathCheck(pk, cert) AND PoK[FullWotsKey(pk, cert.leaf)].
-    // Receipt::verify alone is not sufficient; the complete journal must match the same pk/cert.
+
     if !matches!(
         &receipt.inner,
         InnerReceipt::Composite(_) | InnerReceipt::Succinct(_)
@@ -153,7 +164,7 @@ fn verify_receipt(receipt: &Receipt, pk: &[u8], cert: &[u8], hash: &str) -> Resu
     Ok(())
 }
 
-/// Proves the private complete WOTS key and reports timings excluding compilation and serialization.
+// Proves the operation result.
 pub(super) fn prove(input: &Path, output: &Path) -> Result<()> {
     supported()?;
     if ISSUER_WOTS_GUEST_ELF.is_empty() {
@@ -188,7 +199,7 @@ pub(super) fn prove(input: &Path, output: &Path) -> Result<()> {
         &prover_opts_from_env(hash.clone()),
     )?;
     let prover_us = started.elapsed().as_micros();
-    // No identity is necessary: the full-chain workload and anchor index are public and fixed.
+
     let started = Instant::now();
     verify_receipt(&info.receipt, pk, cert, &hash)?;
     let verifier_us = started.elapsed().as_micros();
@@ -208,7 +219,7 @@ pub(super) fn prove(input: &Path, output: &Path) -> Result<()> {
         receipt_kind_from_env()
     );
     print_and_check_segment_hashes(&info.receipt, &hash);
-    // Reject changed statements and a damaged seal, outside the measured verification.
+
     let mut bad_pk = pk.clone();
     bad_pk[0] ^= 1;
     if verify_receipt(&info.receipt, &bad_pk, cert, &hash).is_ok() {
@@ -238,7 +249,7 @@ pub(super) fn prove(input: &Path, output: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Independently verifies a serialized pi_I using only the public key and certificate.
+// Verifies the operation result.
 pub(super) fn verify(input: &Path, receipt_path: &Path) -> Result<()> {
     let parts = read_parts(input)?;
     if parts.len() != 2 {

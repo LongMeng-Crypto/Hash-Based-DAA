@@ -9,12 +9,7 @@
 #include "address.h"
 #include "params.h"
 
-/*
- * This generates a Merkle signature (WOTS signature followed by the Merkle
- * authentication path).  This is in this file because most of the complexity
- * is involved with the WOTS signature; the Merkle authentication path logic
- * is mostly hidden in treehashx4
- */
+// Implements merkle sign.
 void merkle_sign(uint8_t *sig, unsigned char *root,
                  const spx_ctx *ctx,
                  uint32_t wots_addr[8], uint32_t tree_addr[8],
@@ -42,12 +37,10 @@ void merkle_sign(uint8_t *sig, unsigned char *root,
                 tree_addr, &info);
 }
 
-/* Compute root node of the top-most subtree. */
+// Implements merkle gen root.
 void merkle_gen_root(unsigned char *root, const spx_ctx *ctx)
 {
-    /* We do not need the auth path in key generation, but it simplifies the
-       code to have just one treehash routine that computes both root and path
-       in one function. */
+
     unsigned char auth_path[SPX_TREE_HEIGHT * SPX_N + SPX_WOTS_BYTES];
     uint32_t top_tree_addr[8] = {0};
     uint32_t wots_addr[8] = {0};
@@ -57,5 +50,5 @@ void merkle_gen_root(unsigned char *root, const spx_ctx *ctx)
 
     merkle_sign(auth_path, root, ctx,
                 wots_addr, top_tree_addr,
-                (uint32_t)~0 /* ~0 means "don't bother generating an auth path */ );
+                (uint32_t)~0   );
 }

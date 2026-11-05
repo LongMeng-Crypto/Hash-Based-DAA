@@ -6,10 +6,6 @@ DAA_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${DAA_ROOT}"
 
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${HOME}/.cache/sedaa-risc0-shared-target}"
-LOCAL_RECURSION_ZKR="${HOME}/RISC0-SHA256/vendor/risc0_sha256_backend/crates/risc0-circuit-recursion/src/recursion_zkr.zip"
-if [[ -z "${RECURSION_SRC_PATH:-}" && -f "${LOCAL_RECURSION_ZKR}" ]]; then
-  export RECURSION_SRC_PATH="${LOCAL_RECURSION_ZKR}"
-fi
 unset FSPHINCS_SECURITY FSPHINCS_K
 export FSPHINCS_PARAMS="${FSPHINCS_PARAMS:-128s}"
 export DAA_CREDENTIAL_SCHEME=fsphincs

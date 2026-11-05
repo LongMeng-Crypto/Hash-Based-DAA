@@ -27,16 +27,19 @@ std::vector<bf128_t> columns_to_rows(const std::vector<std::uint8_t*>& columns,
   return rows;
 }
 
+// Implements digest bit.
 bool digest_bit(const faest::sha256_circuit::Digest& digest, std::size_t bit) {
   return ((digest[bit / 8] >> (bit % 8)) & 1U) != 0;
 }
 
+// Adds the operation result.
 bf128_t add(const bf128_t& lhs, const bf128_t& rhs) {
   bf128_t result;
   bf128_add(&result, &lhs, &rhs);
   return result;
 }
 
+// Implements multiply.
 bf128_t multiply(const bf128_t& lhs, const bf128_t& rhs) {
   bf128_t result;
   bf128_mul(&result, &lhs, &rhs);
@@ -52,6 +55,7 @@ struct VerifierWire {
   bf128_t key = bf128_zero();
 };
 
+// Hashes prover constraints.
 void hash_prover_constraints(const faest::sha256_circuit::Circuit& circuit,
                              const UnpackedWitness& witness, const std::vector<bf128_t>& witness_tags,
                              const faest::sha256_circuit::Digest& digest,
@@ -92,8 +96,7 @@ void hash_prover_constraints(const faest::sha256_circuit::Circuit& circuit,
       bf128_t degree1 = z.tag;
       if (x.value) bf128_add_inplace(&degree1, &y.tag);
       if (y.value) bf128_add_inplace(&degree1, &x.tag);
-      // Multiply the quadratic constraint by X: its residual is degree 3,
-      // above the transmitted a1/a2 coefficients.
+
       zk_hash_128_3_raise_and_update(hasher, &degree0, &degree1);
       ++multiplication_index;
       break;
@@ -109,15 +112,15 @@ void hash_prover_constraints(const faest::sha256_circuit::Circuit& circuit,
     zk_hash_128_3_update(hasher, &zero, &zero, &witness_tags[bit]);
   }
 
-  // Lift output+public_bit=0 by X^2: coefficients (0, 0, tag, residual).
   for (std::size_t bit = 0; bit != circuit.output_wires().size(); ++bit) {
     const auto& output = wires[circuit.output_wires()[bit]];
-    (void)digest; // residual is deliberately omitted from the proof.
+    (void)digest;
     zk_hash_128_3_update(hasher, &zero, &zero, &output.tag);
   }
 
 }
 
+// Hashes verifier constraints.
 void hash_verifier_constraints(const faest::sha256_circuit::Circuit& circuit,
                                const std::vector<bf128_t>& witness_keys, const bf128_t& delta,
                                const bf128_t& delta_squared,
@@ -166,8 +169,9 @@ void hash_verifier_constraints(const faest::sha256_circuit::Circuit& circuit,
   }
 }
 
-} // namespace
+}
 
+// Implements sha256 quicksilver prove.
 QuicksilverProof sha256_quicksilver_prove(
     const faest::sha256_circuit::Circuit& circuit, const PackedWitness& packed_witness,
     const std::vector<std::uint8_t*>& v_columns, const std::uint8_t* u_after_witness,
@@ -244,4 +248,4 @@ std::array<std::uint8_t, lambda_bytes> sha256_quicksilver_verify(
   return a0;
 }
 
-} // namespace vole_sha256
+}

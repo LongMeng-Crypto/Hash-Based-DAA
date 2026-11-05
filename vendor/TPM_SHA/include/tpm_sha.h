@@ -40,7 +40,6 @@ typedef struct daa_tpm_sha_stats {
 size_t daa_tpm_sha_key_bytes(daa_tpm_sha_level level);
 size_t daa_tpm_sha_digest_bytes(daa_tpm_sha_level level);
 
-/* Lazily constructs and prepares both circuits for level. */
 int daa_tpm_sha_prepare(daa_tpm_sha_level level, daa_tpm_sha_profile profile);
 int daa_tpm_sha_join_stats(daa_tpm_sha_level level,
                            daa_tpm_sha_profile profile,
@@ -69,12 +68,6 @@ int daa_tpm_sha_evaluate_sign(
     uint8_t* et_out, size_t et_len,
     uint8_t* hk_out, size_t hk_len);
 
-/*
- * proof_len is in/out: on entry it is proof_out capacity; on return it is the
- * exact required/written length. Passing proof_out=NULL is a size query and
- * returns DAA_TPM_SHA_BUFFER_TOO_SMALL with proof_len set.
- * randomness must contain exactly 32 caller-provided bytes.
- */
 int daa_tpm_sha_join_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
@@ -91,7 +84,6 @@ int daa_tpm_sha_join_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
-/* et is an internal wire: only lid, gid, slt and hk form the public statement. */
 int daa_tpm_sha_sign_prove(
     daa_tpm_sha_level level, daa_tpm_sha_profile profile,
     const uint8_t* sk, size_t sk_len,
@@ -113,17 +105,6 @@ int daa_tpm_sha_sign_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
-/*
- * Chen et al. 2023 comparison relation, reimplemented here with SHA-2:
- *   slt = H(0x01 || sk  || lid)
- *   sst = H(0x04 || sk  || sid)
- *   et  = H(0x02 || sk  || gid)
- *   hk  = H(0x05 || sst)
- *   cet = H(0x06 || sst || et)
- * Only sk is private. sid, gid, lid, slt, hk and cet form the public
- * statement; sst and et are internal wires. These entry points are separate
- * from the DAA integration above, which continues to use Ours-3H.
- */
 int daa_tpm_sha_chen23_prepare(daa_tpm_sha_level level,
                                daa_tpm_sha_profile profile);
 int daa_tpm_sha_chen23_sign_stats(daa_tpm_sha_level level,
@@ -168,7 +149,6 @@ int daa_tpm_sha_chen23_sign_verify(
     const uint8_t* context, size_t context_len,
     const uint8_t* proof, size_t proof_len);
 
-/* Error text is thread-local and remains valid until the next API call. */
 const char* daa_tpm_sha_last_error(void);
 
 #ifdef __cplusplus

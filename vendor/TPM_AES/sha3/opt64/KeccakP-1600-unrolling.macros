@@ -299,7 +299,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
         copyStateVariables(A, E) \
         ++i; \
     } \
-    for( /* empty */; i<24; i+=2) { \
+    for(  ; i<24; i+=2) { \
         thetaRhoPiChiIotaPrepareTheta(i  , A, E) \
         thetaRhoPiChiIotaPrepareTheta(i+1, E, A) \
     }

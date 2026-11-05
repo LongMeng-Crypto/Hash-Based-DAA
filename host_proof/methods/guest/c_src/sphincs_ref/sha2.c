@@ -11,43 +11,32 @@
 #include "sphincs_profile.h"
 
 #ifdef RISC0_SHA_SYSCALL
-    /*
-     * RISC0 SHA-256 syscall acceleration for riscv32im.
-     *
-     * The RISC0 SHA syscall uses the same in-memory representation as
-     * risc0_zkp::core::digest::Digest: state words are stored as u32::to_be()
-     * on a little-endian guest, and input blocks are raw SHA-256 bytes.
-     *
-     * Batch optimisation (#2 + #8): all nblocks for a single hash update are
-     * processed with a single risc0_sys_sha_buffer call, eliminating N-1
-     * ecall invocations compared to the previous per-block loop.
-     * Blocks are copied into a small aligned stack buffer before the call.
-     *
-     * Stack buffer: RISC0_SHA_BATCH * 64 bytes (512 B).  SPHINCS+ hash calls
-     * are almost always 1-4 blocks; 8 covers every known code path with room
-     * to spare.  Larger inputs are chunked in RISC0_SHA_BATCH-block passes.
-     */
+
     #define RISC0_SHA_BATCH 8
 
     void risc0_sys_sha_buffer(uint32_t* out_state, const uint32_t* in_state, const uint8_t* buf, uint32_t count);
 
+    // Implements load32 le.
     static inline uint32_t load32_le(const uint8_t* p) {
         return ((uint32_t)p[3] << 24)
             | ((uint32_t)p[2] << 16)
             | ((uint32_t)p[1] <<  8)
             | ((uint32_t)p[0] <<  0);
     }
+    // Implements store32 le.
     static inline void store32_le(uint8_t* p, uint32_t x) {
         p[3] = (uint8_t)(x >> 24); p[2] = (uint8_t)(x >> 16);
         p[1] = (uint8_t)(x >>  8); p[0] = (uint8_t)(x >>  0);
     }
 #endif
 
+// Loads bigendian 32.
 static uint32_t load_bigendian_32(const uint8_t *x) {
     return (uint32_t)(x[3]) | (((uint32_t)(x[2])) << 8) |
            (((uint32_t)(x[1])) << 16) | (((uint32_t)(x[0])) << 24);
 }
 
+// Loads bigendian 64.
 static uint64_t load_bigendian_64(const uint8_t *x) {
     return (uint64_t)(x[7]) | (((uint64_t)(x[6])) << 8) |
            (((uint64_t)(x[5])) << 16) | (((uint64_t)(x[4])) << 24) |
@@ -55,6 +44,7 @@ static uint64_t load_bigendian_64(const uint8_t *x) {
            (((uint64_t)(x[1])) << 48) | (((uint64_t)(x[0])) << 56);
 }
 
+// Stores bigendian 32.
 static void store_bigendian_32(uint8_t *x, uint64_t u) {
     x[3] = (uint8_t) u;
     u >>= 8;
@@ -65,6 +55,7 @@ static void store_bigendian_32(uint8_t *x, uint64_t u) {
     x[0] = (uint8_t) u;
 }
 
+// Stores bigendian 64.
 static void store_bigendian_64(uint8_t *x, uint64_t u) {
     x[7] = (uint8_t) u;
     u >>= 8;
@@ -163,7 +154,7 @@ static void store_bigendian_64(uint8_t *x, uint64_t u) {
     b = a; \
     a = T1 + T2;
 
-
+// Implements crypto hashblocks sha256 sw.
 static size_t crypto_hashblocks_sha256_sw(uint8_t *statebytes, const uint8_t *in, size_t inlen) {
     uint32_t state[8];
     uint32_t a;
@@ -320,6 +311,7 @@ static size_t crypto_hashblocks_sha256_sw(uint8_t *statebytes, const uint8_t *in
     return inlen;
 }
 
+// Implements crypto hashblocks sha256.
 static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, size_t inlen) {
 #ifdef RISC0_SHA_SYSCALL
     if (inlen < 64) return inlen;
@@ -327,20 +319,9 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
     size_t nblocks = inlen / 64;
     SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, nblocks);
 
-    /* Load/store state words using RISC0 Digest's u32::to_be representation. */
     uint32_t st[8];
     for (int i = 0; i < 8; i++) st[i] = load32_le(statebytes + 4*i);
 
-    /*
-     * Batch all nblocks into one aligned stack buffer, then invoke
-     * risc0_sys_sha_buffer once per chunk.  Reduces N ecall invocations
-     * (one per block in the old loop) to ceil(N/RISC0_SHA_BATCH) calls.
-     *
-     * For the no-word-swap case (bit1==0), memcpy is a straight copy.
-     * For the word-swap case (bit1==1), each 4-byte word is byte-reversed.
-     * Both cases go through the same aligned buffer to satisfy sys_sha_buffer's
-     * 4-byte alignment requirement without any per-call alignment check.
-     */
     uint8_t batch[RISC0_SHA_BATCH * 64] __attribute__((aligned(4)));
     const int input_aligned = (((uintptr_t)in & (sizeof(uint32_t) - 1u)) == 0);
     size_t offset = 0;
@@ -365,8 +346,8 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
 #endif
 }
 
-/* Compile shared fast paths for opt2/opt4 and the independent Setup relation. */
 #if defined(SPHINCS_OPT_128S) || defined(DAA_WOTS_SUPPORTED)
+// Implements sha256 seeded thash 128s simple.
 void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *seeded_state,
                                      const uint32_t addr[8],
@@ -402,6 +383,7 @@ void sha256_seeded_thash_128s_simple(uint8_t *out,
     memcpy(out, state, SPX_N);
 }
 
+// Implements sha256 seeded thash1 zk wots fast 128.
 void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
                                            const uint8_t *seeded_state,
                                            const uint8_t *addr,
@@ -446,7 +428,7 @@ void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
     memcpy(out, state, 16);
 }
 
-/* Completes a fixed 15-step WOTS chain with reusable padding and direct SHA syscalls. */
+// Implements sha256 zk wots fixed chain.
 void sha256_zk_wots_fixed_chain(uint8_t *out,
                                 const uint8_t seeded_state[32],
                                 const uint8_t addr[32],
@@ -510,10 +492,7 @@ void sha256_zk_wots_fixed_chain(uint8_t *out,
     memcpy(out, real, SPX_N);
 }
 
-/* Recover a complete WOTS+ public key using the standard variable chain
- * lengths, but keep the hot thash_1 loop on the direct SHA compression path.
- * The seeded state, compressed-address template, and SHA padding block are
- * shared by every chain in this WOTS instance. */
+// Implements sha256 wots variable pk from sig.
 void sha256_wots_variable_pk_from_sig(uint8_t *pk,
                                       const uint8_t seeded_state[32],
                                       const uint8_t addr[32],
@@ -565,7 +544,7 @@ void sha256_wots_variable_pk_from_sig(uint8_t *pk,
 }
 #endif
 
-
+// Implements crypto hashblocks sha512.
 static int crypto_hashblocks_sha512(unsigned char *statebytes,const unsigned char *in,unsigned long long inlen)
 {
   uint64_t state[8];
@@ -708,7 +687,7 @@ static int crypto_hashblocks_sha512(unsigned char *statebytes,const unsigned cha
     f += state[5];
     g += state[6];
     h += state[7];
-  
+
     state[0] = a;
     state[1] = b;
     state[2] = c;
@@ -734,7 +713,6 @@ static int crypto_hashblocks_sha512(unsigned char *statebytes,const unsigned cha
   return inlen;
 }
 
-
 static const uint8_t iv_256[32] = {
     0x6a, 0x09, 0xe6, 0x67, 0xbb, 0x67, 0xae, 0x85,
     0x3c, 0x6e, 0xf3, 0x72, 0xa5, 0x4f, 0xf5, 0x3a,
@@ -751,6 +729,7 @@ static const uint8_t iv_512[64] = {
     0x6b, 0x5b, 0xe0, 0xcd, 0x19, 0x13, 0x7e, 0x21, 0x79
 };
 
+// Implements sha256 inc init.
 void sha256_inc_init(uint8_t *state) {
     for (size_t i = 0; i < 32; ++i) {
         state[i] = iv_256[i];
@@ -760,6 +739,7 @@ void sha256_inc_init(uint8_t *state) {
     }
 }
 
+// Implements sha512 inc init.
 void sha512_inc_init(uint8_t *state) {
     for (size_t i = 0; i < 64; ++i) {
         state[i] = iv_512[i];
@@ -769,6 +749,7 @@ void sha512_inc_init(uint8_t *state) {
     }
 }
 
+// Implements sha256 inc blocks.
 void sha256_inc_blocks(uint8_t *state, const uint8_t *in, size_t inblocks) {
     uint64_t bytes = load_bigendian_64(state + 32);
 
@@ -778,6 +759,7 @@ void sha256_inc_blocks(uint8_t *state, const uint8_t *in, size_t inblocks) {
     store_bigendian_64(state + 32, bytes);
 }
 
+// Implements sha512 inc blocks.
 void sha512_inc_blocks(uint8_t *state, const uint8_t *in, size_t inblocks) {
     uint64_t bytes = load_bigendian_64(state + 64);
 
@@ -787,6 +769,7 @@ void sha512_inc_blocks(uint8_t *state, const uint8_t *in, size_t inblocks) {
     store_bigendian_64(state + 64, bytes);
 }
 
+// Implements sha256 inc finalize.
 void sha256_inc_finalize(uint8_t *out, uint8_t *state, const uint8_t *in, size_t inlen) {
     SPX_PROFILE_INC(SPX_PROF_SHA256_FINALIZE, 1);
 
@@ -837,6 +820,7 @@ void sha256_inc_finalize(uint8_t *out, uint8_t *state, const uint8_t *in, size_t
 
 }
 
+// Implements sha512 inc finalize.
 void sha512_inc_finalize(uint8_t *out, uint8_t *state, const uint8_t *in, size_t inlen) {
     uint8_t padded[256];
     uint64_t bytes = load_bigendian_64(state + 64) + inlen;
@@ -886,6 +870,7 @@ void sha512_inc_finalize(uint8_t *out, uint8_t *state, const uint8_t *in, size_t
     }
 }
 
+// Implements sha256.
 void sha256(uint8_t *out, const uint8_t *in, size_t inlen) {
     uint8_t state[40];
 
@@ -893,6 +878,7 @@ void sha256(uint8_t *out, const uint8_t *in, size_t inlen) {
     sha256_inc_finalize(out, state, in, inlen);
 }
 
+// Implements sha512.
 void sha512(uint8_t *out, const uint8_t *in, size_t inlen) {
     uint8_t state[72];
 
@@ -900,12 +886,7 @@ void sha512(uint8_t *out, const uint8_t *in, size_t inlen) {
     sha512_inc_finalize(out, state, in, inlen);
 }
 
-/**
- * mgf1 function based on the SHA-256 hash function
- * Note that inlen should be sufficiently small that it still allows for
- * an array to be allocated on the stack. Typically 'in' is merely a seed.
- * Outputs outlen number of bytes
- */
+// Implements mgf1 256.
 void mgf1_256(unsigned char *out, unsigned long outlen,
           const unsigned char *in, unsigned long inlen)
 {
@@ -917,13 +898,12 @@ void mgf1_256(unsigned char *out, unsigned long outlen,
 
     memcpy(inbuf, in, inlen);
 
-    /* While we can fit in at least another full block of SHA256 output.. */
     for (i = 0; (i+1)*SPX_SHA256_OUTPUT_BYTES <= outlen; i++) {
         u32_to_bytes(inbuf + inlen, i);
         sha256(out, inbuf, inlen + 4);
         out += SPX_SHA256_OUTPUT_BYTES;
     }
-    /* Until we cannot anymore, and we fill the remainder. */
+
     if (outlen > i*SPX_SHA256_OUTPUT_BYTES) {
         u32_to_bytes(inbuf + inlen, i);
         sha256(outbuf, inbuf, inlen + 4);
@@ -931,9 +911,7 @@ void mgf1_256(unsigned char *out, unsigned long outlen,
     }
 }
 
-/*
- * mgf1 function based on the SHA-512 hash function
- */
+// Implements mgf1 512.
 void mgf1_512(unsigned char *out, unsigned long outlen,
           const unsigned char *in, unsigned long inlen)
 {
@@ -943,13 +921,12 @@ void mgf1_512(unsigned char *out, unsigned long outlen,
 
     memcpy(inbuf, in, inlen);
 
-    /* While we can fit in at least another full block of SHA512 output.. */
     for (i = 0; (i+1)*SPX_SHA512_OUTPUT_BYTES <= outlen; i++) {
         u32_to_bytes(inbuf + inlen, i);
         sha512(out, inbuf, inlen + 4);
         out += SPX_SHA512_OUTPUT_BYTES;
     }
-    /* Until we cannot anymore, and we fill the remainder. */
+
     if (outlen > i*SPX_SHA512_OUTPUT_BYTES) {
         u32_to_bytes(inbuf + inlen, i);
         sha512(outbuf, inbuf, inlen + 4);
@@ -957,12 +934,7 @@ void mgf1_512(unsigned char *out, unsigned long outlen,
     }
 }
 
-
-/**
- * Absorb the constant pub_seed using one round of the compression function
- * This initializes state_seeded and state_seeded_512, which can then be
- * reused in thash
- **/
+// Implements seed state.
 void seed_state(spx_ctx *ctx) {
     SPX_PROFILE_INC(SPX_PROF_SEED_STATE, 1);
 
@@ -975,7 +947,6 @@ void seed_state(spx_ctx *ctx) {
     for (i = SPX_N; i < SPX_SHA512_BLOCK_BYTES; ++i) {
         block[i] = 0;
     }
-    /* block has been properly initialized for both SHA-256 and SHA-512 */
 
     sha256_inc_init(ctx->state_seeded);
     sha256_inc_blocks(ctx->state_seeded, block, 1);

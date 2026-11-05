@@ -21,6 +21,6 @@ private:
   vole_backend::BinaryCircuit circuit_;
 };
 
-} // namespace vole_circuits::aes
+}
 
 #endif

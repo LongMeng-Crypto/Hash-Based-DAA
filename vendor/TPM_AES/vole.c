@@ -14,8 +14,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-static const uint32_t TWEAK_OFFSET = UINT32_C(0x80000000); // 2^31
+static const uint32_t TWEAK_OFFSET = UINT32_C(0x80000000);
 
+// Implements convert to vole with scratch.
 static unsigned int convert_to_vole_with_scratch(
     const uint8_t* iv, const uint8_t* sd, bool sd0_bot, unsigned int i,
     unsigned int outlen, uint8_t* u, uint8_t* v,
@@ -29,10 +30,6 @@ static unsigned int convert_to_vole_with_scratch(
 
 #define V(idx) (v + (idx) * outlen)
 
-  /* Fold the binary tree online. The caller reuses this scratch allocation
-   * across every tree in one VOLE operation. A public bit mask records which
-   * stack levels are occupied, so no clearing or per-tree allocation is
-   * needed. */
   assert(depth < 64);
   uint8_t* stack = scratch;
   uint8_t* current = scratch + (MAX_DEPTH + 1) * outlen;
@@ -60,7 +57,6 @@ static unsigned int convert_to_vole_with_scratch(
     occupied |= UINT64_C(1) << level;
   }
 
-  // Step: 10
   if (!sd0_bot && u != NULL) {
     memcpy(u, stack + depth * outlen, outlen);
   }
@@ -68,6 +64,7 @@ static unsigned int convert_to_vole_with_scratch(
 }
 
 #if defined(FAEST_TESTS)
+// Implements convert to vole.
 unsigned int convert_to_vole(const uint8_t* iv, const uint8_t* sd,
                              bool sd0_bot, unsigned int i,
                              unsigned int outlen, uint8_t* u, uint8_t* v,
@@ -81,6 +78,7 @@ unsigned int convert_to_vole(const uint8_t* iv, const uint8_t* sd,
 }
 #endif
 
+// Implements vole commit.
 void vole_commit(const uint8_t* rootKey, const uint8_t* iv, unsigned int ellhat,
                  const faest_paramset_t* params, bavc_t* bavc, uint8_t* c, uint8_t* u,
                  uint8_t** v) {
@@ -101,28 +99,27 @@ void vole_commit(const uint8_t* rootKey, const uint8_t* iv, unsigned int ellhat,
   unsigned int v_idx = 0;
   uint8_t* sd_i      = bavc->sd;
   for (unsigned int i = 0; i < tau; ++i) {
-    // Step 6
+
     v_idx += convert_to_vole_with_scratch(
         iv, sd_i, false, i, ellhat_bytes, ui + i * ellhat_bytes, v[v_idx],
         params, convert_scratch);
     sd_i += lambda_bytes * bavc_max_node_index(i, tau_1, k);
   }
 
-  // ensure 0-padding up to lambda
   for (; v_idx != lambda; ++v_idx) {
     memset(v[v_idx], 0, ellhat_bytes);
   }
 
-  // Step 9
   memcpy(u, ui, ellhat_bytes);
   for (unsigned int i = 1; i < tau; i++) {
-    // Step 11
+
     xor_u8_array(u, ui + i * ellhat_bytes, c + (i - 1) * ellhat_bytes, ellhat_bytes);
   }
   free(ui);
   free(convert_scratch);
 }
 
+// Implements vole reconstruct.
 bool vole_reconstruct(uint8_t* com, uint8_t** q, const uint8_t* iv, const uint8_t* chall_3,
                       const uint8_t* decom_i, const uint8_t* c, unsigned int ellhat,
                       const faest_paramset_t* params) {
@@ -156,14 +153,12 @@ bool vole_reconstruct(uint8_t* com, uint8_t** q, const uint8_t* iv, const uint8_
   assert(qtmp);
   assert(convert_scratch);
 
-  // Step: 1
   unsigned int q_idx = 0;
   uint8_t* sd_i      = bavc_rec.s;
   for (unsigned int i = 0; i < tau; i++) {
-    // Step: 2
+
     const unsigned int Ni = bavc_max_node_index(i, tau1, k);
 
-    // Step: 6
     for (unsigned int j = 0; j < Ni; j++) {
       if (j < i_delta[i]) {
         memcpy(sd + (j ^ i_delta[i]) * lambda_bytes, sd_i + lambda_bytes * j, lambda_bytes);
@@ -172,17 +167,15 @@ bool vole_reconstruct(uint8_t* com, uint8_t** q, const uint8_t* iv, const uint8_
       }
     }
 
-    // Step: 7..8
     const unsigned int ki = convert_to_vole_with_scratch(
         iv, sd, true, i, ellhat_bytes, NULL, qtmp, params, convert_scratch);
 
-    // Step 11
     if (i == 0) {
-      // Step 8
+
       memcpy(q[q_idx], qtmp, ellhat_bytes * ki);
       q_idx += ki;
     } else {
-      // Step 14
+
       for (unsigned int d = 0; d < ki; ++d, ++q_idx) {
         masked_xor_u8_array(qtmp + d * ellhat_bytes, c + (i - 1) * ellhat_bytes, q[q_idx],
                             (i_delta[i] >> d) & 1, ellhat_bytes);
@@ -191,7 +184,6 @@ bool vole_reconstruct(uint8_t* com, uint8_t** q, const uint8_t* iv, const uint8_
     sd_i += lambda_bytes * (Ni - 1);
   }
 
-  // ensure 0-padding up to lambda
   for (; q_idx != lambda; ++q_idx) {
     memset(q[q_idx], 0, ellhat_bytes);
   }

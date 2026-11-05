@@ -43,6 +43,6 @@ private:
   vole_backend::QuadraticRelationIR ir_;
 };
 
-} // namespace vole_circuits::aes
+}
 
 #endif

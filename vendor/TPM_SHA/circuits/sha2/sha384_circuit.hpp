@@ -13,6 +13,6 @@ public:
                 InputVisibilityLayout input_visibility);
 };
 
-} // namespace vole_circuits::sha2
+}
 
 #endif

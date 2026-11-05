@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Runs six native credentials and six one-to-one VOLEith Setup profiles.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
@@ -12,12 +11,12 @@ if [[ "$run_setup" != 0 && "$run_setup" != 1 ]]; then
   echo "RUN_SETUP must be 0 or 1" >&2
   exit 2
 fi
-log_dir="${project_dir}/benchmarks/fsphincs_leaf_prf_v7"
+log_dir="${project_dir}/benchmarks/fsphincs"
 mkdir -p "$log_dir"
 stamp="$(date +%Y%m%d_%H%M%S)"
 log="${LOG_FILE:-${log_dir}/native_setup_${stamp}.log}"
 {
-  echo "suite=fsphincs-leaf-prf-v7-native-setup H1_nodes=16/24/32B leaf_bytes=16/24/32 anchors=2 H1_address=16B padded_pubseed=64B leaf_prf_version=7 date=$(date --iso-8601=seconds)"
+  echo "suite=fsphincs-native-setup H1_nodes=16/24/32B leaf_bytes=16/24/32 anchors=2 H1_address=16B padded_pubseed=64B leaf_prf_version=7 date=$(date --iso-8601=seconds)"
   echo "shared_cache=$CARGO_TARGET_DIR iterations=$iterations"
   echo "native timings exclude capability tests and compilation; deterministic inputs are test-only"
   for parameter in $params_list; do

@@ -10,7 +10,7 @@
 
 namespace {
   typedef std::array<uint8_t, 16> block_t;
-} // namespace
+}
 
 using namespace prg_tvs;
 

@@ -3653,7 +3653,6 @@ dependencies = [
 [[package]]
 name = "risc0-circuit-recursion"
 version = "4.0.4"
-source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe1882b123ff7239e0356ce5d8fb47f63795"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3691,7 +3690,6 @@ dependencies = [
 [[package]]
 name = "risc0-circuit-rv32im"
 version = "4.0.4"
-source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe1882b123ff7239e0356ce5d8fb47f63795"
 dependencies = [
  "anyhow",
  "bit-vec",
@@ -3818,7 +3816,6 @@ dependencies = [
 [[package]]
 name = "risc0-zkp"
 version = "3.0.4"
-source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe1882b123ff7239e0356ce5d8fb47f63795"
 dependencies = [
  "anyhow",
  "blake2",
@@ -3849,7 +3846,6 @@ dependencies = [
 [[package]]
 name = "risc0-zkvm"
 version = "3.0.4"
-source = "git+https://github.com/LongMeng-Crypto/RISC0-SHA256.git?rev=0079fe1882b123ff7239e0356ce5d8fb47f63795#0079fe1882b123ff7239e0356ce5d8fb47f63795"
 dependencies = [
  "addr2line",
  "anyhow",

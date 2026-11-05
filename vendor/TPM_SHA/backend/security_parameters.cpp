@@ -35,6 +35,7 @@ const SecurityParameters& security_parameters(SecurityLevel level,
   throw std::invalid_argument("unsupported VOLEith security level");
 }
 
+// Parses security level.
 SecurityLevel parse_security_level(std::string_view text) {
   if (text == "128") return SecurityLevel::Bits128;
   if (text == "192") return SecurityLevel::Bits192;
@@ -42,6 +43,7 @@ SecurityLevel parse_security_level(std::string_view text) {
   throw std::invalid_argument("security level must be 128, 192, or 256");
 }
 
+// Parses vole profile.
 VoleProfile parse_vole_profile(std::string_view text) {
   if (text == "s" || text == "small") return VoleProfile::Small;
   if (text == "f" || text == "fast") return VoleProfile::Fast;
@@ -73,4 +75,4 @@ std::uint8_t vole_profile_code(VoleProfile profile) {
   return static_cast<std::uint8_t>(profile);
 }
 
-} // namespace vole_backend
+}

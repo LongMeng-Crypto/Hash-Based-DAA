@@ -82,12 +82,16 @@ std::size_t output_words(Sha512Variant variant) {
 
 class CoreBuilder {
 public:
+  // Implements core builder.
   explicit CoreBuilder(vole_backend::BinaryCircuit& circuit)
       : circuit_(circuit) {}
 
+  // Implements zero.
   Wire zero() const { return vole_backend::BinaryCircuit::zero(); }
+  // Implements one.
   Wire one() const { return vole_backend::BinaryCircuit::one(); }
 
+  // Implements xor.
   Wire xor_(Wire lhs, Wire rhs) {
     if (lhs > rhs) std::swap(lhs, rhs);
     const auto key = key_for(lhs, rhs);
@@ -98,6 +102,7 @@ public:
     return result;
   }
 
+  // Implements and.
   Wire and_(Wire lhs, Wire rhs) {
     if (lhs > rhs) std::swap(lhs, rhs);
     const auto key = key_for(lhs, rhs);
@@ -112,6 +117,7 @@ public:
 
   std::size_t multiplications() const { return multiplications_; }
 
+  // Implements constant word.
   Word constant_word(std::uint64_t value) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
@@ -119,6 +125,7 @@ public:
     return out;
   }
 
+  // Implements xor word.
   Word xor_word(const Word& lhs, const Word& rhs) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
@@ -126,10 +133,12 @@ public:
     return out;
   }
 
+  // Implements xor word.
   Word xor_word(const Word& a, const Word& b, const Word& c) {
     return xor_word(xor_word(a, b), c);
   }
 
+  // Implements rotr.
   Word rotr(const Word& value, std::size_t amount) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
@@ -137,6 +146,7 @@ public:
     return out;
   }
 
+  // Implements shr.
   Word shr(const Word& value, std::size_t amount) const {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
@@ -145,6 +155,7 @@ public:
     return out;
   }
 
+  // Adds the operation result.
   Word add(const Word& lhs, const Word& rhs) {
     Word sum{};
     Wire carry = zero();
@@ -152,7 +163,7 @@ public:
       const auto propagate = xor_(lhs[bit], rhs[bit]);
       sum[bit] = xor_(propagate, carry);
       if (bit + 1 != sum.size()) {
-        // maj(lhs,rhs,carry) with multiplicative complexity one.
+
         carry = xor_(lhs[bit],
                      and_(propagate, xor_(lhs[bit], carry)));
       }
@@ -160,6 +171,7 @@ public:
     return sum;
   }
 
+  // Implements choice.
   Word choice(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit)
@@ -167,6 +179,7 @@ public:
     return out;
   }
 
+  // Implements majority.
   Word majority(const Word& x, const Word& y, const Word& z) {
     Word out{};
     for (std::size_t bit = 0; bit != out.size(); ++bit) {
@@ -176,15 +189,19 @@ public:
     return out;
   }
 
+  // Implements big sigma0.
   Word big_sigma0(const Word& x) {
     return xor_word(rotr(x, 28), rotr(x, 34), rotr(x, 39));
   }
+  // Implements big sigma1.
   Word big_sigma1(const Word& x) {
     return xor_word(rotr(x, 14), rotr(x, 18), rotr(x, 41));
   }
+  // Implements small sigma0.
   Word small_sigma0(const Word& x) {
     return xor_word(rotr(x, 1), rotr(x, 8), shr(x, 7));
   }
+  // Implements small sigma1.
   Word small_sigma1(const Word& x) {
     return xor_word(rotr(x, 19), rotr(x, 61), shr(x, 6));
   }
@@ -200,8 +217,9 @@ private:
   std::size_t multiplications_ = 0;
 };
 
-} // namespace
+}
 
+// Builds sha512 family.
 DigestWires build_sha512_family(
     vole_backend::BinaryCircuit& circuit,
     std::span<const vole_backend::Wire> message_fips_bits,
@@ -223,8 +241,6 @@ DigestWires build_sha512_family(
             padded.begin());
   padded[message_fips_bits.size()] = b.one();
 
-  // Practical circuit sizes fit in size_t, so the high 64 bits of SHA-512's
-  // 128-bit length field are zero. Encode the low half in big-endian bit order.
   const auto bit_length = static_cast<std::uint64_t>(message_fips_bits.size());
   for (std::size_t bit = 0; bit != 64; ++bit) {
     padded[padded.size() - 1 - bit] =
@@ -293,6 +309,7 @@ DigestWires build_sha512_family(
   return result;
 }
 
+// Adds sha2 digest outputs.
 void add_sha2_digest_outputs(vole_backend::BinaryCircuit& circuit,
                              const DigestWires& digest) {
   if (digest.fips_bits.size() % 8 != 0)
@@ -318,8 +335,7 @@ Sha512FamilyCircuit::Sha512FamilyCircuit(
 
   std::vector<Wire> message_fips_bits(message_length * 8);
   for (std::size_t byte = 0; byte != message_length; ++byte) {
-    // Preserve the generic backend's packed input convention: input nodes are
-    // allocated least-significant bit first within each byte.
+
     for (std::size_t storage_bit = 0; storage_bit != 8; ++storage_bit) {
       const auto fips_bit = 8 * byte + (7 - storage_bit);
       const auto visibility = input_visibility_.visibility_at(fips_bit);
@@ -397,4 +413,4 @@ bool Sha512FamilyCircuit::verify_statement(
                                        claimed_digest.end());
 }
 
-} // namespace vole_circuits::sha2
+}

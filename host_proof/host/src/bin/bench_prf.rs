@@ -1,12 +1,4 @@
-// Benchmark runner — DAA FORS sk_i PRF Proof only.
-// Proves: sk_i = prf_addr(SK.seed, PK.seed, ADRS) for one FORS leaf.
-//
-// Only 3 variants (one per security level): s/f trade-off is irrelevant
-// because we prove a single SHA-256 hash call regardless of the full
-// SPHINCS+ tree structure.
-//
-// CPU: cargo run --bin bench_prf --release
-// GPU: cargo run --bin bench_prf --release --features cuda
+
 
 const VARIANTS: &[(&str, &str)] = &[
     ("sphincs-sha2-128s", "simple"),
@@ -17,6 +9,7 @@ const VARIANTS: &[(&str, &str)] = &[
 use std::process::Command;
 use std::time::Instant;
 
+// Implements main.
 fn main() {
     println!(
         "\n{:<24} {:>10} {:>10} {:>12} {:>14} {:>14} {:>9}",
@@ -46,7 +39,6 @@ fn main() {
             continue;
         }
 
-        // Forward guest build output to stderr so the user can see progress.
         eprint!("{}", String::from_utf8_lossy(&build.stderr));
 
         let output = Command::new("./target/release/prf_only")
@@ -92,6 +84,7 @@ fn main() {
     println!();
 }
 
+// Parses field.
 fn parse_field(text: &str, prefix: &str, suffix: &str) -> String {
     text.find(prefix)
         .and_then(|i| {

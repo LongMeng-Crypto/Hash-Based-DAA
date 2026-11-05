@@ -7,7 +7,7 @@
 #define ANCHOR_HEADER_BYTES 16u
 #define ANCHOR_KIND_FSPHINCS_ROOT 3u
 
-/* Encodes the format, exact credential set, anchor count, and hash selection. */
+// Writes header.
 static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     static const uint8_t magic[8] = {'D', 'A', 'A', 'F', 'R', 'O', 'O', 'T'};
     memcpy(out, magic, sizeof(magic));
@@ -21,7 +21,7 @@ static void write_header(uint8_t out[ANCHOR_HEADER_BYTES]) {
     out[15] = FS_ANCHORS;
 }
 
-/* Rejects old address/certificate versions, cross-set data, and trailing bytes. */
+// Implements valid header.
 static int valid_header(const uint8_t *certificate, size_t len) {
     uint8_t expected[ANCHOR_HEADER_BYTES];
     write_header(expected);
@@ -29,12 +29,12 @@ static int valid_header(const uint8_t *certificate, size_t len) {
            memcmp(certificate, expected, sizeof(expected)) == 0;
 }
 
-/* Reports only selected inner paths plus their shared aggregation path. */
+// Implements issuer anchor certificate bytes.
 size_t fsphincs_issuer_anchor_certificate_bytes(void) {
     return ANCHOR_HEADER_BYTES + FS_ANCHOR_PAYLOAD_BYTES;
 }
 
-/* Builds root-only authentication material without publishing other tree roots. */
+// Implements issuer anchor generate.
 int fsphincs_issuer_anchor_generate(uint8_t *certificate, size_t len,
                                     const uint8_t *pk, const uint8_t *sk) {
     if (!certificate || !pk || !sk ||
@@ -50,7 +50,7 @@ int fsphincs_issuer_anchor_generate(uint8_t *certificate, size_t len,
     return 0;
 }
 
-/* Authenticates all disclosed PRF outputs to the registered M-FORS public key. */
+// Implements issuer anchor verify.
 int fsphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
                                   const uint8_t *pk) {
     if (!pk || !valid_header(certificate, len)) return -1;
@@ -59,7 +59,7 @@ int fsphincs_issuer_anchor_verify(const uint8_t *certificate, size_t len,
     return memcmp(recovered, pk + FS_N, sizeof(recovered)) == 0 ? 0 : -1;
 }
 
-/* Derives the public addressed-PRF statement from an authenticated certificate. */
+// Implements issuer anchor statement.
 int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES],
     uint8_t anchors[FS_ANCHORS * FS_LEAF_BYTES], const uint8_t *certificate,
     size_t len, const uint8_t *pk) {
@@ -74,7 +74,7 @@ int fsphincs_issuer_anchor_statement(uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR
     return 0;
 }
 
-/* Exports the one root seed and checks each endpoint before invoking VOLEith. */
+// Implements issuer anchor relation.
 int fsphincs_issuer_anchor_relation(uint8_t root_seed[FS_N],
     uint8_t addresses[FS_ANCHORS * FS_LEAF_ADDR_BYTES], uint8_t anchors[FS_ANCHORS * FS_LEAF_BYTES],
     const uint8_t *certificate, size_t len, const uint8_t *pk, const uint8_t *sk) {

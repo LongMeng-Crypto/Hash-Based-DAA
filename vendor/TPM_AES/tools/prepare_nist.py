@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+
 
 import sys
 import shutil
@@ -29,13 +29,13 @@ def generate(
     test_sources = project_root / "tests"
     tools_sources = project_root / "tools"
 
-    # copy FAEST implementation
+
     for source in project_root.glob("*.c"):
         shutil.copy(source, target)
     for header in project_root.glob("*.h"):
         shutil.copy(header, target)
 
-    # copy generated files
+
     for build_source in (f"{param_name}.c", f"{param_name}.h", "parameters.h", "faest_aes_128.c",
                          "faest_aes_192.c", "faest_aes_256.c"):
         shutil.copy(build_root / build_source, target)
@@ -43,7 +43,7 @@ def generate(
     for build_source in ("crypto_sign.c", "crypto_sign.h", "api.h"):
         shutil.copy(build_param / build_source, target)
 
-    # copy sha3 sources
+
     for source in sha3_sources.glob("*.c"):
         shutil.copy(source, target_sha3)
     for header in sha3_sources.glob("*.h"):
@@ -62,16 +62,16 @@ def generate(
     for source in sha3_sources.glob("*.inc"):
         shutil.copy(source, target_sha3)
 
-    # copy tests
+
     for test_source in ("api_test.c",):
         shutil.copy(test_sources / test_source, target_tests)
-    # copy NIST files
+
     for tool_source in ("rng.c", "rng.h", "PQCgenKAT_sign.c"):
         shutil.copy(tools_sources / tool_source, target_nist_kat)
     for tool_source in ("Makefile",):
         shutil.copy(tools_sources / tool_source, target)
 
-    # build and create KATs
+
     print(f"Building {param_name}")
     cpu_count = os.cpu_count()
     subprocess.check_call(

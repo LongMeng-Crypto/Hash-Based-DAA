@@ -17,11 +17,6 @@ implementation of lower parallism degree.
 Please refer to PlSnP-documentation.h for more details.
 */
 
-/* expect PlSnP_baseParallelism, PlSnP_targetParallelism */
-/* expect SnP_stateSizeInBytes, SnP_stateAlignment */
-/* expect prefix */
-/* expect SnP_* */
-
 #define JOIN0(a, b)                     a ## b
 #define JOIN(a, b)                      JOIN0(a, b)
 
@@ -63,11 +58,13 @@ Please refer to PlSnP-documentation.h for more details.
 #define SnP_ExtractAndAddBytes          JOIN(SnP, _ExtractAndAddBytes)
 #define SnP_ExtractAndAddLanesAll       JOIN(SnP, _ExtractAndAddLanesAll)
 
+// Implements pl sn p static initialize.
 void PlSnP_StaticInitialize( void )
 {
     SnP_StaticInitialize();
 }
 
+// Implements pl sn p initialize all.
 void PlSnP_InitializeAll(void *states)
 {
     unsigned int i;
@@ -80,6 +77,7 @@ void PlSnP_InitializeAll(void *states)
     #endif
 }
 
+// Implements pl sn p add byte.
 void PlSnP_AddByte(void *states, unsigned int instanceIndex, unsigned char byte, unsigned int offset)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -89,6 +87,7 @@ void PlSnP_AddByte(void *states, unsigned int instanceIndex, unsigned char byte,
     #endif
 }
 
+// Implements pl sn p add bytes.
 void PlSnP_AddBytes(void *states, unsigned int instanceIndex, const unsigned char *data, unsigned int offset, unsigned int length)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -98,6 +97,7 @@ void PlSnP_AddBytes(void *states, unsigned int instanceIndex, const unsigned cha
     #endif
 }
 
+// Implements pl sn p add lanes all.
 void PlSnP_AddLanesAll(void *states, const unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     unsigned int i;
@@ -112,6 +112,7 @@ void PlSnP_AddLanesAll(void *states, const unsigned char *data, unsigned int lan
     }
 }
 
+// Implements pl sn p overwrite bytes.
 void PlSnP_OverwriteBytes(void *states, unsigned int instanceIndex, const unsigned char *data, unsigned int offset, unsigned int length)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -121,6 +122,7 @@ void PlSnP_OverwriteBytes(void *states, unsigned int instanceIndex, const unsign
     #endif
 }
 
+// Implements pl sn p overwrite lanes all.
 void PlSnP_OverwriteLanesAll(void *states, const unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     unsigned int i;
@@ -135,6 +137,7 @@ void PlSnP_OverwriteLanesAll(void *states, const unsigned char *data, unsigned i
     }
 }
 
+// Implements pl sn p overwrite with zeroes.
 void PlSnP_OverwriteWithZeroes(void *states, unsigned int instanceIndex, unsigned int byteCount)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -144,6 +147,7 @@ void PlSnP_OverwriteWithZeroes(void *states, unsigned int instanceIndex, unsigne
     #endif
 }
 
+// Implements pl sn p permute all.
 void PlSnP_PermuteAll(void *states)
 {
     unsigned int i;
@@ -158,6 +162,7 @@ void PlSnP_PermuteAll(void *states)
 }
 
 #if (defined(SnP_Permute_12rounds) || defined(SnP_PermuteAll_12rounds))
+// Implements pl sn p permute all 12rounds.
 void PlSnP_PermuteAll_12rounds(void *states)
 {
     unsigned int i;
@@ -173,6 +178,7 @@ void PlSnP_PermuteAll_12rounds(void *states)
 #endif
 
 #if (defined(SnP_Permute_Nrounds) || defined(SnP_PermuteAll_6rounds))
+// Implements pl sn p permute all 6rounds.
 void PlSnP_PermuteAll_6rounds(void *states)
 {
     unsigned int i;
@@ -188,6 +194,7 @@ void PlSnP_PermuteAll_6rounds(void *states)
 #endif
 
 #if (defined(SnP_Permute_Nrounds) || defined(SnP_PermuteAll_4rounds))
+// Implements pl sn p permute all 4rounds.
 void PlSnP_PermuteAll_4rounds(void *states)
 {
     unsigned int i;
@@ -202,6 +209,7 @@ void PlSnP_PermuteAll_4rounds(void *states)
 }
 #endif
 
+// Implements pl sn p extract bytes.
 void PlSnP_ExtractBytes(void *states, unsigned int instanceIndex, unsigned char *data, unsigned int offset, unsigned int length)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -211,6 +219,7 @@ void PlSnP_ExtractBytes(void *states, unsigned int instanceIndex, unsigned char 
     #endif
 }
 
+// Implements pl sn p extract lanes all.
 void PlSnP_ExtractLanesAll(const void *states, unsigned char *data, unsigned int laneCount, unsigned int laneOffset)
 {
     unsigned int i;
@@ -225,6 +234,7 @@ void PlSnP_ExtractLanesAll(const void *states, unsigned char *data, unsigned int
     }
 }
 
+// Implements pl sn p extract and add bytes.
 void PlSnP_ExtractAndAddBytes(void *states, unsigned int instanceIndex, const unsigned char *input, unsigned char *output, unsigned int offset, unsigned int length)
 {
     #if (PlSnP_baseParallelism == 1)
@@ -234,6 +244,7 @@ void PlSnP_ExtractAndAddBytes(void *states, unsigned int instanceIndex, const un
     #endif
 }
 
+// Implements pl sn p extract and add lanes all.
 void PlSnP_ExtractAndAddLanesAll(const void *states, const unsigned char *input, unsigned char *output, unsigned int laneCount, unsigned int laneOffset)
 {
     unsigned int i;

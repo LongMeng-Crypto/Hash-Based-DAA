@@ -22,6 +22,7 @@
 #define VALGRIND_MAKE_MEM_DEFINED(p, size)
 #endif
 
+// Implements main.
 int main(void) {
   unsigned char pk[CRYPTO_PUBLICKEYBYTES] = {0};
   unsigned char sk[CRYPTO_SECRETKEYBYTES] = {0};
@@ -72,7 +73,6 @@ int main(void) {
     return -1;
   }
 
-  // test special case where message and signature overlap
   memcpy(sm, message, sizeof(message));
 
   smlen = sizeof(sm);

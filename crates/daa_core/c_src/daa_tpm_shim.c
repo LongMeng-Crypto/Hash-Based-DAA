@@ -14,17 +14,17 @@
 
 #define DAA_GID_BYTES 16u
 
-// Returns the byte length of FAEST TPM tokens for a security level.
+// Implements token bytes.
 static size_t token_bytes(unsigned int lambda) {
   return lambda == 128u ? 16u : 32u;
 }
 
-// Returns the byte length of FAEST AES keys for a security level.
+// Implements key bytes.
 static size_t key_bytes(unsigned int lambda) {
   return lambda / 8u;
 }
 
-// Computes the AES OWF used for et and slt.
+// Implements owf.
 static void tpm_owf(unsigned int lambda,
                     const uint8_t* key,
                     const uint8_t* input,
@@ -38,7 +38,7 @@ static void tpm_owf(unsigned int lambda,
   }
 }
 
-// Computes hk = AES_s(et) with one block for 128-bit and two blocks otherwise.
+// Implements hk.
 static void tpm_hk(unsigned int lambda,
                    const uint8_t* s,
                    const uint8_t* et,
@@ -58,12 +58,12 @@ static void tpm_hk(unsigned int lambda,
   }
 }
 
-// Returns the byte size of a single-AES DAA join proof.
+// Implements join sig bytes.
 size_t daa_join_sig_bytes(unsigned int lambda, int fast) {
   return daa_faest_max_sig_size(lambda, fast);
 }
 
-// Returns the byte size of a TPM signing proof.
+// Implements tpm sig bytes.
 size_t daa_tpm_sig_bytes(unsigned int lambda, int fast) {
   if (lambda == 256u) {
     return fast ? FAEST_256F_SIGNATURE_SIZE : FAEST_256S_SIGNATURE_SIZE;
@@ -74,7 +74,7 @@ size_t daa_tpm_sig_bytes(unsigned int lambda, int fast) {
   }
 }
 
-// Computes one TPM OWF output for et, slt, or compatible tests.
+// Implements aes owf.
 void daa_aes_owf(unsigned int lambda,
                  const uint8_t* key,
                  const uint8_t* input,
@@ -82,7 +82,7 @@ void daa_aes_owf(unsigned int lambda,
   tpm_owf(lambda, key, input, output);
 }
 
-// Computes the TPM host hook hk = AES_s(et).
+// Implements aes hook.
 void daa_aes_hook(unsigned int lambda,
                   const uint8_t* s,
                   const uint8_t* et,
@@ -90,7 +90,7 @@ void daa_aes_hook(unsigned int lambda,
   tpm_hk(lambda, s, et, hk);
 }
 
-// Produces a FAEST proof for the join-time single-AES relation.
+// Implements join prove.
 int daa_join_prove(unsigned int lambda,
                    int fast,
                    const uint8_t* sk_u,
@@ -103,7 +103,7 @@ int daa_join_prove(unsigned int lambda,
   return daa_faest_sign(lambda, fast, sk_u, gid, et, msg, msg_len, sig, sig_len);
 }
 
-// Verifies a FAEST proof for the join-time single-AES relation.
+// Implements join verify.
 int daa_join_verify(unsigned int lambda,
                     int fast,
                     const uint8_t* gid,
@@ -115,7 +115,7 @@ int daa_join_verify(unsigned int lambda,
   return daa_faest_verify(lambda, fast, gid, et, msg, msg_len, sig, sig_len);
 }
 
-// Packs the TPM private key as lid || gid || sk_u || s.
+// Implements pack tpm sk.
 static void pack_tpm_sk(unsigned int lambda,
                         uint8_t* sk,
                         const uint8_t* lid,
@@ -129,7 +129,7 @@ static void pack_tpm_sk(unsigned int lambda,
   memcpy(sk + 2u * DAA_GID_BYTES + k, s, k);
 }
 
-// Packs the TPM public key as lid || gid || slt || hk.
+// Implements pack tpm pk.
 static void pack_tpm_pk(uint8_t* pk,
                         const uint8_t* lid,
                         const uint8_t* gid,
@@ -142,7 +142,7 @@ static void pack_tpm_pk(uint8_t* pk,
   memcpy(pk + 2u * DAA_GID_BYTES + token_len, hk, token_len);
 }
 
-// Signs with the selected TPM FAEST parameter set.
+// Signs dispatch.
 static int tpm_sign_dispatch(unsigned int lambda,
                              int fast,
                              const uint8_t* sk,
@@ -162,7 +162,7 @@ static int tpm_sign_dispatch(unsigned int lambda,
   }
 }
 
-// Verifies with the selected TPM FAEST parameter set.
+// Verifies dispatch.
 static int tpm_verify_dispatch(unsigned int lambda,
                                int fast,
                                const uint8_t* pk,
@@ -182,7 +182,7 @@ static int tpm_verify_dispatch(unsigned int lambda,
   }
 }
 
-// Produces a FAEST proof for the sign-time TPM relation.
+// Implements tpm prove.
 int daa_tpm_prove(unsigned int lambda,
                   int fast,
                   const uint8_t* lid,
@@ -206,7 +206,7 @@ int daa_tpm_prove(unsigned int lambda,
   return tpm_sign_dispatch(lambda, fast, sk, msg, msg_len, sig, sig_len);
 }
 
-// Verifies a FAEST proof for the sign-time TPM relation.
+// Implements tpm verify.
 int daa_tpm_verify(unsigned int lambda,
                    int fast,
                    const uint8_t* lid,

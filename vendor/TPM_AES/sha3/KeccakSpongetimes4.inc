@@ -31,10 +31,7 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #define PlSnP_AddBytes                    JOIN(PlSnP, _AddBytes)
 #define PlSnP_ExtractBytes                JOIN(PlSnP, _ExtractBytes)
 
-/* ---------------------------------------------------------------- */
-/* ---------------------------------------------------------------- */
-/* ---------------------------------------------------------------- */
-
+// Implements sponge initialize.
 int SpongeInitialize(SpongeInstance *instance, unsigned int rate, unsigned int capacity)
 {
     if (rate+capacity != PlSnP_width)
@@ -50,8 +47,7 @@ int SpongeInitialize(SpongeInstance *instance, unsigned int rate, unsigned int c
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge absorb.
 int SpongeAbsorb(SpongeInstance *instance, const unsigned char **data, size_t dataByteLen)
 {
     size_t i, j;
@@ -60,7 +56,7 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char **data, size_t da
     unsigned int rateInBytes = instance->rate/8;
 
     if (instance->squeezing)
-        return 1; /* Too late for additional input */
+        return 1;
 
     i = 0;
     if(dataByteLen > 0) {
@@ -71,9 +67,9 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char **data, size_t da
     while(i < dataByteLen) {
         if ((instance->byteIOIndex == 0) && (dataByteLen >= (i + rateInBytes))) {
 #ifdef PlSnP_FastLoop_Absorb
-            /* processing full blocks first */
+
             if ((rateInBytes % (PlSnP_width/200)) == 0) {
-                /* fast lane: whole lane rate */
+
                 for(unsigned int instanceIndex = 0; instanceIndex < 4; instanceIndex++) {
                     j = PlSnP_FastLoop_Absorb(instance->state, rateInBytes/(PlSnP_width/200), 0, 0, curData[instanceIndex], dataByteLen - i);
                     curData[instanceIndex] += j;
@@ -95,7 +91,7 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char **data, size_t da
 #endif
         }
         else {
-            /* normal lane: using the message queue */
+
             partialBlock = (unsigned int)(dataByteLen - i);
             if (partialBlock+instance->byteIOIndex > rateInBytes)
                 partialBlock = rateInBytes-instance->byteIOIndex;
@@ -115,8 +111,7 @@ int SpongeAbsorb(SpongeInstance *instance, const unsigned char **data, size_t da
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge absorb last few bits.
 int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedData)
 {
     unsigned int rateInBytes = instance->rate/8;
@@ -124,17 +119,15 @@ int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedDat
     if (delimitedData == 0)
         return 1;
     if (instance->squeezing)
-        return 1; /* Too late for additional input */
+        return 1;
 
-    /* Last few bits, whose delimiter coincides with first bit of padding */
     for(unsigned int instanceIndex = 0; instanceIndex < 4; instanceIndex++) {
         PlSnP_AddByte(instance->state, instanceIndex, delimitedData, instance->byteIOIndex);
     }
 
-    /* If the first bit of padding is at position rate-1, we need a whole new block for the second bit of padding */
     if ((delimitedData >= 0x80) && (instance->byteIOIndex == (rateInBytes-1)))
         PlSnP_Permute(instance->state);
-    /* Second bit of padding */
+
     for(unsigned int instanceIndex = 0; instanceIndex < 4; instanceIndex++) {
         PlSnP_AddByte(instance->state, instanceIndex, 0x80, rateInBytes - 1);
     }
@@ -144,8 +137,7 @@ int SpongeAbsorbLastFewBits(SpongeInstance *instance, unsigned char delimitedDat
     return 0;
 }
 
-/* ---------------------------------------------------------------- */
-
+// Implements sponge squeeze.
 int SpongeSqueeze(SpongeInstance *instance, unsigned char **data, size_t dataByteLen)
 {
     size_t i, j;
@@ -174,7 +166,7 @@ int SpongeSqueeze(SpongeInstance *instance, unsigned char **data, size_t dataByt
             i = dataByteLen - j;
         }
         else {
-            /* normal lane: using the message queue */
+
             if (instance->byteIOIndex == rateInBytes) {
                 PlSnP_Permute(instance->state);
                 instance->byteIOIndex = 0;
@@ -193,8 +185,6 @@ int SpongeSqueeze(SpongeInstance *instance, unsigned char **data, size_t dataByt
     }
     return 0;
 }
-
-/* ---------------------------------------------------------------- */
 
 #undef Sponge
 #undef SpongeInstance

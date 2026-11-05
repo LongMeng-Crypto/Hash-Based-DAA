@@ -40,20 +40,18 @@ typedef enum faest_paramid_t {
 } faest_paramid_t;
 
 typedef struct faest_paramset_t {
-  // main parameters
+
   uint16_t lambda;
   uint8_t tau;
   uint8_t w_grind;
   uint16_t T_open;
   uint16_t l;
 
-  // extra parameters
   uint16_t k;
   uint8_t tau0;
   uint8_t tau1;
   uint32_t L;
 
-  // OWF parameters
   uint16_t Nst;
   uint16_t Ske;
   uint16_t R;
@@ -61,7 +59,6 @@ typedef struct faest_paramset_t {
   uint16_t Lke;
   uint16_t Lenc;
 
-  // additional parameters
   uint16_t sig_size;
   uint8_t owf_input_size;
   uint8_t owf_output_size;
@@ -70,8 +67,9 @@ typedef struct faest_paramset_t {
 ATTR_CONST const char* faest_get_param_name(faest_paramid_t paramid);
 ATTR_CONST const faest_paramset_t* faest_get_paramset(faest_paramid_t paramid);
 
+// Implements faest is em.
 ATTR_PURE ATTR_ALWAYS_INLINE static inline bool faest_is_em(const faest_paramset_t* params) {
-  // EM instances do not have key expansion constraints
+
   return params->Ske == 0;
 }
 

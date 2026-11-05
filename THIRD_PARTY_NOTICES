@@ -1,0 +1,14 @@
+This distribution contains modified third-party sources.
+
+TPM_AES and TPM_SHA include FAEST-derived code under the MIT license.
+The FAEST copyright and license notices are retained in their directories.
+
+The RISC0 backend and host proof support use Apache-2.0 licensed components.
+Their copyright and license notices are retained with the source files.
+The bundled recursion program resources are distributed with the RISC0 backend.
+
+Catch2 is distributed under the Boost Software License 1.0; see
+vendor/TPM_AES/catch2/LICENSE.txt.
+
+Keccak, SPHINCS+, musl-derived assembly, and other embedded implementations
+retain their applicable license and public-domain notices in the source files.

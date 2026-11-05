@@ -39,6 +39,7 @@ struct ProofFields {
   std::uint32_t counter = 0;
 };
 
+// Implements update domain.
 void update_domain(H2_context_t* context) {
   H2_update(context, reinterpret_cast<const std::uint8_t*>(protocol_domain),
             sizeof(protocol_domain) - 1);
@@ -63,6 +64,7 @@ std::array<std::uint8_t, 2 * lambda_bytes> hash_statement(
   return mu;
 }
 
+// Derives commitment seed.
 void derive_commitment_seed(const PackedWitness& witness,
                             const std::array<std::uint8_t, 2 * lambda_bytes>& mu,
                             const ProverRandomness& randomness,
@@ -95,6 +97,7 @@ std::array<std::uint8_t, challenge_1_bytes> challenge_1(
   return result;
 }
 
+// Implements challenge 2 prefix.
 H2_context_t challenge_2_prefix(const std::array<std::uint8_t, challenge_1_bytes>& chall_1,
                                 const std::array<std::uint8_t, utilde_bytes>& u_tilde) {
   H2_context_t hash;
@@ -104,6 +107,7 @@ H2_context_t challenge_2_prefix(const std::array<std::uint8_t, challenge_1_bytes
   return hash;
 }
 
+// Implements finish challenge 2.
 QuicksilverChallenge finish_challenge_2(H2_context_t* hash, const PackedWitness& d) {
   H2_update(hash, d.data(), d.size());
   QuicksilverChallenge result{};
@@ -111,6 +115,7 @@ QuicksilverChallenge finish_challenge_2(H2_context_t* hash, const PackedWitness&
   return result;
 }
 
+// Implements challenge 3 prefix.
 H2_context_t challenge_3_prefix(const QuicksilverChallenge& chall_2,
                                 const std::array<std::uint8_t, lambda_bytes>& a0,
                                 const std::array<std::uint8_t, lambda_bytes>& a1,
@@ -134,6 +139,7 @@ std::array<std::uint8_t, lambda_bytes> finish_challenge_3(const H2_context_t& pr
   return result;
 }
 
+// Implements grinding condition.
 bool grinding_condition(const std::array<std::uint8_t, lambda_bytes>& challenge) {
   const auto parameters = faest_vole_parameters();
   for (std::size_t bit = lambda_bits - parameters.w_grind; bit != lambda_bits; ++bit) {
@@ -169,6 +175,7 @@ std::vector<std::uint8_t> serialize(const faest::sha256_circuit::Circuit& circui
   return output;
 }
 
+// Deserializes the operation result.
 bool deserialize(const faest::sha256_circuit::Circuit& circuit,
                  std::span<const std::uint8_t> input, ProofFields& fields) {
   const auto witness = witness_layout(circuit);
@@ -200,7 +207,7 @@ bool deserialize(const faest::sha256_circuit::Circuit& circuit,
   return offset + 4 == input.size();
 }
 
-} // namespace
+}
 
 std::size_t serialized_proof_bytes(const faest::sha256_circuit::Circuit& circuit) {
   const auto witness = witness_layout(circuit);
@@ -265,6 +272,7 @@ std::vector<std::uint8_t> prove(
   return serialize(circuit, fields);
 }
 
+// Verifies the operation result.
 bool verify(const faest::sha256_circuit::Circuit& circuit,
             const faest::sha256_circuit::Digest& public_digest,
             std::span<const std::uint8_t> context,
@@ -307,4 +315,4 @@ bool verify(const faest::sha256_circuit::Circuit& circuit,
   return expected_challenge == fields.challenge_3;
 }
 
-} // namespace vole_sha256
+}

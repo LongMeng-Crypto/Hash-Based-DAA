@@ -47,16 +47,18 @@ std::vector<std::uint8_t> make_identifier(
   return result;
 }
 
+// Returns bit.
 bool get_bit(const PackedWitness& packed, std::size_t bit) {
   return ((packed[bit / 8] >> (bit % 8)) & 1U) != 0;
 }
 
+// Sets bit.
 void set_bit(PackedWitness& packed, std::size_t bit, bool value) {
   if (value)
     packed[bit / 8] |= static_cast<std::uint8_t>(1U << (bit % 8));
 }
 
-} // namespace
+}
 
 PreparedBinaryCircuit::PreparedBinaryCircuit(const BinaryCircuit& circuit)
     : circuit_(&circuit), statistics_(circuit.statistics()),
@@ -178,4 +180,4 @@ UnpackedWitness PreparedBinaryCircuit::unpack_witness(
   return result;
 }
 
-} // namespace vole_backend
+}

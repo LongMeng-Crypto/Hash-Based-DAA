@@ -7,7 +7,6 @@
 #error "Use one named FSPHINCS_PARAMS set; independent legacy selectors are unsupported"
 #endif
 
-/* Only the six named experimental configurations are supported. */
 #ifndef FSPHINCS_PARAMS
 #define FSPHINCS_PARAMS 128s
 #endif
@@ -29,11 +28,11 @@
 #define FS_NAME FS_STRING(FSPHINCS_PARAMS)
 
 #define FS_FORMAT_VERSION 3u
-/* Keep node PRF/H2/H3 v3; v7 leaf PRFs expose security/8 leading bytes. */
+
 #define FS_LEAF_PRF_VERSION 7u
 #define FS_LEAF_BYTES (FS_SECURITY / 8u)
 #define FS_LEAF_ADDR_BYTES 16u
-/* H1 v6 uses compact addresses and a cached, block-padded public seed. */
+
 #define FS_NODE_BYTES (FS_SECURITY / 8u)
 #define FS_H1_VERSION 6u
 #define FS_H1_ADDR_BYTES 16u
@@ -52,7 +51,6 @@
 #define FS_ANCHOR_PAYLOAD_BYTES \
     (FS_ANCHORS * FS_TREE_SIG_BYTES + FS_ANCHOR_PATH_LEVELS * FS_NODE_BYTES)
 
-/* Master/node seeds, randomizers and H2 intermediate digests stay 256 bits. */
 #define FS_N 32u
 #define FS_Q 1024u
 #define FS_H 6u

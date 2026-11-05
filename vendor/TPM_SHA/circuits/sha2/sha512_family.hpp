@@ -40,23 +40,15 @@ struct Statistics {
 };
 
 struct DigestWires {
-  // SHA/FIPS order: bits of each digest byte are most-significant first.
-  // These wires can be passed directly as part of another SHA message.
+
   std::vector<vole_backend::Wire> fips_bits;
 };
 
-// Build a complete, padded SHA-384 or SHA-512 hash over existing message
-// wires. message_fips_bits[0] is the most-significant bit of the first byte.
-// Arbitrary bit lengths are supported by the core, although the standalone
-// wrappers intentionally expose byte-string messages.
 DigestWires build_sha512_family(
     vole_backend::BinaryCircuit& circuit,
     std::span<const vole_backend::Wire> message_fips_bits,
     Sha512Variant variant, CoreStatistics* statistics = nullptr);
 
-// Register a digest as packed public BinaryCircuit outputs. Keeping this
-// separate lets callers leave an intermediate digest (such as et) private and
-// wire it directly into a later hash.
 void add_sha2_digest_outputs(vole_backend::BinaryCircuit& circuit,
                              const DigestWires& digest);
 
@@ -79,6 +71,7 @@ public:
   }
   std::size_t block_count() const { return block_count_; }
   std::size_t digest_bytes() const;
+  // Implements variant.
   Sha512Variant variant() const { return variant_; }
   const vole_backend::BinaryCircuit& binary_circuit() const { return circuit_; }
   const std::vector<vole_backend::Wire>& output_wires() const {
@@ -107,6 +100,6 @@ private:
   InputVisibilityLayout input_visibility_;
 };
 
-} // namespace vole_circuits::sha2
+}
 
 #endif

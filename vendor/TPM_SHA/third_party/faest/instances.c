@@ -9,6 +9,7 @@
 #include "instances.h"
 #include "parameters.h"
 
+// Implements faest get param name.
 const char* faest_get_param_name(faest_paramid_t paramid) {
   switch (paramid) {
   case PARAMETER_SET_INVALID:
@@ -89,6 +90,7 @@ const char* faest_get_param_name(faest_paramid_t paramid) {
     return &params;                                                                                \
   }
 
+// Implements faest get paramset.
 const faest_paramset_t* faest_get_paramset(faest_paramid_t paramid) {
   switch (paramid) {
     CASE_PARAM(FAEST_128S)
