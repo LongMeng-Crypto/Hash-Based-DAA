@@ -31,6 +31,11 @@ for parameter in ${parameters//,/ }; do
   }
 done
 
+if [[ "${DRY_RUN:-0}" == 1 ]]; then
+  PARAMS_LIST="$parameters" python3 "$script_dir/benchmark.py" tpm --tpm-backend rijndael --list
+  exit
+fi
+
 mkdir -p "${build_dir}" "${log_dir}"
 if [[ -f "${build_dir}/build.ninja" ]]; then
   meson setup --reconfigure "${build_dir}" "${source_dir}" --buildtype=release
@@ -39,7 +44,7 @@ else
 fi
 meson compile -C "${build_dir}" daa_rijndael_dm_profile
 
-raw_output="$("${build_dir}/daa_rijndael_dm_profile" "${iterations}")"
+raw_output="$(PARAMETERS="$parameters" PHASES="$phases" "${build_dir}/daa_rijndael_dm_profile" "${iterations}")"
 {
   printf 'Rijndael-256 Davies--Meyer VOLE DAA benchmark\n'
   printf 'construction=F(K,D)=Rijndael256_K(D) xor D (256-bit output, no truncation)\n'

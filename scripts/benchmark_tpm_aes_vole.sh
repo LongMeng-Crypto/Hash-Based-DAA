@@ -32,6 +32,11 @@ for parameter in ${parameters//,/ }; do
   esac
 done
 
+if [[ "${DRY_RUN:-0}" == 1 ]]; then
+  PARAMS_LIST="$parameters" python3 "$script_dir/benchmark.py" tpm --tpm-backend aes --list
+  exit
+fi
+
 mkdir -p "${build_dir}" "${log_dir}"
 if [[ -f "${build_dir}/build.ninja" ]]; then
   meson setup --reconfigure "${build_dir}" "${source_dir}" --buildtype=release

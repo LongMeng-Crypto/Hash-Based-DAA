@@ -53,8 +53,24 @@ static void check_native_kat(void) {
   }
 }
 
+// Selects requested parameters and phases before doing proof work.
+static int selected(const char* variable, const char* value) {
+  const char* list = getenv(variable);
+  if (!list || !*list) return 1;
+  const size_t length = strlen(value);
+  for (const char* p = list; *p;) {
+    const char* end = strchr(p, ',');
+    const size_t size = end ? (size_t)(end - p) : strlen(p);
+    if (size == length && memcmp(p, value, length) == 0) return 1;
+    if (!end) break;
+    p = end + 1;
+  }
+  return 0;
+}
+
 // Benchmarks join.
 static void bench_join(const char* name, int fast, unsigned int iterations) {
+  if (!selected("PARAMETERS", name) || !selected("PHASES", "join")) return;
   uint8_t sk[DAA_RDM_BYTES];
   uint8_t gid[DAA_RDM_BYTES];
   uint8_t et[DAA_RDM_BYTES];
@@ -101,6 +117,7 @@ static void bench_join(const char* name, int fast, unsigned int iterations) {
 
 // Benchmarks sign.
 static void bench_sign(const char* name, int fast, unsigned int iterations) {
+  if (!selected("PARAMETERS", name) || !selected("PHASES", "sign")) return;
   uint8_t sk[DAA_RDM_BYTES];
   uint8_t s[DAA_RDM_BYTES];
   uint8_t lid[DAA_RDM_BYTES];

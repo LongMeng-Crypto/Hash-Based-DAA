@@ -122,27 +122,80 @@ cargo run --locked --release -p daa_cli -- run-full \
 `simulated` simulates all proofs. `real-tpm` uses real Setup/TPM proofs and a
 simulated Host proof; fixed WOTS+ Setup still needs RISC0 proving.
 
-Component benchmarks (native suites use CPU; Host and fixed WOTS+ suites use GPU):
+The benchmark entrypoints are:
+
+| Script in `scripts/` | Default coverage |
+| --- | --- |
+| `benchmark_credentials.sh` | Both native credential schemes, all six parameters; 12 cases |
+| `benchmark_issuer_anchors.sh` | All three Setup methods; 12 native seed cases and 12 fixed-WOTS receipt cases |
+| `benchmark_tpm_aes_vole.sh` | Six AES profiles, Join 1F and Signing 3F |
+| `benchmark_tpm_rijndael_dm.sh` | Two Rijndael profiles, Join 1F and Signing 3F |
+| `benchmark_tpm_sha_relations.sh` | Six SHA-2 profiles, Join 1F and Signing 3F/5F |
+| `benchmark_host.sh` | All supported TPM hooks, three Host constructions and receipt forms; 82 cases |
+| `benchmark_protocol.sh` | Complete protocols including fixed-WOTS Setup and SHA-2 5F; 124 cases |
+| `run_all_benchmarks.sh` | The credential, Setup, TPM and Host suites |
+
+The full protocol sweep is separate from the default paper component sweep.
+The native TPM suites contain 34 proof relations in total. Counts above are
+configurations before repetitions; they do not multiply CPU and GPU choices.
+Recursive ZK verification uses succinct receipts with identity wrapping; the
+other Host constructions and fixed-WOTS Setup cover composite and succinct
+receipts. Unsupported combinations are excluded from the matrices.
+
+Preview the matrices without compiling or proving:
 
 ```sh
+DRY_RUN=1 bash scripts/run_all_benchmarks.sh
+DRY_RUN=1 bash scripts/benchmark_protocol.sh
+```
+
+Run the paper component suites, or select an individual suite:
+
+```sh
+ITERATIONS=3 bash scripts/run_all_benchmarks.sh
+ITERATIONS=3 bash scripts/benchmark_credentials.sh
+SETUP_MODES="sphincs-seed fsphincs-seed" DAA_HOST_CUDA=0 \
+  ITERATIONS=3 bash scripts/benchmark_issuer_anchors.sh
+SETUP_MODES=fixed-wots ITERATIONS=3 bash scripts/benchmark_issuer_anchors.sh
 ITERATIONS=10 bash scripts/benchmark_tpm_aes_vole.sh
 ITERATIONS=10 bash scripts/benchmark_tpm_rijndael_dm.sh
 ITERATIONS=10 bash scripts/benchmark_tpm_sha_relations.sh
-CREDENTIALS=sphincs ANCHOR_MODE=seed-anchor ITERATIONS=3 \
-  bash scripts/benchmark_issuer_anchors.sh
-RUN_SETUP=1 ITERATIONS=3 bash scripts/benchmark_fsphincs_native_setup.sh
-CREDENTIALS=sphincs ANCHOR_MODE=fixed-top-wots ITERATIONS=3 \
-  bash scripts/benchmark_issuer_anchors.sh
-HOST_HOOK_MODE=sha2-3f SEGMENT_PO2=20 ITERATIONS=1 \
-  bash scripts/benchmark_host_sha2.sh
 ```
 
-`HOST_HOOK_MODE` also accepts `aes-3f`, `rijndael-3f`, or `sha2-5f` (F-SPHINCS+
-Host only). The Host suite compares all three constructions and receipt forms.
-Benchmark output includes prover/verifier time and serialized proof size;
-Host proofs also report guest cycles and segment counts. Compilation and outer
-Cargo startup are excluded from internal timings. Generated logs and results
-are ignored by Git.
+Common selectors for the credential, Setup, Host, protocol and combined runners:
+
+| Variable | Default / accepted values |
+| --- | --- |
+| `PARAMS_LIST` | `128s 128f 192s 192f 256s 256f`; `sha2-` prefixes also accepted |
+| `CREDENTIALS` | `sphincs fsphincs`; native credential suite |
+| `SETUP_MODES` | `sphincs-seed fsphincs-seed fixed-wots` |
+| `HOOK_MODES` | `aes-3f rijndael-3f sha2-3f sha2-5f`; Host/protocol suites |
+| `HOST_SCHEMES` | `recursive-zk zk-wots fsphincs` |
+| `RECEIPTS` | `composite succinct` |
+| `DAA_HOST_CUDA` | `1`; set `0` for CPU RISC0 proving |
+| `SEGMENT_PO2` | `20` |
+| `ITERATIONS` | `1` for combined runners; repetitions are honored by every suite |
+| `SUITES` | `credentials setup tpm host`; combined runner only; `all` also includes the protocol sweep |
+| `BENCH_OUTPUT_DIR` | A new directory under ignored `results/benchmarks/` |
+
+For example, benchmark SHA-2 5F with the F-SPHINCS+ Host and its matching Setup:
+
+```sh
+PARAMS_LIST=128f HOOK_MODES=sha2-5f HOST_SCHEMES=fsphincs \
+SETUP_MODES=fsphincs-seed RECEIPTS=succinct ITERATIONS=3 \
+  bash scripts/benchmark_protocol.sh
+```
+
+The native AES/Rijndael scripts additionally accept `PARAMETERS` and `PHASES`;
+filtering excludes unselected proof computations. The SHA-2 script accepts
+`PARAMS_LIST`, `SECURITY`, `PROFILE`, and `SCHEME=all|ours|chen23`.
+
+Combined runners save a case manifest, raw logs and a machine-readable
+`summary.tsv`; full protocol cases also save JSON traces. KeyGen and ZK timings
+remain separate. Compilation and outer Cargo startup are excluded from the
+reported internal timings. Native credential benchmarks time only KeyGen,
+signing and verification; negative tests and known-answer tests run through
+the regression entrypoints below. Generated results are ignored by Git.
 
 Native regression checks:
 
@@ -151,6 +204,7 @@ bash scripts/test_fsphincs.sh
 bash scripts/test_issuer_seed_anchor.sh
 bash scripts/test_issuer_wots.sh
 bash scripts/test_host_verifiers.sh
+python3 -m unittest discover -s host_proof/tests -p test_benchmark_matrix.py
 meson setup /tmp/daa-tpm-sha-tests vendor/TPM_SHA --buildtype=release
 meson test -C /tmp/daa-tpm-sha-tests --print-errorlogs
 ```
