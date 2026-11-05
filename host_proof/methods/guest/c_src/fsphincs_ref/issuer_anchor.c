@@ -4,6 +4,8 @@
 
 #include <string.h>
 
+extern void randombytes(unsigned char *out, size_t len);
+
 #define ANCHOR_HEADER_BYTES 16u
 #define ANCHOR_KIND_FSPHINCS_ROOT 3u
 
@@ -32,6 +34,26 @@ static int valid_header(const uint8_t *certificate, size_t len) {
 // Implements issuer anchor certificate bytes.
 size_t fsphincs_issuer_anchor_certificate_bytes(void) {
     return ANCHOR_HEADER_BYTES + FS_ANCHOR_PAYLOAD_BYTES;
+}
+
+// Generates issuer keys and the authenticated PRF certificate in one pass.
+int fsphincs_issuer_seed_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *certificate, size_t len, const uint8_t *seed) {
+    if (!pk || !sk || !certificate || !seed ||
+        len != fsphincs_issuer_anchor_certificate_bytes()) return -1;
+    write_header(certificate);
+    return fsphincs_seed_keypair_with_root_anchor(pk, sk,
+        certificate + ANCHOR_HEADER_BYTES, seed);
+}
+
+// Samples issuer keys and captures the two PRF anchors during key generation.
+int fsphincs_issuer_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *certificate, size_t len) {
+    uint8_t seed[FS_SEED_BYTES];
+    randombytes(seed, sizeof(seed));
+    int result = fsphincs_issuer_seed_keypair(pk, sk, certificate, len, seed);
+    memset(seed, 0, sizeof(seed));
+    return result;
 }
 
 // Implements issuer anchor generate.

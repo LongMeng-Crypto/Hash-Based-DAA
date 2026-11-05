@@ -1,4 +1,3 @@
-
 use super::*;
 use methods::{ISSUER_WOTS_GUEST_ELF, ISSUER_WOTS_GUEST_ID};
 
@@ -10,14 +9,13 @@ extern "C" {
     // Implements issuer wots witness bytes.
     fn sphincs_issuer_wots_witness_bytes() -> usize;
 
-    // Implements issuer wots generate.
-    fn sphincs_issuer_wots_generate(
+    fn sphincs_issuer_wots_keypair(
+        pk: *mut u8,
+        sk: *mut u8,
         cert: *mut u8,
         cert_len: usize,
         witness: *mut u8,
         witness_len: usize,
-        pk: *const u8,
-        sk: *const u8,
     ) -> i32;
 
     // Implements issuer wots verify.
@@ -32,12 +30,6 @@ extern "C" {
         witness_len: usize,
     ) -> i32;
 
-    // Implements issuer wots capability test.
-    fn sphincs_issuer_wots_capability_test(
-        cert: *const u8,
-        pk: *const u8,
-        witness: *const u8,
-    ) -> i32;
 }
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -62,69 +54,45 @@ fn supported() -> Result<()> {
     Ok(())
 }
 
-// Generates the operation result.
-pub(super) fn generate(pk: &[u8], sk: &[u8]) -> Result<NativeAnchorMaterial> {
+// Generates keys and captures the fixed WOTS leaf in the same XMSS traversal.
+pub(super) fn keygen(pk: &mut [u8], sk: &mut [u8]) -> Result<NativeAnchorMaterial> {
     supported()?;
-    if pk.len() != credential_pk_bytes() || sk.len() != credential_sk_bytes() {
-        return Err("fixed WOTS key size mismatch".into());
-    }
     let mut certificate = vec![0; unsafe { sphincs_issuer_wots_certificate_bytes() }];
     let mut witness = vec![0; unsafe { sphincs_issuer_wots_witness_bytes() }];
-    let started = Instant::now();
     if unsafe {
-        sphincs_issuer_wots_generate(
+        sphincs_issuer_wots_keypair(
+            pk.as_mut_ptr(),
+            sk.as_mut_ptr(),
             certificate.as_mut_ptr(),
             certificate.len(),
             witness.as_mut_ptr(),
             witness.len(),
-            pk.as_ptr(),
-            sk.as_ptr(),
         )
     } != 0
     {
-        return Err("fixed WOTS anchor generation failed".into());
+        return Err("fixed WOTS issuer key generation failed".into());
     }
-    let generation_us = started.elapsed().as_micros();
-    let started = Instant::now();
     check_certificate(pk, &certificate)?;
-    let verify_us = started.elapsed().as_micros();
-
-    let mut wrong = witness.clone();
-    wrong[0] ^= 1;
     if unsafe {
         sphincs_issuer_wots_relation(
             certificate.as_ptr(),
             certificate.len(),
             pk.as_ptr(),
-            wrong.as_ptr(),
-            wrong.len(),
+            witness.as_ptr(),
+            witness.len(),
         )
-    } == 0
-    {
-        return Err("mutated WOTS witness accepted".into());
-    }
-    for offset in [0, 8, 12, 15, 16, certificate.len() - 1] {
-        let mut wrong = certificate.clone();
-        wrong[offset] ^= 1;
-        if check_certificate(pk, &wrong).is_ok() {
-            return Err("mutated WOTS certificate accepted".into());
-        }
-    }
-    if unsafe {
-        sphincs_issuer_wots_capability_test(certificate.as_ptr(), pk.as_ptr(), witness.as_ptr())
     } != 0
     {
-        return Err("WOTS-only signing capability test failed".into());
+        return Err("fixed WOTS issuer witness mismatch".into());
     }
-    println!("wots_only_signing_test=ok");
     Ok(NativeAnchorMaterial {
         public_a: pk.to_vec(),
         public_b: Vec::new(),
         anchor_value: certificate[16..16 + pk.len() / 2].to_vec(),
         certificate,
         witness,
-        generation_us,
-        verify_us,
+        generation_us: 0,
+        verify_us: 0,
     })
 }
 
@@ -146,7 +114,6 @@ fn journal(pk: &[u8], cert: &[u8]) -> Vec<u8> {
 
 // Verifies receipt.
 fn verify_receipt(receipt: &Receipt, pk: &[u8], cert: &[u8], hash: &str) -> Result<()> {
-
     if !matches!(
         &receipt.inner,
         InnerReceipt::Composite(_) | InnerReceipt::Succinct(_)

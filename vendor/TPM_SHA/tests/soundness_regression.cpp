@@ -5,11 +5,6 @@
 #include "backend/generic_nizk.hpp"
 #include "backend/generic_quicksilver.hpp"
 #include "backend/vole/faest_vole.hpp"
-#ifdef VOLE_SOUNDNESS_FRONTENDS
-#include "backend/mixed_quadratic.hpp"
-#include "circuits/aes/aes128_faest_circuit.hpp"
-#include "circuits/sha2/sha256/faest_quicksilver.hpp"
-#endif
 extern "C" {
 #include "universal_hashing.h"
 }
@@ -98,66 +93,6 @@ void generic_tests(){
   check(!verify(prepared_c,level,profile,false_st,{},invalid_proof),"relabelled invalid proof accepted");
  }
 }
-#ifdef VOLE_SOUNDNESS_FRONTENDS
-class MaliciousMixed final:public QuicksilverRelation {
- const MixedQuadraticRelation& r;
-public:
- // Implements malicious mixed.
- explicit MaliciousMixed(const MixedQuadraticRelation& relation):r(relation){}
- auto id()const->std::array<std::uint8_t,32>override{return r.id();}
- std::size_t private_input_bits()const override{return r.private_input_bits();}
- std::size_t public_input_bits()const override{return 0;}
- std::size_t output_bits()const override{return 0;}
- std::size_t witness_bits()const override{return r.witness_bits();}
- Bytes build_witness(std::span<const std::uint8_t> in,const PublicStatement&)const override{return vole_backend::build_witness(r.circuit(),in,{});}
- QuicksilverProof prove_constraints(std::span<const std::uint8_t>w,const PublicStatement&s,const std::vector<std::uint8_t*>&v,const std::uint8_t*u,const QuicksilverChallenge&c)const override{
-  auto p=r.prove_constraints(w,s,v,u,c);
-  for(std::size_t i=0;i<16;++i)p.a2[i]^=c[i]^c[16+i];
-  return p;
- }
- auto verify_constraints(std::span<const std::uint8_t>d,const PublicStatement&s,const std::vector<std::uint8_t*>&q,const std::array<std::uint8_t,16>&delta,const QuicksilverChallenge&c,const QuicksilverProof&p)const->std::array<std::uint8_t,16>override{return r.verify_constraints(d,s,q,delta,c,p);}
-};
-// Implements mixed tests.
-void mixed_tests(){
- BinaryCircuit c;c.private_input();FieldQuadraticEquation equation;equation.linear=c.one();
- MixedQuadraticRelation r(c,{Gf128{},Gf128::from_bit(1)},{},{equation},{'1','=','0'});
- ProverRandomness random{};random[0]=7;
- for(auto profile:{VoleProfile::Small,VoleProfile::Fast}){
-  auto proof=prove(MaliciousMixed(r),profile,Bytes{0},{},{},random);
-  check(!verify(r,profile,{},{},proof),"unsatisfiable mixed relation accepted");
- }
-}
-// Implements legacy sha test.
-void legacy_sha_test(){
- faest::sha256_circuit::Circuit c(0);faest::sha256_circuit::Message input{};auto digest=c.evaluate(input);
- auto w=vole_sha256::build_witness(c,input);auto witness_bits=vole_sha256::witness_layout(c).vole_bits;
- Correlations f(witness_bits,SecurityLevel::Bits128,VoleProfile::Small);auto v=f.cols(f.v),q=f.cols(f.q);
- QuicksilverChallenge challenge{};std::copy(f.challenge.begin(),f.challenge.end(),challenge.begin());std::array<std::uint8_t,16> delta{};std::copy(f.delta.begin(),f.delta.end(),delta.begin());
- auto good=vole_sha256::sha256_quicksilver_prove(c,w,v,f.u.data()+w.size(),digest,challenge);auto masked=mask_witness(w,f.u);
- check(vole_sha256::sha256_quicksilver_verify(c,masked,q,delta,digest,challenge,good)==good.a0,"legacy SHA valid proof rejected");
- digest[31]^=0x80;auto forged=vole_sha256::sha256_quicksilver_prove(c,w,v,f.u.data()+w.size(),digest,challenge);
- for(std::size_t i=0;i<16;++i)forged.a2[i]^=challenge[i]^challenge[16+i];
- check(vole_sha256::sha256_quicksilver_verify(c,masked,q,delta,digest,challenge,forged)!=forged.a0,"legacy SHA a2 absorption accepted");
-}
-// Implements aes test.
-void aes_test(){
- vole_circuits::aes::Aes128FaestRelation r;
- const Bytes key{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15},pt{0,0x11,0x22,0x33,0x44,0x55,0x66,0x77,0x88,0x99,0xaa,0xbb,0xcc,0xdd,0xee,0xff},ct{0x69,0xc4,0xe0,0xd8,0x6a,0x7b,0x04,0x30,0xd8,0xcd,0xb7,0x80,0x70,0xb4,0xc5,0x5a};
- auto bits=[](const Bytes&a){Bytes b;for(auto x:a)for(unsigned i=0;i<8;++i)b.push_back((x>>i)&1);return b;};
- PublicStatement st{bits(pt),bits(ct)};auto w=r.build_witness(bits(key),st);
- for(auto profile:{VoleProfile::Small,VoleProfile::Fast}){
-  Correlations f(r.witness_bits(),SecurityLevel::Bits128,profile);auto v=f.cols(f.v),q=f.cols(f.q);auto masked=mask_witness(w,f.u);
-  QuicksilverChallenge challenge{};std::copy(f.challenge.begin(),f.challenge.end(),challenge.begin());std::array<std::uint8_t,16> delta{};std::copy(f.delta.begin(),f.delta.end(),delta.begin());
-  auto p=r.prove_constraints(w,st,v,f.u.data()+w.size(),challenge);
-  check(r.verify_constraints(masked,st,q,delta,challenge,p)==p.a0,"native AES valid constraint rejected");
-  auto wrong=st;wrong.expected_outputs[0]^=1;
-  p=r.prove_constraints(w,wrong,v,f.u.data()+w.size(),challenge);
-  check(r.verify_constraints(masked,wrong,q,delta,challenge,p)!=p.a0,"native AES wrong ciphertext accepted");
-  for(std::size_t i=0;i<16;++i)p.a2[i]^=challenge[i]^challenge[16+i];
-  check(r.verify_constraints(masked,wrong,q,delta,challenge,p)!=p.a0,"native AES coefficient modification accepted");
- }
-}
-#endif
 
 #ifdef VOLE_SOUNDNESS_DAA
 // Implements tests.
@@ -197,9 +132,6 @@ void daa_tests(){
 }
 // Implements main.
 int main(){try{generic_tests();
-#ifdef VOLE_SOUNDNESS_FRONTENDS
- mixed_tests();legacy_sha_test();aes_test();
-#endif
 #ifdef VOLE_SOUNDNESS_DAA
  daa_tests();
 #endif

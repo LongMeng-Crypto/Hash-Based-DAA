@@ -435,7 +435,7 @@ parameter_sets_all = parameter_sets
 parameter_sets_build = [param_128s, param_128f, param_192s, param_192f, param_256s, param_256f]
 
 parameter_data = configuration_data()
-foreach parameter_set : parameter_sets_all                             # Was parameter_sets
+foreach parameter_set : parameter_sets_all
   parameter_set_prefix = 'FAEST_@0@'.format(parameter_set.get('PARAM'))
   foreach key : parameter_set.keys()
     parameter_data.set('@0@_@1@'.format(parameter_set_prefix, key), parameter_set.get(key))
@@ -622,7 +622,7 @@ else
 endif
 
 
-foreach parameter_set : parameter_sets_build    # Was parameter_sets
+foreach parameter_set : parameter_sets_build
   headers += configure_file(
     input: 'faest_param.h.in',
     output: 'faest_@0@.h'.format(parameter_set.get('PARAM_L')),
@@ -725,22 +725,8 @@ run_target(
 
 )
 
-executable('daa_joining',
-  files('daa_joining.c', 'daa_faest.c'),
-  dependencies: [libfaest_static_dependency] + build_dependencies,
-  include_directories: include_directories,
-  c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],
-)
-
-executable('daa_bench',
-  files('daa_bench.c', 'daa_faest.c'),
-  dependencies: [libfaest_static_dependency] + build_dependencies,
-  include_directories: include_directories,
-  c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],
-)
-
 executable('daa_aes_profile',
-  files('daa_aes_profile.c', 'daa_faest.c', 'daa_faest_opt.c'),
+  files('daa_aes_profile.c', 'daa_faest.c'),
   dependencies: [libfaest_static_dependency] + build_dependencies,
   include_directories: include_directories,
   c_args: defines + c_flags + ['-DFAEST_STATIC', '-DFAEST_EXPORT='],

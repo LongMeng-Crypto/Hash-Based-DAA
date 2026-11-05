@@ -14,12 +14,19 @@ void randombytes(unsigned char *out, unsigned long long len) {
 int main(void) {
     unsigned char pk[SPX_PK_BYTES], sk[SPX_SK_BYTES], seed[3*SPX_N];
     for (unsigned int i=0; i<sizeof(seed); ++i) seed[i]=(unsigned char)(i+7);
-    if (crypto_sign_seed_keypair(pk, sk, seed)) return 1;
+    unsigned char reference_pk[SPX_PK_BYTES], reference_sk[SPX_SK_BYTES];
+    if (crypto_sign_seed_keypair(reference_pk, reference_sk, seed)) return 1;
     size_t clen=sphincs_issuer_wots_certificate_bytes();
     size_t wlen=sphincs_issuer_wots_witness_bytes();
     unsigned char *cert=malloc(clen), *witness=malloc(wlen);
     if (!cert || !witness) return 2;
-    if (sphincs_issuer_wots_generate(cert,clen,witness,wlen,pk,sk)) return 3;
+    if (sphincs_issuer_wots_seed_keypair(pk,sk,cert,clen,witness,wlen,seed)) return 3;
+    if (memcmp(pk,reference_pk,sizeof(pk)) || memcmp(sk,reference_sk,sizeof(sk))) return 10;
+    unsigned char *reference_cert=malloc(clen), *reference_witness=malloc(wlen);
+    if (!reference_cert || !reference_witness ||
+        sphincs_issuer_wots_generate(reference_cert,clen,reference_witness,wlen,pk,sk) ||
+        memcmp(cert,reference_cert,clen) || memcmp(witness,reference_witness,wlen)) return 11;
+    free(reference_cert); free(reference_witness);
     if (sphincs_issuer_wots_capability_test(cert,pk,witness)) return 4;
     for (unsigned int i=0; i<SPX_WOTS_LEN; ++i) {
         witness[i*SPX_N]^=1;

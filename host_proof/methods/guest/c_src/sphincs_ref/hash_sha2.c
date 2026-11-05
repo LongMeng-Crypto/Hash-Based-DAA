@@ -6,7 +6,6 @@
 #include "params.h"
 #include "hash.h"
 #include "sha2.h"
-#include "sphincs_profile.h"
 
 #if SPX_N >= 24
 #define SPX_SHAX_OUTPUT_BYTES SPX_SHA512_OUTPUT_BYTES
@@ -106,7 +105,6 @@ void hash_message(unsigned char *digest, uint64_t *tree, uint32_t *leaf_idx,
                   const unsigned char *m, unsigned long long mlen,
                   const spx_ctx *ctx)
 {
-    SPX_PROFILE_INC(SPX_PROF_HASH_MESSAGE, 1);
 
     (void)ctx;
 #define SPX_TREE_BITS (SPX_TREE_HEIGHT * (SPX_D - 1))

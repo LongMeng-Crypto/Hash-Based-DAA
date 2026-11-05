@@ -6,7 +6,6 @@
 #include "params.h"
 #include "utils.h"
 #include "sha2.h"
-#include "sphincs_profile.h"
 
 #if SPX_SHA512
 static void thash_512(unsigned char *out, const unsigned char *in, unsigned int inblocks,
@@ -17,14 +16,9 @@ static void thash_512(unsigned char *out, const unsigned char *in, unsigned int 
 void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
            const spx_ctx *ctx, uint32_t addr[8])
 {
-    SPX_PROFILE_INC(SPX_PROF_THASH, 1);
-    SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, inblocks);
     if (inblocks == 1) {
-        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
     } else if (inblocks == 2) {
-        SPX_PROFILE_INC(SPX_PROF_THASH_2, 1);
     } else {
-        SPX_PROFILE_INC(SPX_PROF_THASH_LONG, 1);
     }
 
 #if SPX_SHA512
@@ -34,7 +28,7 @@ void thash(unsigned char *out, const unsigned char *in, unsigned int inblocks,
     }
 #endif
 
-#if defined(SPHINCS_OPT_128S) && SPX_N == 16 && !SPX_SHA512
+#if defined(DAA_SHA256_SYSCALL) && SPX_N == 16 && !SPX_SHA512
     sha256_seeded_thash_128s_simple(out, ctx->state_seeded, addr, in, inblocks);
     return;
 #endif

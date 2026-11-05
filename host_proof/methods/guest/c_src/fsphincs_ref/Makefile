@@ -6,7 +6,7 @@ SPHINCS_REF := ../sphincs_ref
 PARAMS := sphincs-sha2-128s
 FSPHINCS_PARAMS ?= 128s
 ifneq ($(strip $(FSPHINCS_SECURITY)$(FSPHINCS_K)),)
-$(error Use FSPHINCS_PARAMS=128s/128f/192s/192f/256s/256f; legacy selectors were removed)
+$(error Use FSPHINCS_PARAMS=128s/128f/192s/192f/256s/256f; independent parameter selectors are unsupported)
 endif
 
 .PHONY: all benchmark kat test clean fsphincs_benchmark fsphincs_kat

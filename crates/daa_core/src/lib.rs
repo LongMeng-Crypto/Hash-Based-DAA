@@ -10,6 +10,9 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
 mod issuer_wots;
+#[path = "../../../host_proof/rijndael.rs"]
+mod rijndael;
+mod rijndael_tpm;
 use issuer_wots::{fixed_wots_prove_external, fixed_wots_verify_external};
 
 pub type Bytes = Vec<u8>;
@@ -22,7 +25,6 @@ pub enum SecurityLevel {
 }
 
 impl SecurityLevel {
-
     // Implements from name.
     pub fn from_name(name: &str) -> Self {
         if name.contains("192") {
@@ -77,7 +79,6 @@ pub enum TpmShaProfile {
 }
 
 impl TpmShaProfile {
-
     // Implements from name.
     pub fn from_name(name: &str) -> Self {
         if name.ends_with('f') {
@@ -107,6 +108,7 @@ impl TpmShaProfile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TpmBackend {
     Aes,
+    Rijndael,
     Sha2,
 }
 
@@ -117,7 +119,6 @@ pub enum TpmShaScheme {
 }
 
 impl TpmShaScheme {
-
     // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
@@ -143,7 +144,6 @@ pub enum CredentialScheme {
 }
 
 impl CredentialScheme {
-
     // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
@@ -163,11 +163,11 @@ impl CredentialScheme {
 }
 
 impl TpmBackend {
-
     // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
-            "aes" | "legacy-aes" => Ok(Self::Aes),
+            "aes" => Ok(Self::Aes),
+            "rijndael" | "rijndael-256" => Ok(Self::Rijndael),
             "sha" | "sha2" | "sha-2" => Ok(Self::Sha2),
             _ => Err(DaaError::UnsupportedTpmBackend),
         }
@@ -177,6 +177,7 @@ impl TpmBackend {
     pub fn name(self) -> &'static str {
         match self {
             Self::Aes => "aes",
+            Self::Rijndael => "rijndael",
             Self::Sha2 => "sha2",
         }
     }
@@ -189,7 +190,6 @@ pub enum IssuerAnchorMode {
 }
 
 impl IssuerAnchorMode {
-
     // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
@@ -208,6 +208,41 @@ impl IssuerAnchorMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostScheme {
+    RecursiveZk,
+    ZkWots,
+    FSphincs,
+}
+
+impl HostScheme {
+    // Parses a Host construction name.
+    pub fn from_name(name: &str) -> DaaResult<Self> {
+        match name {
+            "recursive-zk" => Ok(Self::RecursiveZk),
+            "zk-wots" => Ok(Self::ZkWots),
+            "fsphincs" => Ok(Self::FSphincs),
+            _ => Err(DaaError::UnsupportedProtocolCombination),
+        }
+    }
+    // Returns the build configuration name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::RecursiveZk => "recursive-zk",
+            Self::ZkWots => "zk-wots",
+            Self::FSphincs => "fsphincs",
+        }
+    }
+    // Returns the publication label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::RecursiveZk => "Recursive ZK verification",
+            Self::ZkWots => "ZK-WOTS+",
+            Self::FSphincs => "F-SPHINCS+",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProtocolConfig {
     pub sphincs_params: String,
@@ -219,12 +254,12 @@ pub struct ProtocolConfig {
     pub tpm_sha_scheme: TpmShaScheme,
     pub tpm_sha_profile: TpmShaProfile,
     pub credential_scheme: CredentialScheme,
+    pub host_scheme: HostScheme,
     pub issuer_anchor_mode: IssuerAnchorMode,
     pub risc0_segment_limit_po2: Option<u32>,
 }
 
 impl Default for ProtocolConfig {
-
     // Implements default.
     fn default() -> Self {
         let sphincs_params = "sha2-128s".to_string();
@@ -238,6 +273,7 @@ impl Default for ProtocolConfig {
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             tpm_sha_profile: TpmShaProfile::Small,
             credential_scheme: CredentialScheme::SphincsPlus,
+            host_scheme: HostScheme::RecursiveZk,
             issuer_anchor_mode: IssuerAnchorMode::SeedAnchor,
             risc0_segment_limit_po2: None,
         }
@@ -245,7 +281,6 @@ impl Default for ProtocolConfig {
 }
 
 impl ProtocolConfig {
-
     // Implements with issuer anchor mode.
     pub fn with_issuer_anchor_mode(mut self, mode: IssuerAnchorMode) -> Self {
         self.issuer_anchor_mode = mode;
@@ -287,7 +322,32 @@ impl ProtocolConfig {
     // Implements with credential scheme.
     pub fn with_credential_scheme(mut self, scheme: CredentialScheme) -> Self {
         self.credential_scheme = scheme;
+        self.host_scheme = if scheme == CredentialScheme::FSphincsPlus {
+            HostScheme::FSphincs
+        } else {
+            HostScheme::RecursiveZk
+        };
         self
+    }
+
+    // Selects the Host construction and its credential family.
+    pub fn with_host_scheme(mut self, scheme: HostScheme) -> Self {
+        self.host_scheme = scheme;
+        self.credential_scheme = if scheme == HostScheme::FSphincs {
+            CredentialScheme::FSphincsPlus
+        } else {
+            CredentialScheme::SphincsPlus
+        };
+        self
+    }
+
+    // Returns the TPM primitive key length.
+    pub fn tpm_key_bytes(&self) -> usize {
+        if self.tpm_backend == TpmBackend::Rijndael {
+            32
+        } else {
+            self.security.key_bytes()
+        }
     }
 
     // Implements with tpm sha profile.
@@ -300,6 +360,7 @@ impl ProtocolConfig {
     pub fn tpm_token_bytes(&self) -> usize {
         match self.tpm_backend {
             TpmBackend::Aes => self.security.token_bytes(),
+            TpmBackend::Rijndael => 32,
             TpmBackend::Sha2 => self.security.sha_digest_bytes(),
         }
     }
@@ -308,6 +369,7 @@ impl ProtocolConfig {
     pub fn issuer_nonce_bytes(&self) -> usize {
         match self.tpm_backend {
             TpmBackend::Aes => self.security.token_bytes(),
+            TpmBackend::Rijndael => 16,
             TpmBackend::Sha2 => self.security.key_bytes(),
         }
     }
@@ -320,6 +382,12 @@ impl ProtocolConfig {
 
     // Implements ensure real supported.
     fn ensure_real_supported(&self) -> DaaResult<()> {
+        if (self.tpm_backend == TpmBackend::Rijndael && self.security != SecurityLevel::L128)
+            || ((self.host_scheme == HostScheme::FSphincs)
+                != (self.credential_scheme == CredentialScheme::FSphincsPlus))
+        {
+            return Err(DaaError::UnsupportedProtocolCombination);
+        }
         if self.credential_scheme == CredentialScheme::FSphincsPlus
             && self.tpm_sha_profile != TpmShaProfile::from_name(&self.sphincs_params)
         {
@@ -357,7 +425,6 @@ pub enum ProofMode {
 }
 
 impl ProofMode {
-
     // Implements from name.
     pub fn from_name(name: &str) -> DaaResult<Self> {
         match name {
@@ -382,7 +449,6 @@ struct ParamSpec {
 }
 
 impl ParamSpec {
-
     // Implements faest suffix.
     fn faest_suffix(self) -> &'static str {
         match (self.lambda, self.fast) {
@@ -422,7 +488,6 @@ pub struct RevocationState {
 }
 
 impl RevocationState {
-
     // Implements empty.
     pub fn empty() -> Self {
         Self {
@@ -471,7 +536,6 @@ pub struct IssuerAnchorOutput {
 }
 
 impl ProofArtifact {
-
     // Implements size bytes.
     pub fn size_bytes(&self) -> usize {
         self.proof_bytes.len()
@@ -534,7 +598,6 @@ pub struct BenchmarkTrace {
 }
 
 impl BenchmarkTrace {
-
     // Creates the operation result.
     pub fn new() -> Self {
         Self {
@@ -637,7 +700,6 @@ impl BenchmarkTrace {
 }
 
 impl Default for BenchmarkTrace {
-
     // Implements default.
     fn default() -> Self {
         Self::new()
@@ -725,7 +787,6 @@ pub enum DaaError {
 }
 
 impl fmt::Display for DaaError {
-
     // Implements fmt.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self:?}")
@@ -1029,6 +1090,7 @@ fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats>
 
 // Implements setup.
 pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput {
+    let trace_start = trace.entries.len();
     let mut rng = DeterministicRng::new(config.deterministic_seed);
     if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
         trace.scoped("setup.tpm_sha.prepare", || {
@@ -1048,7 +1110,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
     }
     let mut external_anchor = None;
     let (mpk, msk) = match config.proof_mode {
-        ProofMode::Simulated => trace.scoped("setup.total", || {
+        ProofMode::Simulated => trace.scoped("setup.keygen", || {
             let msk = rng.bytes(config.security.key_bytes());
             let mpk = hash_many(config.tpm_token_bytes(), &[b"issuer-mpk", &msk]);
             (mpk, msk)
@@ -1056,7 +1118,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
         ProofMode::RealTpm | ProofMode::Real128s => {
             let issuer = issuer_setup_anchor_external(&config)
                 .expect("issuer credential setup and anchor generation failed");
-            trace.add("setup.total", issuer.keygen);
+            trace.add("setup.keygen", issuer.keygen);
             external_anchor = Some(issuer.anchor);
             (issuer.pk, issuer.sk)
         }
@@ -1116,8 +1178,12 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             let native = external_anchor
                 .take()
                 .expect("issuer anchor material missing after real setup");
-            trace.add("setup.anchor.generate", native.generation);
-            trace.add("setup.anchor.certificate_verify", native.certificate_verify);
+            if config.credential_scheme == CredentialScheme::SphincsPlus
+                && config.issuer_anchor_mode == IssuerAnchorMode::SeedAnchor
+            {
+                trace.add("setup.anchor.generate", native.generation);
+                trace.add("setup.anchor.certificate_verify", native.certificate_verify);
+            }
             trace.scoped("setup.pi_i.prepare", || {
                 if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
                     return;
@@ -1177,6 +1243,11 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
         },
         issuer_anchor.pi_i.size_bytes(),
     );
+    let setup_micros = trace.step_sum_micros_since(trace_start, "setup.");
+    trace.entries.push(BenchmarkEntry {
+        name: "setup.total".into(),
+        micros: setup_micros,
+    });
     SetupOutput {
         config,
         issuer_keys: IssuerKeypair { mpk, msk },
@@ -1207,7 +1278,7 @@ pub fn join(
     let (gid, r) = gid_and_commit_input;
 
     let (sk, et) = trace.scoped("join.tpm.keygen_owf", || {
-        let mut sk = rng.bytes(setup.config.security.key_bytes());
+        let mut sk = rng.bytes(setup.config.tpm_key_bytes());
         if setup.config.tpm_backend == TpmBackend::Aes {
             normalize_faest_key(&mut sk);
         }
@@ -1221,6 +1292,7 @@ pub fn join(
             "pi_join",
             match setup.config.tpm_backend {
                 TpmBackend::Aes => "simulated-faest-join",
+                TpmBackend::Rijndael => "simulated-voleith-rijndael-join",
                 TpmBackend::Sha2 => "simulated-voleith-sha2-join",
             },
             setup.config.tpm_token_bytes(),
@@ -1337,13 +1409,14 @@ fn sign_internal(
 
     let rho = rng.bytes(setup.config.security.key_bytes());
     let tpm_msg_prime = message_prime(&setup.config, msg, &rho);
-    let mut s = rng.bytes(setup.config.security.key_bytes());
+    let mut s = rng.bytes(setup.config.tpm_key_bytes());
     if setup.config.tpm_backend == TpmBackend::Aes {
         normalize_faest_key(&mut s);
     }
 
     let primitive_step = match (setup.config.tpm_backend, setup.config.tpm_sha_scheme) {
         (TpmBackend::Aes, _) => "sign.tpm.3aes",
+        (TpmBackend::Rijndael, _) => "sign.tpm.3rijndael",
         (TpmBackend::Sha2, TpmShaScheme::Ours3F) => "sign.tpm.3sha2",
         (TpmBackend::Sha2, TpmShaScheme::Cdenw23Ours5F) => "sign.tpm.5sha2",
     };
@@ -1363,6 +1436,7 @@ fn sign_internal(
             "pi_tpm",
             match setup.config.tpm_backend {
                 TpmBackend::Aes => "simulated-faest-3aes",
+                TpmBackend::Rijndael => "simulated-voleith-3rijndael",
                 TpmBackend::Sha2 if setup.config.tpm_sha_scheme == TpmShaScheme::Ours3F => {
                     "simulated-voleith-3sha2"
                 }
@@ -1702,6 +1776,14 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
 // Implements group id.
 pub fn group_id(config: &ProtocolConfig, mpk: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => sha2_hash(
+            SecurityLevel::L128,
+            &[
+                b"DAA-RIJNDAEL-GID-v1",
+                mpk,
+                config.sphincs_params.as_bytes(),
+            ],
+        ),
         TpmBackend::Aes => hash_many(16, &[b"gid", mpk, config.sphincs_params.as_bytes()]),
         TpmBackend::Sha2 => sha2_hash(
             config.security,
@@ -1713,6 +1795,14 @@ pub fn group_id(config: &ProtocolConfig, mpk: &[u8]) -> Bytes {
 // Implements link id.
 pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => sha2_hash(
+            SecurityLevel::L128,
+            &[
+                b"DAA-RIJNDAEL-LID-v1",
+                bsn,
+                config.sphincs_params.as_bytes(),
+            ],
+        ),
         TpmBackend::Aes => hash_many(16, &[b"lid", bsn, config.sphincs_params.as_bytes()]),
         TpmBackend::Sha2 => sha2_hash(
             config.security,
@@ -1724,6 +1814,7 @@ pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
 // Implements message prime.
 pub fn message_prime(config: &ProtocolConfig, msg: &[u8], rho: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => sha2_hash(SecurityLevel::L128, &[b"DAA-RIJNDAEL-MSG-v1", msg, rho]),
         TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"msg-prime", msg, rho]),
         TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-MSG-PRIME-v1", msg, rho]),
     }
@@ -1792,6 +1883,7 @@ fn issuer_verify_simulated(keys: &IssuerKeypair, msg: &[u8], sig: &[u8]) -> bool
 // Implements et.
 fn tpm_et(config: &ProtocolConfig, sk: &[u8], gid: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => rijndael_tpm::eval(sk, gid),
         TpmBackend::Aes => aes_prf(config, sk, gid),
         TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x02], sk, gid]),
     }
@@ -1816,6 +1908,18 @@ fn tpm_sign_values(
     gid: &[u8],
 ) -> TpmSignValues {
     match config.tpm_backend {
+        TpmBackend::Rijndael => {
+            let et = rijndael_tpm::eval(sk, gid);
+            let slt = rijndael_tpm::eval(sk, lid);
+            let hk = rijndael_tpm::eval(s, &et);
+            TpmSignValues {
+                et,
+                slt,
+                hk,
+                cet: Vec::new(),
+                hook_secret: s.to_vec(),
+            }
+        }
         TpmBackend::Aes => {
             let et = aes_prf(config, sk, gid);
             let slt = aes_prf(config, sk, lid);
@@ -1860,6 +1964,7 @@ fn tpm_sign_values(
 // Implements hk.
 fn tpm_hk(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => rijndael_tpm::eval(s, et),
         TpmBackend::Aes => aes_hook(config, s, et),
         TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x03], s, et]),
     }
@@ -1933,6 +2038,7 @@ fn aes_hook(config: &ProtocolConfig, s: &[u8], et: &[u8]) -> Bytes {
 // Implements join proof message.
 fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => sha2_hash(SecurityLevel::L128, &[b"DAA-RIJNDAEL-JOIN-v1", gid, et]),
         TpmBackend::Aes => hash_many(32, &[b"daa-join-faest", gid, et]),
         TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-JOIN-VOLEITH-v1", gid, et]),
     }
@@ -1941,6 +2047,7 @@ fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
 // Implements join commitment.
 fn join_commitment(config: &ProtocolConfig, et: &[u8], r: &[u8]) -> Bytes {
     match config.tpm_backend {
+        TpmBackend::Rijndael => sha2_hash(SecurityLevel::L128, &[b"DAA-RIJNDAEL-COM-v1", et, r]),
         TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"join-com", et, r]),
         TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-JOIN-COM-v1", et, r]),
     }
@@ -1979,6 +2086,7 @@ fn prove_join_real(
 ) -> DaaResult<ProofArtifact> {
     match config.tpm_backend {
         TpmBackend::Aes => prove_join_aes_real(config, sk, gid, et, msg),
+        TpmBackend::Rijndael => rijndael_tpm::prove_join(config, sk, gid, et, msg),
         TpmBackend::Sha2 => prove_join_sha_real(config, sk, gid, et, msg),
     }
 }
@@ -1993,6 +2101,7 @@ fn verify_join_real(
 ) -> bool {
     match config.tpm_backend {
         TpmBackend::Aes => verify_join_aes_real(config, proof, gid, et, msg),
+        TpmBackend::Rijndael => rijndael_tpm::verify_join(config, proof, gid, et, msg),
         TpmBackend::Sha2 => verify_join_sha_real(config, proof, gid, et, msg),
     }
 }
@@ -2013,6 +2122,17 @@ fn prove_tpm_real(
     expected_cet: &[u8],
 ) -> DaaResult<ProofArtifact> {
     match config.tpm_backend {
+        TpmBackend::Rijndael => rijndael_tpm::prove_sign(
+            config,
+            lid,
+            gid,
+            sk,
+            hook_secret,
+            msg_prime,
+            expected_et,
+            expected_slt,
+            expected_hk,
+        ),
         TpmBackend::Aes => prove_tpm_aes_real(
             config,
             lid,
@@ -2063,6 +2183,9 @@ fn verify_tpm_real(
 ) -> bool {
     match config.tpm_backend {
         TpmBackend::Aes => verify_tpm_aes_real(config, proof, lid, gid, slt, hk, msg_prime),
+        TpmBackend::Rijndael => {
+            rijndael_tpm::verify_sign(config, proof, lid, gid, slt, hk, msg_prime)
+        }
         TpmBackend::Sha2 if config.tpm_sha_scheme == TpmShaScheme::Ours3F => {
             verify_tpm_sha_real(config, proof, lid, gid, slt, hk, msg_prime)
         }
@@ -2989,10 +3112,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .env("RISC0_PROVER", "local")
         .env("SPHINCS_PARAMS", config.param_spec()?.sphincs_env)
         .env("SPHINCS_THASH", "simple")
-        .env(
-            "SPHINCS_OPT_LEVEL",
-            std::env::var("SPHINCS_OPT_LEVEL").unwrap_or_else(|_| "2".to_string()),
-        )
+        .env("DAA_HOST_SCHEME", config.host_scheme.name())
         .env("DAA_DETERMINISTIC", "1")
         .env("DAA_TPM_BACKEND", config.tpm_backend.name())
         .env("DAA_TPM_SHA_SCHEME", config.tpm_sha_scheme.name())
@@ -3009,7 +3129,6 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         cmd.env("RISC0_SEGMENT_LIMIT_PO2", segment_limit_po2.to_string());
     }
     if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
-
         cmd.env_remove("RISC0_SKIP_BUILD");
     }
     if std::env::var_os("CARGO_TARGET_DIR").is_none() {
@@ -3550,7 +3669,6 @@ struct DeterministicRng {
 }
 
 impl DeterministicRng {
-
     // Creates the operation result.
     fn new(seed: u64) -> Self {
         Self { state: seed }
@@ -3615,9 +3733,13 @@ mod tests {
                 .with_credential_scheme(CredentialScheme::FSphincsPlus);
             let width = config.security.key_bytes();
             let mut native = IssuerAnchorNative {
-                certificate: vec![], witness: vec![0x31; 32], public_a: vec![],
-                public_b: vec![0; 32], anchor_value: vec![],
-                generation: Duration::ZERO, certificate_verify: Duration::ZERO,
+                certificate: vec![],
+                witness: vec![0x31; 32],
+                public_a: vec![],
+                public_b: vec![0; 32],
+                anchor_value: vec![],
+                generation: Duration::ZERO,
+                certificate_verify: Duration::ZERO,
             };
             for i in 0..2 {
                 let address = &mut native.public_b[i * 16..(i + 1) * 16];
@@ -3629,17 +3751,27 @@ mod tests {
                 let mut hash = Sha256::new();
                 hash.update(&native.witness);
                 hash.update(address);
-                native.anchor_value.extend_from_slice(&hash.finalize()[..width]);
+                native
+                    .anchor_value
+                    .extend_from_slice(&hash.finalize()[..width]);
             }
             let context = b"dual-anchor-shared-witness-regression";
 
             let accepts = |value: &IssuerAnchorNative, proof: &ProofArtifact| unsafe {
                 daa_issuer_anchor_verify(
-                    config.security.bits(), config.tpm_sha_profile.code(),
-                    issuer_anchor_kind(&config), value.public_a.as_ptr(), value.public_a.len(),
-                    value.public_b.as_ptr(), value.public_b.len(),
-                    value.anchor_value.as_ptr(), value.anchor_value.len(),
-                    context.as_ptr(), context.len(), proof.proof_bytes.as_ptr(), proof.proof_bytes.len(),
+                    config.security.bits(),
+                    config.tpm_sha_profile.code(),
+                    issuer_anchor_kind(&config),
+                    value.public_a.as_ptr(),
+                    value.public_a.len(),
+                    value.public_b.as_ptr(),
+                    value.public_b.len(),
+                    value.anchor_value.as_ptr(),
+                    value.anchor_value.len(),
+                    context.as_ptr(),
+                    context.len(),
+                    proof.proof_bytes.as_ptr(),
+                    proof.proof_bytes.len(),
                 ) == 0
             };
             let proof = prove_issuer_anchor_real(&config, &native, context).unwrap();
@@ -3651,7 +3783,10 @@ mod tests {
             mixed.anchor_value[width..].copy_from_slice(&hash.finalize()[..width]);
             assert!(!accepts(&mixed, &proof), "{parameter}: mixed seed accepted");
             if let Ok(invalid) = prove_issuer_anchor_real(&config, &mixed, context) {
-                assert!(!accepts(&mixed, &invalid), "{parameter}: inconsistent witness proved");
+                assert!(
+                    !accepts(&mixed, &invalid),
+                    "{parameter}: inconsistent witness proved"
+                );
             }
             let mut duplicate = native.clone();
             duplicate.public_b.copy_within(0..16, 16);

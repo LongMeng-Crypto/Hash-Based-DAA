@@ -39,16 +39,12 @@ void mgf1_512(unsigned char *out, unsigned long outlen,
 #define seed_state SPX_NAMESPACE(seed_state)
 void seed_state(spx_ctx *ctx);
 
-#if defined(SPHINCS_OPT_128S) || defined(DAA_WOTS_SUPPORTED)
+#if defined(DAA_SHA256_SYSCALL) || defined(DAA_WOTS_SUPPORTED)
 void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *seeded_state,
                                      const uint32_t addr[8],
                                      const uint8_t *in,
                                      unsigned int inblocks);
-void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
-                                           const uint8_t *seeded_state,
-                                           const uint8_t *addr,
-                                           const uint8_t in[16]);
 void sha256_zk_wots_fixed_chain(uint8_t *out,
                                 const uint8_t seeded_state[32],
                                 const uint8_t addr[32],

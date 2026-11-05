@@ -11,8 +11,69 @@
 #include "wots.h"
 #include "fors.h"
 #include "issuer_wots.h"
+#include "wotsx1.h"
+#include "utilsx1.h"
+#include "randombytes.h"
 
 #ifdef DAA_WOTS_SUPPORTED
+
+struct issuer_leaf_info {
+    struct leaf_info_x1 wots;
+    uint8_t *selected_leaf;
+};
+
+// Captures the selected WOTS leaf while the top XMSS tree is generated.
+static void issuer_leaf(uint8_t *dest, const spx_ctx *ctx,
+    uint32_t index, void *opaque) {
+    struct issuer_leaf_info *info = opaque;
+    wots_gen_leafx1(dest, ctx, index, &info->wots);
+    if (index == 0) memcpy(info->selected_leaf, dest, SPX_N);
+}
+
+// Generates issuer keys, one WOTS secret key and its path in one tree traversal.
+int sphincs_issuer_wots_seed_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *cert, size_t cert_len, uint8_t *witness, size_t witness_len,
+    const uint8_t *seed) {
+    if (!pk || !sk || !cert || !witness || !seed ||
+        cert_len != sphincs_issuer_wots_certificate_bytes() ||
+        witness_len != SPX_WOTS_BYTES) return -1;
+    spx_ctx ctx = {0};
+    struct issuer_leaf_info info = {0};
+    unsigned steps[SPX_WOTS_LEN] = {0};
+    uint32_t tree_addr[8] = {0};
+    const uint8_t header[16] = {'D','A','A','W','O','T','S',1,
+        SPX_N, SPX_WOTS_LEN, SPX_D, SPX_TREE_HEIGHT,0,0,0,0};
+    memcpy(sk, seed, 3 * SPX_N);
+    memcpy(pk, seed + 2 * SPX_N, SPX_N);
+    memcpy(ctx.sk_seed, seed, SPX_N);
+    memcpy(ctx.pub_seed, pk, SPX_N);
+    initialize_hash_function(&ctx);
+    memcpy(cert, header, sizeof(header));
+    info.selected_leaf = cert + 16;
+    info.wots.wots_sig = witness;
+    info.wots.wots_sign_leaf = 0;
+    info.wots.wots_steps = steps;
+    set_layer_addr(tree_addr, SPX_D - 1);
+    set_type(tree_addr, SPX_ADDR_TYPE_HASHTREE);
+    copy_subtree_addr(info.wots.leaf_addr, tree_addr);
+    copy_subtree_addr(info.wots.pk_addr, tree_addr);
+    set_type(info.wots.pk_addr, SPX_ADDR_TYPE_WOTSPK);
+    treehashx1(sk + 3 * SPX_N, cert + 16 + SPX_N, &ctx, 0, 0,
+        SPX_TREE_HEIGHT, issuer_leaf, tree_addr, &info);
+    memcpy(pk + SPX_N, sk + 3 * SPX_N, SPX_N);
+    return 0;
+}
+
+// Samples issuer keys and captures the fixed WOTS leaf during key generation.
+int sphincs_issuer_wots_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *cert, size_t cert_len, uint8_t *witness, size_t witness_len) {
+    uint8_t seed[3 * SPX_N];
+    randombytes(seed, sizeof(seed));
+    int result = sphincs_issuer_wots_seed_keypair(pk, sk, cert, cert_len,
+        witness, witness_len, seed);
+    memset(seed, 0, sizeof(seed));
+    return result;
+}
 
 // Implements issuer wots generate.
 int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len,

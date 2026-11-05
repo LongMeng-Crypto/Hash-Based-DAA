@@ -1,4 +1,3 @@
-
 use super::*;
 
 pub(super) struct FixedWotsMeasurement {
@@ -15,7 +14,6 @@ pub(super) struct PrivateFiles {
 }
 
 impl PrivateFiles {
-
     // Creates the operation result.
     pub(super) fn new() -> DaaResult<Self> {
         let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -34,7 +32,6 @@ impl PrivateFiles {
 }
 
 impl Drop for PrivateFiles {
-
     // Implements drop.
     fn drop(&mut self) {
         for name in ["input", "receipt"] {

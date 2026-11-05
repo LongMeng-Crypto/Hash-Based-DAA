@@ -77,14 +77,13 @@ int main(void) {
     if (!sig || !cert || check_compact_addresses()) return 1;
     for (size_t i = 0; i < sizeof(seed); ++i) seed[i] = (uint8_t)i;
     for (size_t i = 0; i < sizeof(R); ++i) R[i] = (uint8_t)(0xa0+i);
-    if (fsphincs_seed_keypair(pk, sk, seed) ||
+    if (fsphincs_issuer_seed_keypair(pk, sk, cert, clen, seed) ||
         fsphincs_sign_signature_with_randomizer(sig, &siglen, message,
             sizeof(message)-1, sk, R) ||
         siglen != FS_SIG_BYTES ||
         fsphincs_trace_signature(layers, &index, sig, siglen, message,
             sizeof(message)-1, pk) ||
         fsphincs_verify(sig, siglen, message, sizeof(message)-1, pk) ||
-        fsphincs_issuer_anchor_generate(cert, clen, pk, sk) ||
         fsphincs_issuer_anchor_relation(root_seed, addr, outputs, cert, clen, pk, sk))
         return 2;
     printf("parameter=%s\n", FS_NAME);

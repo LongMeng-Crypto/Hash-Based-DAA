@@ -5,6 +5,11 @@
 
 size_t sphincs_issuer_wots_certificate_bytes(void);
 size_t sphincs_issuer_wots_witness_bytes(void);
+int sphincs_issuer_wots_seed_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *cert, size_t cert_len, uint8_t *witness, size_t witness_len,
+    const uint8_t *seed);
+int sphincs_issuer_wots_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *cert, size_t cert_len, uint8_t *witness, size_t witness_len);
 int sphincs_issuer_wots_generate(uint8_t *cert, size_t cert_len,
     uint8_t *witness, size_t witness_len, const uint8_t *pk, const uint8_t *sk);
 int sphincs_issuer_wots_verify(const uint8_t *cert, size_t cert_len, const uint8_t *pk);

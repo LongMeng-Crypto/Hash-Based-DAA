@@ -46,6 +46,9 @@ size_t fsphincs_seedbytes(void);
 
 int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed);
 
+int fsphincs_seed_keypair_with_root_anchor(uint8_t *pk, uint8_t *sk,
+    uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t *seed);
+
 int fsphincs_keypair(uint8_t *pk, uint8_t *sk);
 
 int fsphincs_sign_signature(uint8_t *sig, size_t *siglen,

@@ -739,20 +739,38 @@ size_t fsphincs_seedbytes(void) { return FS_SEED_BYTES; }
 #ifndef FSPHINCS_VERIFY_ONLY
 
 // Implements seed keypair.
-int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed) {
+static int seed_keypair(uint8_t *pk, uint8_t *sk, uint8_t *anchor_payload,
+                        const uint8_t *seed) {
     uint8_t master[FS_N], pub_seed[FS_N], root_pk[FS_MFORS_MSG_BYTES];
     uint8_t tag = DOM_KEY_SEED;
     hash_parts(master, DOM_KEY_SEED, &tag, 1, seed, FS_N, NULL, 0);
     hash_parts(pub_seed, DOM_KEY_SEED, &tag, 1, seed + FS_N, FS_N, NULL, 0);
     fsphincs_hash_context ctx;
     fsphincs_hash_init(&ctx, pub_seed);
-    if (mfors_gen_pk(root_pk, master, &ctx, 0, 0) != 0) return -1;
+    if (anchor_payload) {
+        uint8_t root_seed[FS_N];
+        derive_node_seed(root_seed, master, 0, 0);
+        int rc = fsphincs_root_anchor_generate(anchor_payload, root_pk, root_seed, pub_seed);
+        memset(root_seed, 0, sizeof(root_seed));
+        if (rc != 0) return -1;
+    } else if (mfors_gen_pk(root_pk, master, &ctx, 0, 0) != 0) return -1;
     memcpy(pk, pub_seed, FS_N);
     memcpy(pk + FS_N, root_pk, FS_MFORS_MSG_BYTES);
     memcpy(sk, master, FS_N);
     memcpy(sk + FS_N, pub_seed, FS_N);
     memcpy(sk + 2 * FS_N, root_pk, FS_MFORS_MSG_BYTES);
     return 0;
+}
+
+// Generates the credential keys without a Setup certificate.
+int fsphincs_seed_keypair(uint8_t *pk, uint8_t *sk, const uint8_t *seed) {
+    return seed_keypair(pk, sk, NULL, seed);
+}
+
+// Generates the public root and its two anchor paths in one traversal.
+int fsphincs_seed_keypair_with_root_anchor(uint8_t *pk, uint8_t *sk,
+    uint8_t payload[FS_ANCHOR_PAYLOAD_BYTES], const uint8_t *seed) {
+    return seed_keypair(pk, sk, payload, seed);
 }
 
 // Implements keypair.

@@ -5,6 +5,7 @@ use std::path::Path;
 
 // Implements main.
 fn main() {
+    println!("cargo:rerun-if-changed=../rijndael.rs");
     let dir = "../methods/guest/c_src/sphincs_ref";
     if !Path::new(dir).exists() {
         panic!("C source dir not found: {}", dir);
@@ -12,10 +13,9 @@ fn main() {
 
     let params = env::var("SPHINCS_PARAMS").unwrap_or_else(|_| "sphincs-sha2-128s".to_string());
     let thash = env::var("SPHINCS_THASH").unwrap_or_else(|_| "simple".to_string());
-    let profile = env::var("SPHINCS_PROFILE").unwrap_or_default() == "1";
     let tpm_backend = env::var("DAA_TPM_BACKEND").unwrap_or_else(|_| "aes".to_string());
-    if tpm_backend != "aes" && tpm_backend != "sha2" {
-        panic!("DAA_TPM_BACKEND must be aes or sha2");
+    if !matches!(tpm_backend.as_str(), "aes" | "sha2" | "rijndael") {
+        panic!("DAA_TPM_BACKEND must be aes, rijndael, or sha2");
     }
     let tpm_sha_scheme = env::var("DAA_TPM_SHA_SCHEME").unwrap_or_else(|_| "ours".to_string());
     if tpm_sha_scheme != "ours" && tpm_sha_scheme != "chen23" {
@@ -35,46 +35,42 @@ fn main() {
     );
 
     const VALID_PARAMS: &[&str] = &[
-        "sphincs-sha2-128f",
         "sphincs-sha2-128s",
-        "sphincs-sha2-192f",
+        "sphincs-sha2-128f",
         "sphincs-sha2-192s",
-        "sphincs-sha2-256f",
+        "sphincs-sha2-192f",
         "sphincs-sha2-256s",
-        "sphincs-shake-128f",
-        "sphincs-shake-128s",
-        "sphincs-shake-192f",
-        "sphincs-shake-192s",
-        "sphincs-shake-256f",
-        "sphincs-shake-256s",
-        "sphincs-haraka-128f",
-        "sphincs-haraka-128s",
-        "sphincs-haraka-192f",
-        "sphincs-haraka-192s",
-        "sphincs-haraka-256f",
-        "sphincs-haraka-256s",
+        "sphincs-sha2-256f",
     ];
-    if !VALID_PARAMS.contains(&params.as_str()) {
-        panic!(
-            "Invalid SPHINCS_PARAMS='{}'. Valid values:\n  {}",
-            params,
-            VALID_PARAMS.join("\n  ")
-        );
-    }
-    if thash != "simple" && thash != "robust" {
-        panic!(
-            "Invalid SPHINCS_THASH='{}'. Must be 'simple' or 'robust'.",
-            thash
-        );
-    }
-
-    let hash_backend = if params.contains("-sha2-") {
-        "sha2"
-    } else if params.contains("-shake-") {
-        "shake"
-    } else {
-        "haraka"
-    };
+    assert!(
+        VALID_PARAMS.contains(&params.as_str()),
+        "unsupported SHA2 credential parameters"
+    );
+    assert_eq!(
+        thash, "simple",
+        "only SHA2-simple credentials are supported"
+    );
+    let hash_backend = "sha2";
+    let host_scheme = env::var("DAA_HOST_SCHEME").unwrap_or_else(|_| {
+        if credential_scheme == "fsphincs" {
+            "fsphincs"
+        } else {
+            "recursive-zk"
+        }
+        .to_string()
+    });
+    assert!(
+        matches!(
+            host_scheme.as_str(),
+            "recursive-zk" | "zk-wots" | "fsphincs"
+        ),
+        "unsupported Host construction"
+    );
+    assert_eq!(
+        host_scheme == "fsphincs",
+        credential_scheme == "fsphincs",
+        "Host construction and credential family must match"
+    );
 
     let params_header = format!("{}/params/params-{}.h", dir, params);
     if !Path::new(&params_header).exists() {
@@ -90,18 +86,12 @@ fn main() {
         "wotsx1.c",
         "utils.c",
         "utilsx1.c",
-        "prf_wrapper.c",
         "issuer_anchor.c",
         "issuer_wots.c",
         "issuer_wots_verify.c",
     ];
 
-    let backend_files: &[&str] = match hash_backend {
-        "sha2" => &["sha2.c", "hash_sha2.c"],
-        "shake" => &["fips202.c", "hash_shake.c"],
-        "haraka" => &["haraka.c", "hash_haraka.c"],
-        _ => unreachable!(),
-    };
+    let backend_files: &[&str] = &["sha2.c", "hash_sha2.c"];
 
     let thash_file = format!("thash_{}_{}.c", hash_backend, thash);
 
@@ -154,9 +144,11 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", dir);
     println!("cargo:rerun-if-changed={}", params_header);
+    println!("cargo:rerun-if-env-changed=DAA_HOST_SCHEME");
+    println!("cargo:rustc-env=DAA_HOST_SCHEME={}", host_scheme);
     println!("cargo:rerun-if-env-changed=SPHINCS_PARAMS");
     println!("cargo:rerun-if-env-changed=SPHINCS_THASH");
-    println!("cargo:rerun-if-env-changed=SPHINCS_PROFILE");
+    println!("cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME");
     println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
     println!("cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME");
     println!("cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME");
@@ -180,15 +172,19 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(lambda_128)");
     println!("cargo::rustc-check-cfg=cfg(lambda_192)");
     println!("cargo::rustc-check-cfg=cfg(lambda_256)");
-    println!("cargo::rustc-check-cfg=cfg(sphincs_profile)");
+    println!("cargo::rustc-check-cfg=cfg(daa_tpm_rijndael)");
+    if tpm_backend == "rijndael" {
+        assert!(
+            params.contains("128"),
+            "Rijndael-256 VOLEith supports 128s/128f"
+        );
+        println!("cargo:rustc-cfg=daa_tpm_rijndael");
+    }
     println!("cargo::rustc-check-cfg=cfg(daa_tpm_sha2)");
     println!("cargo::rustc-check-cfg=cfg(daa_tpm_sha_chen23)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_192)");
     println!("cargo::rustc-check-cfg=cfg(fsphincs_256)");
     println!("cargo:rustc-cfg=lambda_{}", sec_level);
-    if profile {
-        println!("cargo:rustc-cfg=sphincs_profile");
-    }
     if tpm_backend == "sha2" {
         println!("cargo:rustc-cfg=daa_tpm_sha2");
     }
@@ -205,10 +201,6 @@ fn main() {
     println!("cargo:rustc-env=SPHINCS_PARAMS={}", params);
     println!("cargo:rustc-env=SPHINCS_THASH={}", thash);
     println!("cargo:rustc-env=SPHINCS_HASH_BACKEND={}", hash_backend);
-    println!(
-        "cargo:rustc-env=SPHINCS_PROFILE={}",
-        if profile { "1" } else { "0" }
-    );
     println!("cargo:rustc-env=FSPHINCS_SECURITY={}", fs_security);
     println!("cargo:rustc-env=DAA_TPM_BACKEND={}", tpm_backend);
     println!("cargo:rustc-env=DAA_TPM_SHA_SCHEME={}", tpm_sha_scheme);

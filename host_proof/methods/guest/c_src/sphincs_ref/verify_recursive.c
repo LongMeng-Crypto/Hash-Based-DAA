@@ -10,10 +10,9 @@
 #include "thash.h"
 #include "sha2_offsets.h"
 #include "address.h"
-#include "sphincs_profile.h"
 
-#if !defined(SPHINCS_OPT_128S_LEVEL2)
-#error "sign_verify_128s_opt.c requires SPHINCS_OPT_LEVEL=2 or SPHINCS_OPT_128S=2"
+#if !defined(DAA_SPHINCS_VERIFY)
+#error "recursive verifier requires DAA_SPHINCS_VERIFY"
 #endif
 
 // Implements put u32 be.
@@ -58,20 +57,11 @@ static void addr_copy_keypair(unsigned char out[32], const unsigned char in[32])
 }
 
 // Implements thash opt.
-static void thash_opt(unsigned char *out, const unsigned char *in,
+static void thash_node(unsigned char *out, const unsigned char *in,
                       unsigned int inblocks, const spx_ctx *ctx,
                       const unsigned char addr[32])
 {
 #if SPX_N == 16 && !SPX_SHA512
-    SPX_PROFILE_INC(SPX_PROF_THASH, 1);
-    SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, inblocks);
-    if (inblocks == 1) {
-        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
-    } else if (inblocks == 2) {
-        SPX_PROFILE_INC(SPX_PROF_THASH_2, 1);
-    } else {
-        SPX_PROFILE_INC(SPX_PROF_THASH_LONG, 1);
-    }
     sha256_seeded_thash_128s_simple(out, ctx->state_seeded, (const uint32_t *)addr, in, inblocks);
 #else
     thash(out, in, inblocks, ctx, (uint32_t *)addr);
@@ -79,13 +69,12 @@ static void thash_opt(unsigned char *out, const unsigned char *in,
 }
 
 // Computes root 128s.
-static void compute_root_128s(unsigned char *root, const unsigned char *leaf,
+static void compute_root_from_auth(unsigned char *root, const unsigned char *leaf,
                               uint32_t leaf_idx, uint32_t idx_offset,
                               const unsigned char *auth_path,
                               uint32_t tree_height, const spx_ctx *ctx,
                               unsigned char addr[32])
 {
-    SPX_PROFILE_INC(SPX_PROF_COMPUTE_ROOT, 1);
 
     unsigned char buffer[2 * SPX_N];
 
@@ -105,10 +94,10 @@ static void compute_root_128s(unsigned char *root, const unsigned char *leaf,
         put_u32_be(addr + SPX_OFFSET_TREE_INDEX, leaf_idx + idx_offset);
 
         if (leaf_idx & 1) {
-            thash_opt(buffer + SPX_N, buffer, 2, ctx, addr);
+            thash_node(buffer + SPX_N, buffer, 2, ctx, addr);
             memcpy(buffer, auth_path, SPX_N);
         } else {
-            thash_opt(buffer, buffer, 2, ctx, addr);
+            thash_node(buffer, buffer, 2, ctx, addr);
             memcpy(buffer + SPX_N, auth_path, SPX_N);
         }
         auth_path += SPX_N;
@@ -118,11 +107,11 @@ static void compute_root_128s(unsigned char *root, const unsigned char *leaf,
     idx_offset >>= 1;
     addr[SPX_OFFSET_TREE_HGT] = (unsigned char)tree_height;
     put_u32_be(addr + SPX_OFFSET_TREE_INDEX, leaf_idx + idx_offset);
-    thash_opt(root, buffer, 2, ctx, addr);
+    thash_node(root, buffer, 2, ctx, addr);
 }
 
 // Implements message to indices 128s.
-static void message_to_indices_128s(uint32_t indices[SPX_FORS_TREES],
+static void message_to_fors_indices(uint32_t indices[SPX_FORS_TREES],
                                     const unsigned char *m)
 {
     unsigned int offset = 0;
@@ -137,11 +126,10 @@ static void message_to_indices_128s(uint32_t indices[SPX_FORS_TREES],
 }
 
 // Implements fors pk from sig 128s.
-static void fors_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
+static void fors_public_key_from_signature(unsigned char *pk, const unsigned char *sig,
                                   const unsigned char *m, const spx_ctx *ctx,
                                   const unsigned char fors_addr[32])
 {
-    SPX_PROFILE_INC(SPX_PROF_FORS, 1);
 
     uint32_t indices[SPX_FORS_TREES];
     unsigned char roots[SPX_FORS_TREES * SPX_N];
@@ -154,26 +142,26 @@ static void fors_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
     fors_tree_addr[SPX_OFFSET_TYPE] = SPX_ADDR_TYPE_FORSTREE;
     fors_pk_addr[SPX_OFFSET_TYPE] = SPX_ADDR_TYPE_FORSPK;
 
-    message_to_indices_128s(indices, m);
+    message_to_fors_indices(indices, m);
 
     for (unsigned int i = 0; i < SPX_FORS_TREES; i++) {
         uint32_t idx_offset = i * (1u << SPX_FORS_HEIGHT);
         fors_tree_addr[SPX_OFFSET_TREE_HGT] = 0;
         put_u32_be(fors_tree_addr + SPX_OFFSET_TREE_INDEX, indices[i] + idx_offset);
 
-        thash_opt(leaf, sig, 1, ctx, fors_tree_addr);
+        thash_node(leaf, sig, 1, ctx, fors_tree_addr);
         sig += SPX_N;
 
-        compute_root_128s(roots + i * SPX_N, leaf, indices[i], idx_offset,
+        compute_root_from_auth(roots + i * SPX_N, leaf, indices[i], idx_offset,
                           sig, SPX_FORS_HEIGHT, ctx, fors_tree_addr);
         sig += SPX_N * SPX_FORS_HEIGHT;
     }
 
-    thash_opt(pk, roots, SPX_FORS_TREES, ctx, fors_pk_addr);
+    thash_node(pk, roots, SPX_FORS_TREES, ctx, fors_pk_addr);
 }
 
 // Implements chain lengths 128s.
-static void chain_lengths_128s(unsigned int lengths[SPX_WOTS_LEN],
+static void wots_chain_lengths(unsigned int lengths[SPX_WOTS_LEN],
                                const unsigned char *msg)
 {
     unsigned int in = 0;
@@ -215,67 +203,28 @@ static void chain_lengths_128s(unsigned int lengths[SPX_WOTS_LEN],
     }
 }
 
-// Implements ct ge u32 small.
-static uint32_t ct_ge_u32_small(uint32_t x, uint32_t y)
-{
-    return 1u ^ (((x - y) >> 31) & 1u);
-}
-
-// Implements ct select n.
-static void ct_select_n(unsigned char *out, const unsigned char *x,
-                        const unsigned char *y, uint32_t b, unsigned int n)
-{
-    unsigned char mask = (unsigned char)(0u - (b & 1u));
-    for (unsigned int k = 0; k < n; k++) {
-        out[k] = (unsigned char)((x[k] & (unsigned char)~mask) | (y[k] & mask));
-    }
-}
-
 // Implements zk fixed chain complete 128s.
-static void zk_fixed_chain_complete_128s(unsigned char *out,
+static void wots_fixed_chain_complete(unsigned char *out,
                                          const unsigned char *sig_elem,
                                          unsigned int start,
                                          const spx_ctx *ctx,
                                          unsigned char addr[32])
 {
-#if defined(SPHINCS_OPT_ZK_WOTS_FAST) && \
-    (SPX_N == 16 || SPX_N == 24 || SPX_N == 32)
     sha256_zk_wots_fixed_chain(out, ctx->state_seeded, addr,
                               sig_elem, start);
-#else
-    unsigned char real[SPX_N];
-    unsigned char dummy[SPX_N];
-    unsigned char input[SPX_N];
-    unsigned char hashed[SPX_N];
 
-    memcpy(real, sig_elem, SPX_N);
-    memset(dummy, 0, SPX_N);
-
-    for (unsigned int j = 0; j < SPX_WOTS_W - 1; j++) {
-        uint32_t active = ct_ge_u32_small(j, start);
-        addr[SPX_OFFSET_HASH_ADDR] = (unsigned char)j;
-
-        ct_select_n(input, dummy, real, active, SPX_N);
-        thash_opt(hashed, input, 1, ctx, addr);
-        ct_select_n(real, real, hashed, active, SPX_N);
-        ct_select_n(dummy, hashed, dummy, active, SPX_N);
-    }
-
-    memcpy(out, real, SPX_N);
-#endif
 }
 
 // Implements wots pk from sig 128s.
-static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
+static void wots_public_key_from_signature(unsigned char *pk, const unsigned char *sig,
                                   const unsigned char *msg, const spx_ctx *ctx,
                                   unsigned char addr[32])
 {
-    SPX_PROFILE_INC(SPX_PROF_WOTS, 1);
 
     unsigned int lengths[SPX_WOTS_LEN];
-    chain_lengths_128s(lengths, msg);
+    wots_chain_lengths(lengths, msg);
 
-#if !defined(SPHINCS_OPT_ZK_WOTS)
+#if !defined(DAA_ZK_WOTS)
     sha256_wots_variable_pk_from_sig(pk, ctx->state_seeded, addr, sig,
                                      lengths);
 #else
@@ -283,7 +232,7 @@ static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
         unsigned char *out = pk + i * SPX_N;
         addr[SPX_OFFSET_CHAIN_ADDR] = (unsigned char)i;
 
-        zk_fixed_chain_complete_128s(out, sig + i * SPX_N, lengths[i], ctx, addr);
+        wots_fixed_chain_complete(out, sig + i * SPX_N, lengths[i], ctx, addr);
     }
 #endif
 }
@@ -292,7 +241,6 @@ static void wots_pk_from_sig_128s(unsigned char *pk, const unsigned char *sig,
 int crypto_sign_verify(const uint8_t *sig, size_t siglen,
                        const uint8_t *m, size_t mlen, const uint8_t *pk)
 {
-    SPX_PROFILE_INC(SPX_PROF_VERIFY, 1);
 
     if (siglen != SPX_BYTES) {
         return -1;
@@ -323,7 +271,7 @@ int crypto_sign_verify(const uint8_t *sig, size_t siglen,
     addr_set_tree(wots_addr, tree);
     put_u32_be(wots_addr + SPX_OFFSET_KP_ADDR, idx_leaf);
 
-    fors_pk_from_sig_128s(root, sig, mhash, &ctx, wots_addr);
+    fors_public_key_from_signature(root, sig, mhash, &ctx, wots_addr);
     sig += SPX_FORS_BYTES;
 
     for (unsigned int i = 0; i < SPX_D; i++) {
@@ -337,12 +285,12 @@ int crypto_sign_verify(const uint8_t *sig, size_t siglen,
         addr_copy_keypair(wots_pk_addr, wots_addr);
         wots_pk_addr[SPX_OFFSET_TYPE] = SPX_ADDR_TYPE_WOTSPK;
 
-        wots_pk_from_sig_128s(wots_pk, sig, root, &ctx, wots_addr);
+        wots_public_key_from_signature(wots_pk, sig, root, &ctx, wots_addr);
         sig += SPX_WOTS_BYTES;
 
-        thash_opt(leaf, wots_pk, SPX_WOTS_LEN, &ctx, wots_pk_addr);
+        thash_node(leaf, wots_pk, SPX_WOTS_LEN, &ctx, wots_pk_addr);
 
-        compute_root_128s(root, leaf, idx_leaf, 0, sig, SPX_TREE_HEIGHT,
+        compute_root_from_auth(root, leaf, idx_leaf, 0, sig, SPX_TREE_HEIGHT,
                           &ctx, tree_addr);
         sig += SPX_TREE_HEIGHT * SPX_N;
 

@@ -1,5 +1,5 @@
-PARAMS = sphincs-haraka-128f
-THASH = robust
+PARAMS = sphincs-sha2-128s
+THASH = simple
 
 CC=/usr/bin/gcc
 CFLAGS=-Wall -Wextra -Wpedantic -O3 -std=c99 -Wconversion -Wmissing-prototypes -DPARAMS=$(PARAMS) $(EXTRA_CFLAGS)
@@ -7,14 +7,6 @@ CFLAGS=-Wall -Wextra -Wpedantic -O3 -std=c99 -Wconversion -Wmissing-prototypes -
 SOURCES =          address.c randombytes.c merkle.c wots.c wotsx1.c utils.c utilsx1.c fors.c sign.c
 HEADERS = params.h address.h randombytes.h merkle.h wots.h wotsx1.h utils.h utilsx1.h fors.h api.h  hash.h thash.h
 
-ifneq (,$(findstring shake,$(PARAMS)))
-	SOURCES += fips202.c hash_shake.c thash_shake_$(THASH).c
-	HEADERS += fips202.h
-endif
-ifneq (,$(findstring haraka,$(PARAMS)))
-	SOURCES += haraka.c hash_haraka.c thash_haraka_$(THASH).c
-	HEADERS += haraka.h
-endif
 ifneq (,$(findstring sha2,$(PARAMS)))
 	SOURCES += sha2.c hash_sha2.c thash_sha2_$(THASH).c
 	HEADERS += sha2.h
@@ -50,9 +42,6 @@ test/benchmark: test/benchmark.c test/cycles.c $(SOURCES) $(HEADERS)
 
 test/%: test/%.c $(SOURCES) $(HEADERS)
 	$(CC) $(CFLAGS) -o $@ $(SOURCES) $< $(LDLIBS)
-
-test/haraka: test/haraka.c $(filter-out haraka.c,$(SOURCES)) $(HEADERS)
-	$(CC) $(CFLAGS) -o $@ $(filter-out haraka.c,$(SOURCES)) $< $(LDLIBS)
 
 test/%.exec: test/%
 	@$<

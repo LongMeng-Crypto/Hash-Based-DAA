@@ -12,6 +12,12 @@ extern "C" {
 
 size_t fsphincs_issuer_anchor_certificate_bytes(void);
 
+int fsphincs_issuer_seed_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *certificate, size_t certificate_len, const uint8_t *seed);
+
+int fsphincs_issuer_keypair(uint8_t *pk, uint8_t *sk,
+    uint8_t *certificate, size_t certificate_len);
+
 int fsphincs_issuer_anchor_generate(uint8_t *certificate,
                                     size_t certificate_len,
                                     const uint8_t *pk,

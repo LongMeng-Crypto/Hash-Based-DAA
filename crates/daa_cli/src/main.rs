@@ -6,8 +6,8 @@ use std::time::Instant;
 
 use daa_core::{
     benchmark_issuer_anchor, benchmark_tpm_sha, run_full, BenchmarkTrace, CredentialScheme,
-    IssuerAnchorMode, ProofMode, ProtocolConfig, SecurityLevel, TpmBackend, TpmShaProfile,
-    TpmShaScheme,
+    HostScheme, IssuerAnchorMode, ProofMode, ProtocolConfig, SecurityLevel, TpmBackend,
+    TpmShaProfile, TpmShaScheme,
 };
 
 // Implements main.
@@ -22,10 +22,10 @@ fn main() {
 fn real_main() -> Result<(), String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("run-full");
-    let opts = CliOptions::parse(&args[1..])?;
+    let opts = CliOptions::parse(args.get(1..).unwrap_or(&[]))?;
 
     match command {
-        "run-full" => run_full_cmd(opts),
+        "run-full" | "demo" => run_full_cmd(opts),
         "bench" => bench_cmd(opts),
         "bench-tpm-sha" => bench_tpm_sha_cmd(opts),
         "bench-issuer-anchor" => bench_issuer_anchor_cmd(opts),
@@ -100,14 +100,22 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
         first.compression_blocks,
     );
     println!("keygen_ms={:.3}", average_ms(|sample| sample.keygen));
+    let certificate_in_keygen = first.credential_scheme == CredentialScheme::FSphincsPlus
+        || first.mode == IssuerAnchorMode::FixedTopWots;
     println!(
-        "anchor_generation_ms={:.3}",
-        average_ms(|sample| sample.anchor_generation)
+        "keygen_includes_public_certificate={}",
+        u8::from(certificate_in_keygen)
     );
-    println!(
-        "certificate_verify_ms={:.3}",
-        average_ms(|sample| sample.certificate_verify)
-    );
+    if !certificate_in_keygen {
+        println!(
+            "anchor_generation_ms={:.3}",
+            average_ms(|sample| sample.anchor_generation)
+        );
+        println!(
+            "certificate_verify_ms={:.3}",
+            average_ms(|sample| sample.certificate_verify)
+        );
+    }
     println!(
         "pi_i_prepare_ms={:.3}",
         average_ms(|sample| sample.proof_prepare)
@@ -215,7 +223,11 @@ fn run_full_cmd(opts: CliOptions) -> Result<(), String> {
     let config = opts.config();
     let output = run_full(config).map_err(|err| err.to_string())?;
 
-    println!("DAA full protocol run");
+    println!("DAA full protocol run: Setup -> Join -> Signing -> Verification");
+    println!(
+        "  Host construction          : {}",
+        opts.config().host_scheme.label()
+    );
     println!("  verify accepted           : {}", output.accepted);
     println!("  link same basename        : {}", output.linked_same_bsn);
     println!(
@@ -396,6 +408,7 @@ struct CliOptions {
     tpm_backend: TpmBackend,
     tpm_sha_scheme: TpmShaScheme,
     credential_scheme: CredentialScheme,
+    host_scheme: Option<HostScheme>,
     issuer_anchor_mode: IssuerAnchorMode,
     segment_po2: Option<u32>,
     iterations: usize,
@@ -403,7 +416,6 @@ struct CliOptions {
 }
 
 impl CliOptions {
-
     // Parses the operation result.
     fn parse(args: &[String]) -> Result<Self, String> {
         let mut opts = Self {
@@ -413,6 +425,7 @@ impl CliOptions {
             tpm_backend: TpmBackend::Aes,
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             credential_scheme: CredentialScheme::SphincsPlus,
+            host_scheme: None,
             issuer_anchor_mode: IssuerAnchorMode::SeedAnchor,
             segment_po2: None,
             iterations: 1,
@@ -445,6 +458,13 @@ impl CliOptions {
                     opts.tpm_sha_scheme =
                         TpmShaScheme::from_name(&value(args, i, "--tpm-sha-scheme")?)
                             .map_err(|err| err.to_string())?;
+                }
+                "--host-scheme" => {
+                    i += 1;
+                    opts.host_scheme = Some(
+                        HostScheme::from_name(&value(args, i, "--host-scheme")?)
+                            .map_err(|err| err.to_string())?,
+                    );
                 }
                 "--credential-scheme" => {
                     i += 1;
@@ -490,7 +510,7 @@ impl CliOptions {
 
     // Implements config.
     fn config(&self) -> ProtocolConfig {
-        ProtocolConfig::default()
+        let config = ProtocolConfig::default()
             .with_params(self.params.clone())
             .with_backend(self.backend.clone())
             .with_proof_mode(self.proof_mode)
@@ -498,7 +518,12 @@ impl CliOptions {
             .with_tpm_sha_scheme(self.tpm_sha_scheme)
             .with_credential_scheme(self.credential_scheme)
             .with_issuer_anchor_mode(self.issuer_anchor_mode)
-            .with_risc0_segment_limit_po2(self.segment_po2)
+            .with_risc0_segment_limit_po2(self.segment_po2);
+        if let Some(scheme) = self.host_scheme {
+            config.with_host_scheme(scheme)
+        } else {
+            config
+        }
     }
 }
 
@@ -525,12 +550,11 @@ fn print_help() {
     println!("Options:");
     println!("  --params NAME       security/profile label (e.g. sha2-128s or sha2-128f)");
     println!("  --backend NAME      host proof backend label, default sha-256");
-    println!("  --tpm-backend NAME  TPM primitive: aes (default) or sha2");
+    println!("  --tpm-backend NAME  TPM primitive: aes (default), rijndael, or sha2");
     println!("  --tpm-sha-scheme S  SHA relation: ours (3F) or chen23 (5F)");
+    println!("  --host-scheme H       recursive-zk, zk-wots, or fsphincs");
     println!("  --credential-scheme C  issuer credential: sphincs or fsphincs");
-    println!(
-        "  --proof-mode MODE   real-128s, real-tpm, or simulated; real-128s covers all real params"
-    );
+    println!("  --proof-mode MODE   real (default), real-tpm, or simulated");
     println!("  --segment-po2 N     RISC0 segment limit, use 20 for small-segment CUDA");
     println!("  --iterations N      benchmark iterations, default 1");
     println!("  --json PATH         write benchmark averages as JSON");

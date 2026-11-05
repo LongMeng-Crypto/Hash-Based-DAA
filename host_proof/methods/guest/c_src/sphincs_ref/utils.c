@@ -5,7 +5,6 @@
 #include "hash.h"
 #include "thash.h"
 #include "address.h"
-#include "sphincs_profile.h"
 
 // Implements ull to bytes.
 void ull_to_bytes(unsigned char *out, unsigned int outlen,
@@ -46,7 +45,6 @@ void compute_root(unsigned char *root, const unsigned char *leaf,
                   const unsigned char *auth_path, uint32_t tree_height,
                   const spx_ctx *ctx, uint32_t addr[8])
 {
-    SPX_PROFILE_INC(SPX_PROF_COMPUTE_ROOT, 1);
 
     uint32_t i;
     unsigned char buffer[2 * SPX_N];

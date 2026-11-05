@@ -12,13 +12,13 @@ use risc0_zkvm::{
     DEFAULT_MAX_PO2,
 };
 
-#[cfg(not(daa_tpm_sha2))]
+#[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 use aes::Aes128;
-#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_192))]
 use aes::Aes192;
-#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_256))]
 use aes::Aes256;
 
 #[cfg(daa_tpm_sha2)]
@@ -112,6 +112,13 @@ extern "C" {
 
     // Implements issuer anchor certificate bytes.
     fn fsphincs_issuer_anchor_certificate_bytes() -> usize;
+
+    fn fsphincs_issuer_keypair(
+        pk: *mut u8,
+        sk: *mut u8,
+        certificate: *mut u8,
+        certificate_len: usize,
+    ) -> i32;
 
     // Implements issuer anchor generate.
     fn fsphincs_issuer_anchor_generate(
@@ -214,7 +221,6 @@ fn prover_opts_from_env(backend_hash: String) -> ProverOpts {
 
 // Implements verifier context for hashfn.
 fn verifier_context_for_hashfn(backend_hash: &str, _seg_po2: u32) -> VerifierContext {
-
     VerifierContext::from_max_po2_with_hashfn_public(backend_hash, DEFAULT_MAX_PO2)
         .expect("unsupported verifier context hash function")
 }
@@ -264,7 +270,7 @@ pub unsafe extern "C" fn randombytes(out: *mut u8, outlen: usize) {
     rng.fill_bytes(slice);
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
@@ -278,7 +284,7 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     block.to_vec()
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_192))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
@@ -293,7 +299,7 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     hk
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_256))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
@@ -308,21 +314,33 @@ fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     hk
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_128
+))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha256_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_192
+))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
     daa_sha_hook::sha384_hook(s.try_into().unwrap(), et_u.try_into().unwrap()).to_vec()
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_256
+))]
 
 // Implements hook.
 fn hook(s: &[u8], et_u: &[u8]) -> Vec<u8> {
@@ -356,9 +374,9 @@ fn cdenw23_hooks(sst: &[u8], et_u: &[u8]) -> (Vec<u8>, Vec<u8>) {
     (hk.to_vec(), cet.to_vec())
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 const ET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), any(lambda_192, lambda_256)))]
 const ET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, lambda_128))]
 const ET_BYTES: usize = 32;
@@ -367,9 +385,9 @@ const ET_BYTES: usize = 48;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const ET_BYTES: usize = 64;
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 const NONCE_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), any(lambda_192, lambda_256)))]
 const NONCE_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, lambda_128))]
 const NONCE_BYTES: usize = 16;
@@ -378,11 +396,11 @@ const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const NONCE_BYTES: usize = 32;
 
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_128))]
 const HOOK_SECRET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_192))]
 const HOOK_SECRET_BYTES: usize = 24;
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_256))]
 const HOOK_SECRET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha_chen23, lambda_128))]
 const HOOK_SECRET_BYTES: usize = 32;
@@ -568,10 +586,7 @@ fn main() {
         public_end += cet.len();
     }
     assert_eq!(&journal[public_end..public_end + pk.len()], pk.as_slice());
-    #[cfg(not(sphincs_profile))]
     assert_eq!(journal.len(), public_end + pk.len());
-    #[cfg(sphincs_profile)]
-    print_profile(&journal[public_end + pk.len()..]);
 
     let proof_bytes =
         risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
@@ -794,7 +809,7 @@ fn generate_anchor_material(
     sk: &[u8],
 ) -> Result<NativeAnchorMaterial, Box<dyn std::error::Error>> {
     if issuer_wots::enabled() {
-        return issuer_wots::generate(pk, sk);
+        return Err("fixed WOTS material must be captured during issuer key generation".into());
     }
     let certificate_bytes = unsafe {
         if credential_is_fsphincs() {
@@ -928,23 +943,61 @@ fn print_anchor_metrics(material: &NativeAnchorMaterial) {
     println!("certificate_mutation_test=ok");
 }
 
-// Implements protocol issuer setup anchor.
+// Runs issuer KeyGen and captures the selected Setup certificate.
 fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut pk = vec![0u8; credential_pk_bytes()];
     let mut sk = vec![0u8; credential_sk_bytes()];
-    let keygen_started = Instant::now();
-    let ret = unsafe {
-        if credential_is_fsphincs() {
-            fsphincs_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
-        } else {
-            crypto_sign_keypair(pk.as_mut_ptr(), sk.as_mut_ptr())
+    let started = Instant::now();
+    let (material, keygen_us) = if issuer_wots::enabled() {
+        let material = issuer_wots::keygen(&mut pk, &mut sk)?;
+        (material, started.elapsed().as_micros())
+    } else if credential_is_fsphincs() {
+        let mut certificate = vec![0; unsafe { fsphincs_issuer_anchor_certificate_bytes() }];
+        if unsafe {
+            fsphincs_issuer_keypair(
+                pk.as_mut_ptr(),
+                sk.as_mut_ptr(),
+                certificate.as_mut_ptr(),
+                certificate.len(),
+            )
+        } != 0
+        {
+            return Err("F-SPHINCS+ issuer key generation failed".into());
         }
+        let mut witness = vec![0; FSPHINCS_N];
+        let mut public_b = vec![0; fs_params::ANCHORS * 16];
+        let mut anchor_value = vec![0; fs_params::ANCHORS * fs_params::LEAF_BYTES];
+        if unsafe {
+            fsphincs_issuer_anchor_relation(
+                witness.as_mut_ptr(),
+                public_b.as_mut_ptr(),
+                anchor_value.as_mut_ptr(),
+                certificate.as_ptr(),
+                certificate.len(),
+                pk.as_ptr(),
+                sk.as_ptr(),
+            )
+        } != 0
+        {
+            return Err("F-SPHINCS+ issuer certificate mismatch".into());
+        }
+        let material = NativeAnchorMaterial {
+            certificate,
+            witness,
+            public_a: Vec::new(),
+            public_b,
+            anchor_value,
+            generation_us: 0,
+            verify_us: 0,
+        };
+        (material, started.elapsed().as_micros())
+    } else {
+        if unsafe { crypto_sign_keypair(pk.as_mut_ptr(), sk.as_mut_ptr()) } != 0 {
+            return Err("SPHINCS+ issuer key generation failed".into());
+        }
+        let keygen_us = started.elapsed().as_micros();
+        (generate_anchor_material(&pk, &sk)?, keygen_us)
     };
-    let keygen_us = keygen_started.elapsed().as_micros();
-    if ret != 0 {
-        return Err("issuer keygen failed".into());
-    }
-    let material = generate_anchor_material(&pk, &sk)?;
     write_parts(
         output_path,
         &[
@@ -958,8 +1011,11 @@ fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::e
         ],
     )?;
     println!("keygen_us={keygen_us}");
-    println!("pk_bytes={}", pk.len());
-    println!("sk_bytes={}", sk.len());
+    println!(
+        "keygen_includes_public_certificate={}",
+        u8::from(credential_is_fsphincs() || issuer_wots::enabled())
+    );
+    println!("pk_bytes={}\nsk_bytes={}", pk.len(), sk.len());
     print_anchor_metrics(&material);
     Ok(())
 }
@@ -1310,34 +1366,21 @@ fn print_and_check_segment_hashes(receipt: &Receipt, expected_hashfn: &str) {
     }
 }
 
-#[cfg(sphincs_profile)]
-
-// Implements print profile.
-fn print_profile(bytes: &[u8]) {
-    const NAMES: [&str; 16] = [
-        "verify",
-        "hash_message",
-        "fors",
-        "wots",
-        "compute_root",
-        "thash",
-        "thash_inblocks",
-        "thash_1",
-        "thash_2",
-        "thash_long",
-        "sha256_finalize",
-        "sha256_compress_blocks",
-        "sha256_syscall_chunks",
-        "mgf1_256",
-        "seed_state",
-        "opt_thash_128s",
-    ];
-
-    assert_eq!(bytes.len(), NAMES.len() * 8);
-    println!("SPHINCS+ guest profile:");
-    for (i, name) in NAMES.iter().enumerate() {
-        let off = i * 8;
-        let value = u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap());
-        println!("  {:>22}: {}", name, value);
-    }
+#[cfg(daa_tpm_rijndael)]
+#[path = "../../rijndael.rs"]
+mod rijndael;
+#[cfg(daa_tpm_rijndael)]
+const ET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+const NONCE_BYTES: usize = 16;
+#[cfg(daa_tpm_rijndael)]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+// Evaluates the Rijndael-256 credential hook.
+fn hook(s: &[u8], et: &[u8]) -> Vec<u8> {
+    rijndael::eval(
+        s.try_into().expect("32-byte hook secret"),
+        et.try_into().expect("32-byte token"),
+    )
+    .to_vec()
 }

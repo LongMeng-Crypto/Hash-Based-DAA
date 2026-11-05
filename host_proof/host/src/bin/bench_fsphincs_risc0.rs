@@ -1,12 +1,15 @@
 use std::time::Instant;
 
-#[cfg(not(daa_tpm_sha2))]
+#[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
-#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    not(any(fsphincs_192, fsphincs_256))
+))]
 use aes::Aes128;
-#[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), fsphincs_192))]
 use aes::Aes192;
-#[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), fsphincs_256))]
 use aes::Aes256;
 #[cfg(daa_tpm_sha2)]
 #[path = "../daa_sha_hook.rs"]
@@ -30,9 +33,15 @@ const MFORS_SIG_BYTES: usize = fs_params::MFORS_SIG_BYTES;
 const PK_BYTES: usize = N + MFORS_MSG_BYTES;
 const SK_BYTES: usize = 2 * N + MFORS_MSG_BYTES;
 const SIG_BYTES: usize = N + (H + 1) * MFORS_SIG_BYTES;
-#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    not(any(fsphincs_192, fsphincs_256))
+))]
 const ET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(fsphincs_192, fsphincs_256)))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    any(fsphincs_192, fsphincs_256)
+))]
 const ET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
 const ET_BYTES: usize = 32;
@@ -41,9 +50,15 @@ const ET_BYTES: usize = 48;
 #[cfg(all(daa_tpm_sha2, fsphincs_256))]
 const ET_BYTES: usize = 64;
 
-#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    not(any(fsphincs_192, fsphincs_256))
+))]
 const NONCE_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(fsphincs_192, fsphincs_256)))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    any(fsphincs_192, fsphincs_256)
+))]
 const NONCE_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, not(any(fsphincs_192, fsphincs_256))))]
 const NONCE_BYTES: usize = 16;
@@ -51,11 +66,14 @@ const NONCE_BYTES: usize = 16;
 const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, fsphincs_256))]
 const NONCE_BYTES: usize = 32;
-#[cfg(all(not(daa_tpm_sha_chen23), not(any(fsphincs_192, fsphincs_256))))]
+#[cfg(all(
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    not(any(fsphincs_192, fsphincs_256))
+))]
 const HOOK_SECRET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha_chen23), fsphincs_192))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), fsphincs_192))]
 const HOOK_SECRET_BYTES: usize = 24;
-#[cfg(all(not(daa_tpm_sha_chen23), fsphincs_256))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), fsphincs_256))]
 const HOOK_SECRET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha_chen23, not(any(fsphincs_192, fsphincs_256))))]
 const HOOK_SECRET_BYTES: usize = 32;
@@ -117,7 +135,10 @@ fn receipt_kind() -> ReceiptKind {
     }
 }
 
-#[cfg(all(not(daa_tpm_sha2), not(any(fsphincs_192, fsphincs_256))))]
+#[cfg(all(
+    not(any(daa_tpm_sha2, daa_tpm_rijndael)),
+    not(any(fsphincs_192, fsphincs_256))
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -133,7 +154,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(not(daa_tpm_sha2), fsphincs_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), fsphincs_192))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -148,7 +169,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(not(daa_tpm_sha2), fsphincs_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), fsphincs_256))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -165,7 +186,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
 
 #[cfg(all(
     daa_tpm_sha2,
-    not(daa_tpm_sha_chen23),
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
     not(any(fsphincs_192, fsphincs_256))
 ))]
 
@@ -174,14 +195,22 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_192))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    fsphincs_192
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), fsphincs_256))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    fsphincs_256
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -418,4 +447,19 @@ fn main() {
         stats.reserved_cycles,
         stats.segments
     );
+}
+
+#[cfg(daa_tpm_rijndael)]
+#[path = "../../../rijndael.rs"]
+mod rijndael;
+#[cfg(daa_tpm_rijndael)]
+const ET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+const NONCE_BYTES: usize = 16;
+#[cfg(daa_tpm_rijndael)]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+// Evaluates the Rijndael-256 credential hook.
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    rijndael::eval(s, et)
 }

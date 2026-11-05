@@ -1,17 +1,15 @@
 #![no_main]
 #![no_std]
 
-#[cfg(not(daa_tpm_sha2))]
+#[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
 use risc0_zkvm::guest::env;
-#[cfg(sphincs_opt5_padding)]
-use risc0_zkvm_platform::syscall::sys_sha_buffer;
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 use aes::Aes128;
-#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_192))]
 use aes::Aes192;
-#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_256))]
 use aes::Aes256;
 
 #[cfg(daa_tpm_sha2)]
@@ -31,10 +29,6 @@ extern "C" {
         pk: *const u8,
     ) -> i32;
 
-    #[cfg(sphincs_profile)]
-
-    // Implements spx profile snapshot.
-    fn spx_profile_snapshot(out: *mut u64);
 }
 
 // Parses usize.
@@ -52,15 +46,9 @@ const fn parse_usize(s: &str) -> usize {
 const PK_BYTES: usize = parse_usize(env!("SPHINCS_PK_BYTES"));
 const SIG_BYTES: usize = parse_usize(env!("SPHINCS_SIG_BYTES"));
 
-#[cfg(sphincs_opt5_padding)]
-const OPT5_PAD_BLOCKS: usize = parse_usize(env!("SPHINCS_OPT5_PAD_BLOCKS"));
-
-#[cfg(sphincs_profile)]
-const PROFILE_WORDS: usize = 16;
-
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 const ET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), any(lambda_192, lambda_256)))]
 const ET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, lambda_128))]
 const ET_BYTES: usize = 32;
@@ -69,9 +57,9 @@ const ET_BYTES: usize = 48;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const ET_BYTES: usize = 64;
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 const NONCE_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha2), any(lambda_192, lambda_256)))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), any(lambda_192, lambda_256)))]
 const NONCE_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha2, lambda_128))]
 const NONCE_BYTES: usize = 16;
@@ -80,11 +68,11 @@ const NONCE_BYTES: usize = 24;
 #[cfg(all(daa_tpm_sha2, lambda_256))]
 const NONCE_BYTES: usize = 32;
 
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_128))]
 const HOOK_SECRET_BYTES: usize = 16;
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_192))]
 const HOOK_SECRET_BYTES: usize = 24;
-#[cfg(all(not(daa_tpm_sha_chen23), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)), lambda_256))]
 const HOOK_SECRET_BYTES: usize = 32;
 #[cfg(all(daa_tpm_sha_chen23, lambda_128))]
 const HOOK_SECRET_BYTES: usize = 32;
@@ -99,7 +87,7 @@ const HOOK_PUBLIC_BYTES: usize = HK_BYTES;
 #[cfg(daa_tpm_sha_chen23)]
 const HOOK_PUBLIC_BYTES: usize = 2 * HK_BYTES;
 
-#[cfg(all(not(daa_tpm_sha2), lambda_128))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_128))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -115,7 +103,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     out
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_192))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_192))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -130,7 +118,7 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(not(daa_tpm_sha2), lambda_256))]
+#[cfg(all(not(any(daa_tpm_sha2, daa_tpm_rijndael)), lambda_256))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -145,21 +133,33 @@ fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     hk
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_128))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_128
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha256_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_192))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_192
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
     daa_sha_hook::sha384_hook(s, et_u)
 }
 
-#[cfg(all(daa_tpm_sha2, not(daa_tpm_sha_chen23), lambda_256))]
+#[cfg(all(
+    daa_tpm_sha2,
+    not(any(daa_tpm_sha_chen23, daa_tpm_rijndael)),
+    lambda_256
+))]
 
 // Implements hook.
 fn hook(s: &[u8; HOOK_SECRET_BYTES], et_u: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
@@ -194,33 +194,6 @@ fn cdenw23_hooks(
     et_u: &[u8; ET_BYTES],
 ) -> ([u8; HK_BYTES], [u8; HK_BYTES]) {
     daa_sha_hook::sha512_cdenw23_hooks(sst, et_u)
-}
-
-#[cfg(sphincs_opt5_padding)]
-
-// Implements opt5 bin forcing padding.
-fn opt5_bin_forcing_padding() {
-    const DIGEST_WORDS: usize = 8;
-    let mut state = [
-        0x6a09e667u32,
-        0xbb67ae85,
-        0x3c6ef372,
-        0xa54ff53a,
-        0x510e527f,
-        0x9b05688c,
-        0x1f83d9ab,
-        0x5be0cd19,
-    ];
-    let mut out = [0u32; DIGEST_WORDS];
-    let mut block = [0u8; 64];
-    let mut i = 0usize;
-    while i < OPT5_PAD_BLOCKS {
-        block[0..8].copy_from_slice(&(i as u64).to_le_bytes());
-        unsafe { sys_sha_buffer(&mut out, &state, block.as_ptr(), 1) };
-        state = out;
-        i += 1;
-    }
-    core::hint::black_box(state);
 }
 
 // Implements main.
@@ -258,7 +231,7 @@ fn main() {
     };
     assert!(ret == 0);
 
-    #[cfg(all(not(daa_tpm_sha_chen23), any(daa_tpm_sha2, not(skip_aes_check))))]
+    #[cfg(not(daa_tpm_sha_chen23))]
     {
         let hk_calc = hook(&hook_secret, &et_u);
         assert!(hk_calc == hk_pub);
@@ -271,10 +244,6 @@ fn main() {
         assert!(cet_calc == cet_pub);
     }
 
-    #[cfg(sphincs_opt5_padding)]
-    opt5_bin_forcing_padding();
-
-    #[cfg(not(sphincs_profile))]
     {
         let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES];
         journal[..4].copy_from_slice(&1u32.to_le_bytes());
@@ -289,30 +258,19 @@ fn main() {
         journal[public_end..].copy_from_slice(&pk);
         env::commit_slice(&journal);
     }
+}
 
-    #[cfg(sphincs_profile)]
-    {
-        let mut counters = [0u64; PROFILE_WORDS];
-        unsafe { spx_profile_snapshot(counters.as_mut_ptr()) };
-
-        let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES + PROFILE_WORDS * 8];
-        journal[..4].copy_from_slice(&1u32.to_le_bytes());
-        journal[4..4 + HK_BYTES].copy_from_slice(&hk_pub);
-        #[allow(unused_mut)]
-        let mut public_end = 4 + HK_BYTES;
-        #[cfg(daa_tpm_sha_chen23)]
-        {
-            journal[public_end..public_end + HK_BYTES].copy_from_slice(&cet_pub);
-            public_end += HK_BYTES;
-        }
-        journal[public_end..public_end + PK_BYTES].copy_from_slice(&pk);
-        let mut off = public_end + PK_BYTES;
-        let mut i = 0;
-        while i < PROFILE_WORDS {
-            journal[off..off + 8].copy_from_slice(&counters[i].to_le_bytes());
-            off += 8;
-            i += 1;
-        }
-        env::commit_slice(&journal);
-    }
+#[cfg(daa_tpm_rijndael)]
+#[path = "../../../rijndael.rs"]
+mod rijndael;
+#[cfg(daa_tpm_rijndael)]
+const ET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+const NONCE_BYTES: usize = 16;
+#[cfg(daa_tpm_rijndael)]
+const HOOK_SECRET_BYTES: usize = 32;
+#[cfg(daa_tpm_rijndael)]
+// Evaluates the Rijndael-256 credential hook.
+fn hook(s: &[u8; HOOK_SECRET_BYTES], et: &[u8; ET_BYTES]) -> [u8; HK_BYTES] {
+    rijndael::eval(s, et)
 }

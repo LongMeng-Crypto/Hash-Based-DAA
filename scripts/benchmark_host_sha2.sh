@@ -20,6 +20,10 @@ case "${hook_mode}" in
     tpm_backend=aes
     tpm_scheme=ours
     ;;
+  rijndael-3f)
+    tpm_backend=rijndael
+    tpm_scheme=ours
+    ;;
   sha2-3f)
     tpm_backend=sha2
     tpm_scheme=ours
@@ -29,7 +33,7 @@ case "${hook_mode}" in
     tpm_scheme=chen23
     ;;
   *)
-    printf 'HOST_HOOK_MODE must be aes-3f, sha2-3f, or sha2-5f\n' >&2
+    printf 'HOST_HOOK_MODE must be aes-3f, rijndael-3f, sha2-3f, or sha2-5f\n' >&2
     exit 2
     ;;
 esac
@@ -53,12 +57,14 @@ run_host_case() {
   local relation="$2"
   local credential="$3"
   local parameter="$4"
-  local opt_level="$5"
+  local host_scheme="$5"
   local receipt="$6"
   local identity="$7"
   local binary="$8"
   local security="${parameter%[sf]}"
 
+  if [[ "$tpm_backend" == rijndael && "$security" != 128 ]]; then return; fi
+  if [[ "$tpm_scheme" == chen23 && "$credential" != fsphincs ]]; then return; fi
   local run
   for ((run = 1; run <= iterations; run++)); do
     local case_name="${family}_${relation}_${parameter}_${receipt}_identity${identity}_seg${segment_po2}_run${run}"
@@ -68,8 +74,8 @@ run_host_case() {
     printf 'CASE=%s\n' "${case_name}"
     printf 'family=%s relation=%s credential=%s parameter=%s\n' \
       "${family}" "${relation}" "${credential}" "${parameter}"
-    printf 'opt=%s receipt=%s identity=%s segment_po2=%s\n' \
-      "${opt_level}" "${receipt}" "${identity}" "${segment_po2}"
+    printf 'host_scheme=%s receipt=%s identity=%s segment_po2=%s\n' \
+      "${host_scheme}" "${receipt}" "${identity}" "${segment_po2}"
     printf '%s\n' '================================================================'
 
     env \
@@ -78,7 +84,7 @@ run_host_case() {
       DAA_CREDENTIAL_SCHEME="${credential}" \
       SPHINCS_PARAMS="sphincs-sha2-${parameter}" \
       SPHINCS_THASH=simple \
-      SPHINCS_OPT_LEVEL="${opt_level}" \
+      DAA_HOST_SCHEME="${host_scheme}" \
       FSPHINCS_PARAMS="${parameter}" \
       RISC0_RECEIPT_KIND="${receipt}" \
       RISC0_IDENTITY_WRAP="${identity}" \
@@ -122,26 +128,26 @@ run_host_case() {
 
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
-      direct "${hook_mode}" sphincs "${parameter}" 2 succinct 1 \
+      recursive-zk "${hook_mode}" sphincs "${parameter}" recursive-zk succinct 1 \
       daa_sha256_backend_host
   done
 
   for parameter in 128s 128f 192s 192f 256s 256f; do
     run_host_case \
-      zkwots "${hook_mode}" sphincs "${parameter}" 4 composite 0 \
+      zkwots "${hook_mode}" sphincs "${parameter}" zk-wots composite 0 \
       daa_sha256_backend_host
     run_host_case \
-      zkwots "${hook_mode}" sphincs "${parameter}" 4 succinct 0 \
+      zkwots "${hook_mode}" sphincs "${parameter}" zk-wots succinct 0 \
       daa_sha256_backend_host
   done
 
   for parameter in 128s 128f 192s 192f 256s 256f; do
     for receipt in composite succinct; do
-      run_host_case fsphincs "${hook_mode}" fsphincs "${parameter}" 2 "${receipt}" 0 bench_fsphincs_risc0
+      run_host_case fsphincs "${hook_mode}" fsphincs "${parameter}" fsphincs "${receipt}" 0 bench_fsphincs_risc0
     done
   done
 
-  printf '\n%s\n' 'All 30 Host benchmark cases completed.'
+  printf '\n%s\n' 'All supported Host benchmark cases completed.'
   printf 'Combined log: %s\n' "${log_file}"
   printf 'Summary TSV : %s\n' "${summary_file}"
   printf 'Per-case log: %s\n' "${case_dir}"

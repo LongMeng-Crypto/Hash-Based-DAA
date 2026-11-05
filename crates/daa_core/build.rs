@@ -124,6 +124,7 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
         "instances.c",
         "bavc.c",
         "daa_faest.c",
+        "daa_rijndael_dm.c",
         "randomness.c",
         "owf.c",
         "cpu.c",

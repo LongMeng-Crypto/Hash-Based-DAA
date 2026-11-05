@@ -8,7 +8,6 @@
 
 #include "utils.h"
 #include "sha2.h"
-#include "sphincs_profile.h"
 
 #ifdef RISC0_SHA_SYSCALL
 
@@ -317,7 +316,6 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
     if (inlen < 64) return inlen;
 
     size_t nblocks = inlen / 64;
-    SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, nblocks);
 
     uint32_t st[8];
     for (int i = 0; i < 8; i++) st[i] = load32_le(statebytes + 4*i);
@@ -333,7 +331,6 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
             memcpy(batch, syscall_input, cnt * 64);
             syscall_input = batch;
         }
-        SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
         risc0_sys_sha_buffer(st, st, syscall_input, (uint32_t)cnt);
         offset += cnt;
     }
@@ -346,7 +343,7 @@ static size_t crypto_hashblocks_sha256(uint8_t *statebytes, const uint8_t *in, s
 #endif
 }
 
-#if defined(SPHINCS_OPT_128S) || defined(DAA_WOTS_SUPPORTED)
+#if defined(DAA_SHA256_SYSCALL) || defined(DAA_WOTS_SUPPORTED)
 // Implements sha256 seeded thash 128s simple.
 void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *seeded_state,
@@ -354,7 +351,6 @@ void sha256_seeded_thash_128s_simple(uint8_t *out,
                                      const uint8_t *in,
                                      unsigned int inblocks)
 {
-    SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
 
     const size_t data_len = SPX_SHA256_ADDR_BYTES + ((size_t)inblocks * SPX_N);
     const uint64_t total_len = 64 + data_len;
@@ -381,51 +377,6 @@ void sha256_seeded_thash_128s_simple(uint8_t *out,
     memcpy(state, seeded_state, 32);
     crypto_hashblocks_sha256(state, blocks, block_bytes);
     memcpy(out, state, SPX_N);
-}
-
-// Implements sha256 seeded thash1 zk wots fast 128.
-void sha256_seeded_thash1_zk_wots_fast_128(uint8_t *out,
-                                           const uint8_t *seeded_state,
-                                           const uint8_t *addr,
-                                           const uint8_t in[16])
-{
-    SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
-
-    uint8_t block[64] __attribute__((aligned(4)));
-    uint8_t state[32];
-
-    memcpy(block, addr, SPX_SHA256_ADDR_BYTES);
-    memcpy(block + SPX_SHA256_ADDR_BYTES, in, 16);
-    block[38] = 0x80;
-    block[39] = 0;
-    block[40] = 0;
-    block[41] = 0;
-    block[42] = 0;
-    block[43] = 0;
-    block[44] = 0;
-    block[45] = 0;
-    block[46] = 0;
-    block[47] = 0;
-    block[48] = 0;
-    block[49] = 0;
-    block[50] = 0;
-    block[51] = 0;
-    block[52] = 0;
-    block[53] = 0;
-    block[54] = 0;
-    block[55] = 0;
-    block[56] = 0;
-    block[57] = 0;
-    block[58] = 0;
-    block[59] = 0;
-    block[60] = 0;
-    block[61] = 0;
-    block[62] = 3;
-    block[63] = 48;
-
-    memcpy(state, seeded_state, 32);
-    crypto_hashblocks_sha256(state, block, 64);
-    memcpy(out, state, 16);
 }
 
 // Implements sha256 zk wots fixed chain.
@@ -464,16 +415,7 @@ void sha256_zk_wots_fixed_chain(uint8_t *out,
             memcpy(block + SPX_SHA256_ADDR_BYTES + 4 * k,
                    &selected, sizeof(selected));
         }
-
-        SPX_PROFILE_INC(SPX_PROF_THASH, 1);
-        SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
-        SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
-        if (SPX_N == 16) {
-            SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
-        }
 #ifdef RISC0_SHA_SYSCALL
-        SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, 1);
-        SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
         risc0_sys_sha_buffer(hash_state, seed_state, block, 1);
 #else
         uint8_t state[32];
@@ -520,16 +462,7 @@ void sha256_wots_variable_pk_from_sig(uint8_t *pk,
         for (unsigned int j = lengths[i]; j < SPX_WOTS_W - 1; ++j) {
             block[SPX_OFFSET_HASH_ADDR] = (uint8_t)j;
             memcpy(block + SPX_SHA256_ADDR_BYTES, chain_state, SPX_N);
-
-            SPX_PROFILE_INC(SPX_PROF_THASH, 1);
-            SPX_PROFILE_INC(SPX_PROF_THASH_INBLOCKS, 1);
-            SPX_PROFILE_INC(SPX_PROF_THASH_1, 1);
-            if (SPX_N == 16) {
-                SPX_PROFILE_INC(SPX_PROF_OPT_THASH_128S, 1);
-            }
 #ifdef RISC0_SHA_SYSCALL
-            SPX_PROFILE_INC(SPX_PROF_SHA256_COMPRESS_BLOCKS, 1);
-            SPX_PROFILE_INC(SPX_PROF_SHA256_SYSCALL_CHUNKS, 1);
             risc0_sys_sha_buffer(hash_state, seed_state, block, 1);
 #else
             memcpy(hash_state, seeded_state, sizeof(hash_state));
@@ -771,7 +704,6 @@ void sha512_inc_blocks(uint8_t *state, const uint8_t *in, size_t inblocks) {
 
 // Implements sha256 inc finalize.
 void sha256_inc_finalize(uint8_t *out, uint8_t *state, const uint8_t *in, size_t inlen) {
-    SPX_PROFILE_INC(SPX_PROF_SHA256_FINALIZE, 1);
 
     uint8_t padded[128];
     uint64_t bytes = load_bigendian_64(state + 32) + inlen;
@@ -890,7 +822,6 @@ void sha512(uint8_t *out, const uint8_t *in, size_t inlen) {
 void mgf1_256(unsigned char *out, unsigned long outlen,
           const unsigned char *in, unsigned long inlen)
 {
-    SPX_PROFILE_INC(SPX_PROF_MGF1_256, 1);
 
     SPX_VLA(uint8_t, inbuf, inlen+4);
     unsigned char outbuf[SPX_SHA256_OUTPUT_BYTES];
@@ -936,7 +867,6 @@ void mgf1_512(unsigned char *out, unsigned long outlen,
 
 // Implements seed state.
 void seed_state(spx_ctx *ctx) {
-    SPX_PROFILE_INC(SPX_PROF_SEED_STATE, 1);
 
     uint8_t block[SPX_SHA512_BLOCK_BYTES];
     size_t i;

@@ -4,7 +4,7 @@
 #include "parameter_sets.h"
 
 #if defined(FSPHINCS_SECURITY) || defined(FSPHINCS_K)
-#error "Use one named FSPHINCS_PARAMS set; independent legacy selectors are unsupported"
+#error "Use one named FSPHINCS_PARAMS set; independent parameter selectors are unsupported"
 #endif
 
 #ifndef FSPHINCS_PARAMS

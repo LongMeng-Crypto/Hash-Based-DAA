@@ -40,9 +40,11 @@ int main(void) {
     uint8_t *pk = malloc(FS_PK_BYTES);
     uint8_t *sk = malloc(FS_SK_BYTES);
     uint8_t *sig = malloc(FS_SIG_BYTES);
+    const size_t certlen = fsphincs_issuer_anchor_certificate_bytes();
+    uint8_t *cert = malloc(certlen);
     size_t siglen = 0;
     struct timespec t0, t1;
-    if (!pk || !sk || !sig) {
+    if (!pk || !sk || !sig || !cert) {
         fprintf(stderr, "allocation failed\n");
         return 1;
     }
@@ -56,7 +58,7 @@ int main(void) {
            FS_LEAF_PRF_VERSION, FS_LEAF_ADDR_BYTES, FS_N, FS_LEAF_BYTES, FS_ANCHORS);
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    if (fsphincs_keypair(pk, sk) != 0) return 2;
+    if (fsphincs_issuer_keypair(pk, sk, cert, certlen) != 0) return 2;
     clock_gettime(CLOCK_MONOTONIC, &t1);
     printf("keygen = %.6f s\n", seconds_since(t0, t1));
 
@@ -187,11 +189,9 @@ int main(void) {
     }
     printf("round-trip and mutation test: ok\n");
 
-    const size_t certlen = fsphincs_issuer_anchor_certificate_bytes();
-    uint8_t *cert = malloc(certlen);
     uint8_t root_seed[FS_N], addr[FS_ANCHORS * FS_LEAF_ADDR_BYTES], outputs[FS_ANCHORS * FS_LEAF_BYTES];
     uint8_t lower_seed[FS_N], R[FS_N];
-    if (!cert || fsphincs_issuer_anchor_generate(cert, certlen, pk, sk) ||
+    if (!cert ||
         fsphincs_issuer_anchor_relation(root_seed, addr, outputs, cert, certlen, pk, sk))
         return 12;
     memset(sk, 0, FS_SK_BYTES);
