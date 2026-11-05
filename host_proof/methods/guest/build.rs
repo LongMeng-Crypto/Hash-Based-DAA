@@ -5,6 +5,7 @@ use std::path::Path;
 
 // Implements main.
 fn main() {
+    println!("cargo:rerun-if-changed=../../protocol_context.rs");
     println!("cargo:rerun-if-changed=../../rijndael.rs");
     let dir = "c_src/sphincs_ref";
     if !Path::new(dir).exists() {

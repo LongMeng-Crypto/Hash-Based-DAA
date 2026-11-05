@@ -1,5 +1,7 @@
 #![no_main]
 #![no_std]
+#[path = "../../../protocol_context.rs"]
+mod protocol_context;
 
 #[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
@@ -206,6 +208,7 @@ fn main() {
     let mut hook_secret = [0u8; HOOK_SECRET_BYTES];
     let mut et_u = [0u8; ET_BYTES];
     let mut issuer_nonce = [0u8; NONCE_BYTES];
+    let mut context = [0u8; protocol_context::BYTES];
 
     env::read_slice(&mut pk);
     env::read_slice(&mut sig);
@@ -215,6 +218,7 @@ fn main() {
     env::read_slice(&mut hook_secret);
     env::read_slice(&mut et_u);
     env::read_slice(&mut issuer_nonce);
+    env::read_slice(&mut context);
 
     let mut msg = [0u8; ET_BYTES + NONCE_BYTES];
     msg[..ET_BYTES].copy_from_slice(&et_u);
@@ -245,7 +249,7 @@ fn main() {
     }
 
     {
-        let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES];
+        let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES + protocol_context::BYTES];
         journal[..4].copy_from_slice(&1u32.to_le_bytes());
         journal[4..4 + HK_BYTES].copy_from_slice(&hk_pub);
         #[allow(unused_mut)]
@@ -255,7 +259,8 @@ fn main() {
             journal[public_end..public_end + HK_BYTES].copy_from_slice(&cet_pub);
             public_end += HK_BYTES;
         }
-        journal[public_end..].copy_from_slice(&pk);
+        journal[public_end..public_end + PK_BYTES].copy_from_slice(&pk);
+        journal[public_end + PK_BYTES..].copy_from_slice(&context);
         env::commit_slice(&journal);
     }
 }

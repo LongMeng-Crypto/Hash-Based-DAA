@@ -146,6 +146,12 @@ fn bench_issuer_anchor_cmd(opts: CliOptions) -> Result<(), String> {
 
 // Benchmarks tpm sha cmd.
 fn bench_tpm_sha_cmd(opts: CliOptions) -> Result<(), String> {
+    if opts.tpm_sha_scheme != TpmShaScheme::Ours3F {
+        return Err(
+            "bench-tpm-sha measures 1F/3F; use scripts/benchmark_tpm_sha_relations.sh for 5F"
+                .into(),
+        );
+    }
     let variants: Vec<(SecurityLevel, TpmShaProfile)> = match opts.params.as_str() {
         "all" | "sha2-all" => vec![
             (SecurityLevel::L128, TpmShaProfile::Small),
@@ -408,6 +414,7 @@ struct CliOptions {
     tpm_backend: TpmBackend,
     tpm_sha_scheme: TpmShaScheme,
     credential_scheme: CredentialScheme,
+    credential_scheme_explicit: bool,
     host_scheme: Option<HostScheme>,
     issuer_anchor_mode: IssuerAnchorMode,
     segment_po2: Option<u32>,
@@ -425,6 +432,7 @@ impl CliOptions {
             tpm_backend: TpmBackend::Aes,
             tpm_sha_scheme: TpmShaScheme::Ours3F,
             credential_scheme: CredentialScheme::SphincsPlus,
+            credential_scheme_explicit: false,
             host_scheme: None,
             issuer_anchor_mode: IssuerAnchorMode::SeedAnchor,
             segment_po2: None,
@@ -467,6 +475,7 @@ impl CliOptions {
                     );
                 }
                 "--credential-scheme" => {
+                    opts.credential_scheme_explicit = true;
                     i += 1;
                     opts.credential_scheme =
                         CredentialScheme::from_name(&value(args, i, "--credential-scheme")?)
@@ -505,6 +514,23 @@ impl CliOptions {
             i += 1;
         }
 
+        if opts.iterations == 0 {
+            return Err("--iterations must be positive".into());
+        }
+        if let Some(host) = opts.host_scheme {
+            if opts.credential_scheme_explicit
+                && ((host == HostScheme::FSphincs)
+                    != (opts.credential_scheme == CredentialScheme::FSphincsPlus))
+            {
+                return Err(
+                    "--host-scheme and --credential-scheme select different credential families"
+                        .into(),
+                );
+            }
+        }
+        if !matches!(opts.params.as_str(), "all" | "sha2-all") {
+            opts.config().validate().map_err(|err| err.to_string())?;
+        }
         Ok(opts)
     }
 
@@ -549,7 +575,7 @@ fn print_help() {
     println!();
     println!("Options:");
     println!("  --params NAME       security/profile label (e.g. sha2-128s or sha2-128f)");
-    println!("  --backend NAME      host proof backend label, default sha-256");
+    println!("  --backend NAME      sha-256 (bundled Host backend)");
     println!("  --tpm-backend NAME  TPM primitive: aes (default), rijndael, or sha2");
     println!("  --tpm-sha-scheme S  SHA relation: ours (3F) or chen23 (5F)");
     println!("  --host-scheme H       recursive-zk, zk-wots, or fsphincs");

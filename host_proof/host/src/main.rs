@@ -1,4 +1,6 @@
 use std::io::Write;
+#[path = "../../protocol_context.rs"]
+mod protocol_context;
 use std::path::Path;
 use std::time::Instant;
 use std::{env, fs};
@@ -54,6 +56,15 @@ extern "C" {
 
     // Implements issuer anchor verify.
     fn sphincs_issuer_anchor_verify(
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+    ) -> i32;
+
+    fn sphincs_issuer_anchor_statement(
+        state: *mut u8,
+        address: *mut u8,
+        value: *mut u8,
         certificate: *const u8,
         certificate_len: usize,
         pk: *const u8,
@@ -130,6 +141,14 @@ extern "C" {
 
     // Implements issuer anchor verify.
     fn fsphincs_issuer_anchor_verify(
+        certificate: *const u8,
+        certificate_len: usize,
+        pk: *const u8,
+    ) -> i32;
+
+    fn fsphincs_issuer_anchor_statement(
+        address: *mut u8,
+        value: *mut u8,
         certificate: *const u8,
         certificate_len: usize,
         pk: *const u8,
@@ -516,6 +535,7 @@ fn main() {
         ET_BYTES,
     );
 
+    let context = vec![0x43u8; protocol_context::BYTES];
     let mut hook_secret = vec![0u8; HOOK_SECRET_BYTES];
     if deterministic {
         deterministic_rng.fill_bytes(&mut hook_secret);
@@ -536,7 +556,7 @@ fn main() {
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(21);
+        .unwrap_or(20);
 
     if seg_po2 > 22 {
         panic!(
@@ -556,7 +576,8 @@ fn main() {
     env_builder
         .write_slice(&hook_secret)
         .write_slice(&et_u)
-        .write_slice(&issuer_nonce);
+        .write_slice(&issuer_nonce)
+        .write_slice(&context);
     let env = env_builder.build().unwrap();
 
     let prover = default_prover();
@@ -586,7 +607,8 @@ fn main() {
         public_end += cet.len();
     }
     assert_eq!(&journal[public_end..public_end + pk.len()], pk.as_slice());
-    assert_eq!(journal.len(), public_end + pk.len());
+    assert_eq!(journal.len(), public_end + pk.len() + context.len());
+    assert_eq!(&journal[public_end + pk.len()..], context.as_slice());
 
     let proof_bytes =
         risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
@@ -638,8 +660,8 @@ fn protocol_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "issuer-anchor" if args.len() == 4 => {
             protocol_issuer_anchor(Path::new(&args[2]), Path::new(&args[3]))
         }
-        "issuer-anchor-verify" if args.len() == 3 => {
-            protocol_issuer_anchor_verify(Path::new(&args[2]))
+        "issuer-anchor-verify" if args.len() == 3 || args.len() == 4 => {
+            protocol_issuer_anchor_verify(Path::new(&args[2]), args.get(3).map(Path::new))
         }
         "issuer-setup-anchor" if args.len() == 3 => {
             protocol_issuer_setup_anchor(Path::new(&args[2]))
@@ -691,6 +713,9 @@ fn protocol_issuer_sign(
     let sk = &parts[0];
     let msg = &parts[1];
     let sig_bytes = credential_sig_bytes();
+    if sk.len() != credential_sk_bytes() {
+        return Err("issuer secret-key length mismatch".into());
+    }
     let t0 = Instant::now();
     let signature = if credential_is_fsphincs() {
         let mut signature = vec![0u8; sig_bytes];
@@ -727,7 +752,7 @@ fn protocol_issuer_sign(
     };
     write_parts(output_path, &[&signature])?;
     println!("accepted=1");
-    println!("sign_ms={}", t0.elapsed().as_millis());
+    println!("sign_us={}", t0.elapsed().as_micros());
     println!("sig_bytes={sig_bytes}");
     Ok(())
 }
@@ -737,6 +762,9 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
     let parts = read_parts(input_path)?;
     if parts.len() != 3 {
         return Err("issuer-verify input must contain pk, message, and signature".into());
+    }
+    if parts[0].len() != credential_pk_bytes() || parts[2].len() != credential_sig_bytes() {
+        return Err("credential public-key or signature length mismatch".into());
     }
     let t0 = Instant::now();
     let ret = unsafe {
@@ -759,7 +787,10 @@ fn protocol_issuer_verify(input_path: &Path) -> Result<(), Box<dyn std::error::E
         }
     };
     println!("accepted={}", if ret == 0 { 1 } else { 0 });
-    println!("verifier_ms={}", t0.elapsed().as_millis());
+    println!("verifier_us={}", t0.elapsed().as_micros());
+    if ret != 0 {
+        return Err("invalid issuer credential".into());
+    }
     Ok(())
 }
 
@@ -1020,30 +1051,63 @@ fn protocol_issuer_setup_anchor(output_path: &Path) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-// Implements protocol issuer anchor verify.
-fn protocol_issuer_anchor_verify(input_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+// Verifies a public certificate and exports the statement authenticated by its issuer key.
+fn protocol_issuer_anchor_verify(
+    input_path: &Path,
+    output: Option<&Path>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let parts = read_parts(input_path)?;
     if parts.len() != 2 || parts[0].len() != credential_pk_bytes() {
         return Err("issuer-anchor-verify requires a parameter-matched pk and certificate".into());
     }
     let started = Instant::now();
-    if issuer_wots::enabled() {
+    let (a, b, value) = if issuer_wots::enabled() {
         issuer_wots::check_certificate(&parts[0], &parts[1])?;
-        println!(
-            "accepted=1\ncertificate_verify_us={}",
-            started.elapsed().as_micros()
-        );
-        return Ok(());
-    }
-    let ret = unsafe {
-        if credential_is_fsphincs() {
-            fsphincs_issuer_anchor_verify(parts[1].as_ptr(), parts[1].len(), parts[0].as_ptr())
-        } else {
-            sphincs_issuer_anchor_verify(parts[1].as_ptr(), parts[1].len(), parts[0].as_ptr())
+        (
+            parts[0].clone(),
+            Vec::new(),
+            parts[1][16..16 + parts[0].len() / 2].to_vec(),
+        )
+    } else if credential_is_fsphincs() {
+        let mut b = vec![0; fs_params::ANCHORS * 16];
+        let mut value = vec![0; fs_params::ANCHORS * fs_params::LEAF_BYTES];
+        if unsafe {
+            fsphincs_issuer_anchor_statement(
+                b.as_mut_ptr(),
+                value.as_mut_ptr(),
+                parts[1].as_ptr(),
+                parts[1].len(),
+                parts[0].as_ptr(),
+            )
+        } != 0
+        {
+            return Err("invalid F-SPHINCS+ public certificate".into());
         }
+        (Vec::new(), b, value)
+    } else {
+        let mut a = vec![0; 32];
+        let mut b = vec![0; 44];
+        let mut value = vec![0; 2 * parts[0].len() / 2];
+        if unsafe {
+            sphincs_issuer_anchor_statement(
+                a.as_mut_ptr(),
+                b.as_mut_ptr(),
+                value.as_mut_ptr(),
+                parts[1].as_ptr(),
+                parts[1].len(),
+                parts[0].as_ptr(),
+            )
+        } != 0
+        {
+            return Err("invalid SPHINCS+ public certificate".into());
+        }
+        (a, b, value)
     };
-    println!("accepted={}", if ret == 0 { 1 } else { 0 });
-    println!("certificate_verify_us={}", started.elapsed().as_micros());
+    let elapsed = started.elapsed().as_micros();
+    if let Some(path) = output {
+        write_parts(path, &[&a, &b, &value])?;
+    }
+    println!("accepted=1\ncertificate_verify_us={elapsed}");
     Ok(())
 }
 
@@ -1055,6 +1119,7 @@ struct ProtocolInput {
     hook_secret: Vec<u8>,
     et_u: Vec<u8>,
     issuer_nonce: Vec<u8>,
+    context: Vec<u8>,
 }
 
 // Implements protocol prove.
@@ -1068,7 +1133,7 @@ fn protocol_prove(
     let seg_po2 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(21);
+        .unwrap_or(20);
 
     if seg_po2 > 22 {
         panic!(
@@ -1089,6 +1154,7 @@ fn protocol_prove(
             .write_slice(&input.hook_secret)
             .write_slice(&input.et_u)
             .write_slice(&input.issuer_nonce)
+            .write_slice(&input.context)
             .write_slice(&input.credential_sig[..FSPHINCS_N]);
         for layer in input.credential_sig[FSPHINCS_N..].chunks_exact(FSPHINCS_LAYER_SIG_BYTES) {
             env_builder.write_slice(layer);
@@ -1103,7 +1169,8 @@ fn protocol_prove(
         env_builder
             .write_slice(&input.hook_secret)
             .write_slice(&input.et_u)
-            .write_slice(&input.issuer_nonce);
+            .write_slice(&input.issuer_nonce)
+            .write_slice(&input.context);
     }
     let env = env_builder.build()?;
 
@@ -1117,16 +1184,28 @@ fn protocol_prove(
         GUEST_ELF
     };
     let prove_info = default_prover().prove_with_opts(env, guest_elf, &opts)?;
-    let prove_ms = t0.elapsed().as_millis();
     let stats = prove_info.stats.clone();
-    let receipt = prove_info.receipt;
+    let receipt = maybe_identity_wrap_receipt(prove_info.receipt);
+    let prove_us = t0.elapsed().as_micros();
+    if !matches!(
+        &receipt.inner,
+        InnerReceipt::Composite(_) | InnerReceipt::Succinct(_)
+    ) {
+        return Err("real protocol proving requires a Composite or Succinct receipt".into());
+    }
     print_and_check_segment_hashes(&receipt, &backend_hash);
-    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk, &input.cet)?;
+    check_protocol_journal(
+        &receipt,
+        &input.issuer_pk,
+        &input.hk,
+        &input.cet,
+        &input.context,
+    )?;
     write_receipt_words(receipt_path, &receipt)?;
     let proof_bytes = risc0_zkvm::serde::to_vec(&receipt)?.len() * core::mem::size_of::<u32>();
     let seal_bytes = receipt.seal_size();
     println!("accepted=1");
-    println!("prover_ms={prove_ms}");
+    println!("prover_us={prove_us}");
     println!("proof_bytes={proof_bytes}");
     println!("seal_bytes={seal_bytes}");
     println!("segments={}", stats.segments);
@@ -1146,6 +1225,7 @@ fn validate_protocol_witness(input: &ProtocolInput) -> Result<(), Box<dyn std::e
         || input.hook_secret.len() != HOOK_SECRET_BYTES
         || input.issuer_nonce.len() != NONCE_BYTES
         || input.cet.len() != CET_BYTES
+        || input.context.len() != protocol_context::BYTES
     {
         return Err(format!(
             "{}:{} hook length mismatch: expected hk/et/secret/nonce={}/{}/{}/{} bytes, got {}/{}/{}/{}",
@@ -1172,10 +1252,16 @@ fn protocol_verify(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = read_protocol_input(input_path)?;
     let receipt = read_receipt_words(receipt_path)?;
+    if !matches!(
+        &receipt.inner,
+        InnerReceipt::Composite(_) | InnerReceipt::Succinct(_)
+    ) {
+        return Err("real protocol verification requires a Composite or Succinct receipt".into());
+    }
     let seg_po2 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(21);
+        .unwrap_or(20);
 
     if seg_po2 > 22 {
         panic!(
@@ -1193,10 +1279,16 @@ fn protocol_verify(
         GUEST_ID
     };
     receipt.verify_with_context(&verifier_ctx, guest_id)?;
-    let verify_ms = t0.elapsed().as_millis();
-    check_protocol_journal(&receipt, &input.issuer_pk, &input.hk, &input.cet)?;
+    let verify_us = t0.elapsed().as_micros();
+    check_protocol_journal(
+        &receipt,
+        &input.issuer_pk,
+        &input.hk,
+        &input.cet,
+        &input.context,
+    )?;
     println!("accepted=1");
-    println!("verifier_ms={verify_ms}");
+    println!("verifier_us={verify_us}");
     Ok(())
 }
 
@@ -1206,11 +1298,17 @@ fn check_protocol_journal(
     issuer_pk: &[u8],
     hk: &[u8],
     cet: &[u8],
+    context: &[u8],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let journal = receipt.journal.bytes.as_slice();
     let public_hook_len = hk.len() + cet.len();
-    if journal.len() < 4 + public_hook_len + issuer_pk.len() {
-        return Err("journal is too short".into());
+    if issuer_pk.len() != credential_pk_bytes()
+        || hk.len() != ET_BYTES
+        || cet.len() != CET_BYTES
+        || context.len() != protocol_context::BYTES
+        || journal.len() != 4 + public_hook_len + issuer_pk.len() + context.len()
+    {
+        return Err("journal or public statement length mismatch".into());
     }
     if &journal[..4] != 1u32.to_le_bytes().as_slice() {
         return Err("journal status is not ok".into());
@@ -1230,6 +1328,9 @@ fn check_protocol_journal(
     if &journal[public_end..public_end + issuer_pk.len()] != issuer_pk {
         return Err("journal issuer pk mismatch".into());
     }
+    if &journal[public_end + issuer_pk.len()..] != context {
+        return Err("journal message-context mismatch".into());
+    }
     Ok(())
 }
 
@@ -1247,6 +1348,7 @@ fn read_protocol_input(path: &Path) -> Result<ProtocolInput, Box<dyn std::error:
     let hook_secret = read_part(&bytes, &mut pos)?;
     let et_u = read_part(&bytes, &mut pos)?;
     let issuer_nonce = read_part(&bytes, &mut pos)?;
+    let context = read_part(&bytes, &mut pos)?;
     if pos != bytes.len() {
         return Err("unexpected trailing protocol input".into());
     }
@@ -1258,6 +1360,7 @@ fn read_protocol_input(path: &Path) -> Result<ProtocolInput, Box<dyn std::error:
         hook_secret,
         et_u,
         issuer_nonce,
+        context,
     })
 }
 
@@ -1291,7 +1394,7 @@ fn read_part(bytes: &[u8], pos: &mut usize) -> Result<Vec<u8>, Box<dyn std::erro
     len_bytes.copy_from_slice(&bytes[*pos..*pos + 8]);
     *pos += 8;
     let len = u64::from_le_bytes(len_bytes) as usize;
-    if *pos + len > bytes.len() {
+    if len > bytes.len() - *pos {
         return Err("truncated protocol input payload".into());
     }
     let out = bytes[*pos..*pos + len].to_vec();

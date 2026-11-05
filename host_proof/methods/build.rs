@@ -9,6 +9,7 @@ fn main() {
         "guest/build.rs",
         "../fsphincs_build.rs",
         "../rijndael.rs",
+        "../protocol_context.rs",
         "guest/src",
         "guest/c_src",
         "../../Cargo.toml",

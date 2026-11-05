@@ -4,7 +4,10 @@ A proof-of-concept implementation of hash-based Direct Anonymous Attestation
 (DAA), with issuer Setup, TPM Join, TPM/Host Signing, Verification, and basename
 linking. **The TPM is simulated in software on the CPU; this demo does not run
 on a physical TPM and is not a production implementation.** Demo inputs are
-deterministic for reproducibility. Revocation supports empty lists only.
+deterministic for reproducibility; they are not production key generation.
+Roles share local in-memory state. Endorsement-key attestation, authenticated
+transport, and a full revocation protocol are outside this demo. Revocation
+benchmarks use empty lists only.
 
 The implementation includes:
 
@@ -95,17 +98,26 @@ cargo run --locked --release -p daa_cli -- run-full \
 
 Choose `--tpm-backend aes|rijndael|sha2` and
 `--host-scheme recursive-zk|zk-wots|fsphincs`. The Host choice selects the
-matching credential family. `recursive-zk` uses succinct receipts with
-`RISC0_IDENTITY_WRAP=1`; the other two constructions use identity wrapping 0
-and support composite or succinct receipts. Set `--issuer-anchor-mode
+matching credential family. The full protocol runner automatically applies succinct receipts and identity
+wrapping for `recursive-zk`; the other two constructions use identity wrapping
+0 and support composite or succinct receipts. Standalone Host binaries use
+`RISC0_RECEIPT_KIND` and `RISC0_IDENTITY_WRAP` explicitly. Set `--issuer-anchor-mode
 fixed-top-wots` for the fixed WOTS+ Setup baseline with SPHINCS+ credentials;
 the default is `seed-anchor`. Set `--tpm-sha-scheme chen23` for SHA-2 5F with
 `--host-scheme fsphincs`.
 
 `run-full` (also named `demo`) shares state across the protocol algorithms and
-checks verification and basename linking. Component benchmarks are optional.
+proves and verifies one complete signature. Its linking smoke check computes
+additional same/different-basename tokens without generating extra proofs.
+The public `link` operation compares tokens from signatures already verified
+by its caller. Component benchmarks are optional.
 Replace `run-full` with `bench --iterations 3` to repeat the complete protocol.
-KeyGen and ZK preparation, proving, and verification are reported separately.
+Join independently verifies the public issuer certificate and issuer proof,
+rejects duplicate member IDs, and binds its proof to an issuer challenge.
+Both TPM and Host proofs bind the randomized message digest; Host RISC0 journals
+include this public context. Protocol hashes use domain-separated SHA-2, and
+protocol proof randomness uses the OS random source. KeyGen and ZK preparation, proving, and verification are
+reported separately; protocol trace timings retain microsecond resolution.
 F-SPHINCS+ and fixed WOTS+ certificate/witness generation is included in KeyGen;
 SPHINCS+ seed-based certificate generation is reported separately.
 
@@ -120,7 +132,9 @@ cargo run --locked --release -p daa_cli -- run-full \
 ```
 
 `simulated` simulates all proofs. `real-tpm` uses real Setup/TPM proofs and a
-simulated Host proof; fixed WOTS+ Setup still needs RISC0 proving.
+simulated Host proof and checks credentials with the native verifier.
+Fixed WOTS+ Setup needs RISC0 proving and is unavailable in `simulated` mode.
+Fallible Rust protocol operations, including `setup`, return `Result`.
 
 The benchmark entrypoints are:
 
@@ -194,7 +208,9 @@ Combined runners save a case manifest, raw logs and a machine-readable
 `summary.tsv`; full protocol cases also save JSON traces. KeyGen and ZK timings
 remain separate. Compilation and outer Cargo startup are excluded from the
 reported internal timings. Native credential benchmarks time only KeyGen,
-signing and verification; negative tests and known-answer tests run through
+signing and verification on a 3-lambda-bit message fixture and print its byte
+length. Full protocols use the selected primitive's actual token/nonce widths.
+Negative tests and known-answer tests run through
 the regression entrypoints below. Generated results are ignored by Git.
 
 Native regression checks:
@@ -207,6 +223,14 @@ bash scripts/test_host_verifiers.sh
 python3 -m unittest discover -s host_proof/tests -p test_benchmark_matrix.py
 meson setup /tmp/daa-tpm-sha-tests vendor/TPM_SHA --buildtype=release
 meson test -C /tmp/daa-tpm-sha-tests --print-errorlogs
+```
+
+A real end-to-end negative regression checks modified issuer proofs,
+certificates, credentials, messages, basenames, and malformed signatures.
+It needs the RISC0 toolchains and a working CPU or GPU prover:
+
+```sh
+cargo test --locked --release -p daa_core --lib real_protocol_rejects_tampering -- --ignored --test-threads=1
 ```
 
 Third-party license and copyright notices are retained with their sources.

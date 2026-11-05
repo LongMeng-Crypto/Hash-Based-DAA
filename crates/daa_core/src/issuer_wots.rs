@@ -81,39 +81,45 @@ pub(super) fn fixed_wots_prove_external(
     })
 }
 
-// Implements fixed wots verify external.
+// Verifies a fixed-WOTS issuer proof using its public statement.
 pub(super) fn fixed_wots_verify_external(
     config: &ProtocolConfig,
     native: &IssuerAnchorNative,
     proof: &ProofArtifact,
 ) -> bool {
-    let run = || -> DaaResult<bool> {
-        let expected = issuer_anchor_context(config, &native.public_a, &native.certificate);
-        if proof.kind != "pi_i"
-            || proof.statement_hash != expected
-            || native.certificate.get(16..16 + config.security.key_bytes())
-                != Some(native.anchor_value.as_slice())
-        {
-            eprintln!("fixed WOTS pi_I Rust statement binding mismatch");
-            return Ok(false);
-        }
-        let files = PrivateFiles::new()?;
-        let input = files.dir.join("input");
-        let receipt = files.dir.join("receipt");
-        write_length_prefixed_parts(&input, &[&native.public_a, &native.certificate])
-            .map_err(|_| DaaError::ExternalHostProof)?;
-        std::fs::write(&receipt, &proof.proof_bytes).map_err(|_| DaaError::ExternalHostProof)?;
-        let mut cmd = host_cargo_command(config)?;
-        cmd.arg("issuer-wots-verify").arg(input).arg(receipt);
-        let output = cmd.output().map_err(|_| DaaError::ExternalHostProof)?;
-        if !output.status.success() {
-            eprintln!(
-                "fixed WOTS pi_I verification failed:\n{}",
-                command_text(&output)
-            );
-        }
-        Ok(output.status.success()
-            && parse_metric_bool(&command_text(&output), "accepted") == Some(true))
-    };
-    run().unwrap_or(false)
+    fixed_wots_verify_measured(config, native, proof).is_ok()
+}
+
+// Returns the native receipt verification time after checking its public statement.
+pub(super) fn fixed_wots_verify_measured(
+    config: &ProtocolConfig,
+    native: &IssuerAnchorNative,
+    proof: &ProofArtifact,
+) -> DaaResult<Duration> {
+    let expected = issuer_anchor_context(config, &native.public_a, &native.certificate);
+    if proof.kind != "pi_i"
+        || proof.statement_hash != expected
+        || native.certificate.get(16..16 + config.security.key_bytes())
+            != Some(native.anchor_value.as_slice())
+    {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let files = PrivateFiles::new()?;
+    let input = files.dir.join("input");
+    let receipt = files.dir.join("receipt");
+    write_length_prefixed_parts(&input, &[&native.public_a, &native.certificate])
+        .map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    std::fs::write(&receipt, &proof.proof_bytes).map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    let mut command = host_cargo_command(config)?;
+    command.arg("issuer-wots-verify").arg(input).arg(receipt);
+    let result = command
+        .output()
+        .map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    let text = command_text(&result);
+    if !result.status.success() || parse_metric_bool(&text, "accepted") != Some(true) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    Ok(Duration::from_micros(
+        parse_metric_u128(&text, "verifier_us").ok_or(DaaError::InvalidIssuerAnchor)? as u64,
+    ))
 }

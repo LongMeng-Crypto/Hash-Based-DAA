@@ -1,5 +1,7 @@
 #![no_main]
 #![no_std]
+#[path = "../../../../protocol_context.rs"]
+mod protocol_context;
 
 #[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
@@ -240,6 +242,7 @@ fn main() {
     let mut hook_secret = [0u8; HOOK_SECRET_BYTES];
     let mut et_u = [0u8; ET_BYTES];
     let mut issuer_nonce = [0u8; NONCE_BYTES];
+    let mut context = [0u8; protocol_context::BYTES];
     let mut randomizer = [0u8; N];
     let mut value = [0u8; MFORS_MSG_BYTES];
     let mut node = 0u64;
@@ -251,6 +254,7 @@ fn main() {
     env::read_slice(&mut hook_secret);
     env::read_slice(&mut et_u);
     env::read_slice(&mut issuer_nonce);
+    env::read_slice(&mut context);
     env::read_slice(&mut randomizer);
 
     let mut message = [0u8; MSG_BYTES];
@@ -304,7 +308,7 @@ fn main() {
         assert!(cet_calc == cet_pub);
     }
 
-    let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES];
+    let mut journal = [0u8; 4 + HOOK_PUBLIC_BYTES + PK_BYTES + protocol_context::BYTES];
     journal[..4].copy_from_slice(&1u32.to_le_bytes());
     journal[4..4 + HK_BYTES].copy_from_slice(&hk_pub);
     #[allow(unused_mut)]
@@ -314,7 +318,8 @@ fn main() {
         journal[public_end..public_end + HK_BYTES].copy_from_slice(&cet_pub);
         public_end += HK_BYTES;
     }
-    journal[public_end..].copy_from_slice(&pk);
+    journal[public_end..public_end + PK_BYTES].copy_from_slice(&pk);
+    journal[public_end + PK_BYTES..].copy_from_slice(&context);
     env::commit_slice(&journal);
 }
 

@@ -1,6 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
@@ -10,6 +8,8 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256, Sha384, Sha512};
 
 mod issuer_wots;
+#[cfg(test)]
+mod protocol_tests;
 #[path = "../../../host_proof/rijndael.rs"]
 mod rijndael;
 mod rijndael_tpm;
@@ -380,7 +380,22 @@ impl ProtocolConfig {
         self
     }
 
-    // Implements ensure real supported.
+    // Validates parameter widths and supported protocol combinations.
+    pub fn validate(&self) -> DaaResult<()> {
+        let spec = self.param_spec()?;
+        if self.security.bits() != spec.lambda
+            || self.tpm_sha_profile != TpmShaProfile::from_name(&self.sphincs_params)
+            || self.backend_hash != "sha-256"
+            || self
+                .risc0_segment_limit_po2
+                .is_some_and(|n| !(14..=22).contains(&n))
+        {
+            return Err(DaaError::UnsupportedProtocolCombination);
+        }
+        self.ensure_real_supported()
+    }
+
+    // Checks the supported credential and proof combinations.
     fn ensure_real_supported(&self) -> DaaResult<()> {
         if (self.tpm_backend == TpmBackend::Rijndael && self.security != SecurityLevel::L128)
             || ((self.host_scheme == HostScheme::FSphincs)
@@ -573,6 +588,7 @@ pub struct JoinOutput {
     pub host_state: HostState,
     pub et: Bytes,
     pub pi_join: ProofArtifact,
+    pub issuer_challenge: Bytes,
 }
 
 #[derive(Debug, Clone)]
@@ -651,6 +667,15 @@ impl BenchmarkTrace {
 
     // Implements total micros.
     pub fn total_micros(&self, prefix: &str) -> u128 {
+        let aggregate = format!("{prefix}.total");
+        let totals: Vec<_> = self
+            .entries
+            .iter()
+            .filter(|entry| entry.name == aggregate)
+            .collect();
+        if !totals.is_empty() {
+            return totals.iter().map(|entry| entry.micros).sum();
+        }
         self.entries
             .iter()
             .filter(|entry| entry.name == prefix || entry.name.starts_with(&format!("{prefix}.")))
@@ -770,6 +795,7 @@ pub struct IssuerAnchorBenchmark {
 #[derive(Debug)]
 pub enum DaaError {
     CommitmentMismatch,
+    DuplicateMember,
     InvalidJoinProof,
     InvalidTpmProof,
     InvalidHostProof,
@@ -876,7 +902,7 @@ pub fn benchmark_tpm_sha(
 
 // Benchmarks issuer anchor.
 pub fn benchmark_issuer_anchor(config: ProtocolConfig) -> DaaResult<IssuerAnchorBenchmark> {
-    config.ensure_real_supported()?;
+    config.validate()?;
     if !config.proof_mode.uses_real_proofs() {
         return Err(DaaError::UnsupportedProofMode);
     }
@@ -1089,7 +1115,8 @@ fn issuer_anchor_stats(config: &ProtocolConfig) -> DaaResult<TpmShaCircuitStats>
 }
 
 // Implements setup.
-pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput {
+pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> DaaResult<SetupOutput> {
+    config.validate()?;
     let trace_start = trace.entries.len();
     let mut rng = DeterministicRng::new(config.deterministic_seed);
     if config.tpm_backend == TpmBackend::Sha2 && config.proof_mode.uses_real_proofs() {
@@ -1105,8 +1132,11 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
                     ),
                 }
             };
-            assert_eq!(ret, 0, "TPM_SHA circuit preparation failed");
-        });
+            if ret != 0 {
+                return Err(DaaError::InvalidTpmProof);
+            }
+            Ok(())
+        })?;
     }
     let mut external_anchor = None;
     let (mpk, msk) = match config.proof_mode {
@@ -1116,8 +1146,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             (mpk, msk)
         }),
         ProofMode::RealTpm | ProofMode::Real128s => {
-            let issuer = issuer_setup_anchor_external(&config)
-                .expect("issuer credential setup and anchor generation failed");
+            let issuer = issuer_setup_anchor_external(&config)?;
             trace.add("setup.keygen", issuer.keygen);
             external_anchor = Some(issuer.anchor);
             (issuer.pk, issuer.sk)
@@ -1186,7 +1215,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             }
             trace.scoped("setup.pi_i.prepare", || {
                 if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
-                    return;
+                    return Ok(());
                 }
                 let ret = unsafe {
                     daa_issuer_anchor_prepare(
@@ -1195,17 +1224,17 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
                         issuer_anchor_kind(&config),
                     )
                 };
-                assert_eq!(ret, 0, "issuer anchor circuit preparation failed");
-            });
+                if ret != 0 {
+                    return Err(DaaError::InvalidIssuerAnchor);
+                }
+                Ok(())
+            })?;
             let context = issuer_anchor_context(&config, &mpk, &native.certificate);
             let pi_i = if config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
-                let measured = fixed_wots_prove_external(&config, &native)
-                    .expect("fixed WOTS issuer proof failed");
-                assert!(fixed_wots_verify_external(
-                    &config,
-                    &native,
-                    &measured.proof
-                ));
+                let measured = fixed_wots_prove_external(&config, &native)?;
+                if !fixed_wots_verify_external(&config, &native, &measured.proof) {
+                    return Err(DaaError::InvalidIssuerAnchor);
+                }
 
                 trace.add("setup.pi_i.prove", measured.prove);
                 trace.add("setup.pi_i.verify", measured.verify);
@@ -1213,13 +1242,13 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             } else {
                 let proof = trace.scoped("setup.pi_i.prove", || {
                     prove_issuer_anchor_real(&config, &native, &context)
-                        .expect("issuer anchor proof failed")
-                });
+                })?;
                 trace.scoped("setup.pi_i.verify", || {
-                    assert!(verify_issuer_anchor_real(
-                        &config, &native, &context, &proof
-                    ));
-                });
+                    if !verify_issuer_anchor_real(&config, &native, &context, &proof) {
+                        return Err(DaaError::InvalidIssuerAnchor);
+                    }
+                    Ok(())
+                })?;
                 proof
             };
             IssuerAnchorOutput {
@@ -1248,7 +1277,7 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
         name: "setup.total".into(),
         micros: setup_micros,
     });
-    SetupOutput {
+    Ok(SetupOutput {
         config,
         issuer_keys: IssuerKeypair { mpk, msk },
         issuer_anchor,
@@ -1256,7 +1285,92 @@ pub fn setup(config: ProtocolConfig, trace: &mut BenchmarkTrace) -> SetupOutput 
             group_list: Vec::new(),
         },
         revocation_state: RevocationState::empty(),
+    })
+}
+
+// Verifies the public issuer certificate and its proof before enrollment.
+pub fn verify_issuer_setup(setup: &SetupOutput, trace: &mut BenchmarkTrace) -> DaaResult<()> {
+    setup.config.validate()?;
+    let anchor = &setup.issuer_anchor;
+    if anchor.pi_i.kind != "pi_i" {
+        return Err(DaaError::InvalidIssuerAnchor);
     }
+    let native = IssuerAnchorNative {
+        certificate: anchor.certificate.clone(),
+        witness: Vec::new(),
+        public_a: anchor.public_a.clone(),
+        public_b: anchor.public_b.clone(),
+        anchor_value: anchor.anchor_value.clone(),
+        generation: Duration::ZERO,
+        certificate_verify: Duration::ZERO,
+    };
+    if setup.config.proof_mode == ProofMode::Simulated {
+        let ok = trace.scoped("join.host.pi_i_verify", || {
+            verify_statement_only(
+                &anchor.pi_i,
+                &[
+                    &anchor.public_a,
+                    &anchor.public_b,
+                    &anchor.anchor_value,
+                    &anchor.certificate,
+                    &setup.issuer_keys.mpk,
+                ],
+            )
+        });
+        return if ok {
+            Ok(())
+        } else {
+            Err(DaaError::InvalidIssuerAnchor)
+        };
+    }
+    if setup.config.issuer_anchor_mode == IssuerAnchorMode::FixedTopWots {
+        if native.public_a != setup.issuer_keys.mpk || !native.public_b.is_empty() {
+            return Err(DaaError::InvalidIssuerAnchor);
+        }
+        let duration =
+            issuer_wots::fixed_wots_verify_measured(&setup.config, &native, &anchor.pi_i)?;
+        trace.add("join.host.pi_i_verify", duration);
+        return Ok(());
+    }
+    let files = issuer_wots::PrivateFiles::new()?;
+    let input = files.dir.join("input");
+    let output = files.dir.join("receipt");
+    write_length_prefixed_parts(&input, &[&setup.issuer_keys.mpk, &anchor.certificate])
+        .map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    let mut command = host_cargo_command(&setup.config)?;
+    command.arg("issuer-anchor-verify").arg(input).arg(&output);
+    let result = command
+        .output()
+        .map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    let text = command_text(&result);
+    if !result.status.success() || parse_metric_bool(&text, "accepted") != Some(true) {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    let fields = read_length_prefixed_parts(&output).map_err(|_| DaaError::InvalidIssuerAnchor)?;
+    if fields
+        != [
+            anchor.public_a.clone(),
+            anchor.public_b.clone(),
+            anchor.anchor_value.clone(),
+        ]
+    {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    trace.add(
+        "join.host.issuer_certificate_verify",
+        Duration::from_micros(
+            parse_metric_u128(&text, "certificate_verify_us")
+                .ok_or(DaaError::InvalidIssuerAnchor)? as u64,
+        ),
+    );
+    let context = issuer_anchor_context(&setup.config, &setup.issuer_keys.mpk, &anchor.certificate);
+    let accepted = trace.scoped("join.host.pi_i_verify", || {
+        verify_issuer_anchor_real(&setup.config, &native, &context, &anchor.pi_i)
+    });
+    if !accepted {
+        return Err(DaaError::InvalidIssuerAnchor);
+    }
+    Ok(())
 }
 
 // Implements join.
@@ -1265,10 +1379,20 @@ pub fn join(
     member_id: u64,
     trace: &mut BenchmarkTrace,
 ) -> DaaResult<JoinOutput> {
-    setup.config.ensure_real_supported()?;
+    setup.config.validate()?;
     let total = Instant::now();
     let trace_start = trace.entries.len();
+    if setup
+        .issuer_state
+        .group_list
+        .iter()
+        .any(|entry| entry.member_id == member_id)
+    {
+        return Err(DaaError::DuplicateMember);
+    }
+    verify_issuer_setup(setup, trace)?;
     let mut rng = DeterministicRng::new(setup.config.deterministic_seed ^ member_id);
+    let issuer_challenge = rng.bytes(setup.config.security.key_bytes());
 
     let gid_and_commit_input = trace.scoped("join.host", || {
         let gid = group_id(&setup.config, &setup.issuer_keys.mpk);
@@ -1285,7 +1409,9 @@ pub fn join(
         let et = tpm_et(&setup.config, &sk, &gid);
         (sk, et)
     });
-    let join_msg = join_proof_message(&setup.config, &gid, &et);
+    let mut join_msg = join_proof_message(&setup.config, &gid, &et);
+    join_msg.extend_from_slice(&member_id.to_be_bytes());
+    join_msg.extend_from_slice(&issuer_challenge);
 
     let pi_join = trace.scoped("join.tpm.pi_join_prove", || match setup.config.proof_mode {
         ProofMode::Simulated => Ok(simulated_proof(
@@ -1296,7 +1422,7 @@ pub fn join(
                 TpmBackend::Sha2 => "simulated-voleith-sha2-join",
             },
             setup.config.tpm_token_bytes(),
-            &[&gid, &et],
+            &[&gid, &et, &join_msg],
             &[&sk],
         )),
         ProofMode::RealTpm | ProofMode::Real128s => {
@@ -1315,7 +1441,9 @@ pub fn join(
 
     trace.scoped("join.issuer.pi_join_verify", || {
         let ok = match setup.config.proof_mode {
-            ProofMode::Simulated => verify_simulated_proof(&pi_join, &[&gid, &et], &[&sk]),
+            ProofMode::Simulated => {
+                verify_simulated_proof(&pi_join, &[&gid, &et, &join_msg], &[&sk])
+            }
             ProofMode::RealTpm | ProofMode::Real128s => {
                 verify_join_real(&setup.config, &pi_join, &gid, &et, &join_msg)
             }
@@ -1335,7 +1463,10 @@ pub fn join(
         }),
         ProofMode::RealTpm | ProofMode::Real128s => {
             let signed = issuer_sign_external(&setup.config, &setup.issuer_keys.msk, &cred_msg)?;
-            trace.add_millis("join.issuer.credential_sign", signed.sign_millis);
+            trace.add(
+                "join.issuer.credential_sign",
+                Duration::from_micros(signed.sign_micros as u64),
+            );
             Credential {
                 sigma: signed.signature,
                 issuer_nonce,
@@ -1367,6 +1498,7 @@ pub fn join(
         },
         et,
         pi_join,
+        issuer_challenge,
     })
 }
 
@@ -1379,8 +1511,8 @@ pub fn sign(
     bsn: &[u8],
     trace: &mut BenchmarkTrace,
 ) -> DaaResult<SignOutput> {
-    setup.config.ensure_real_supported()?;
-    sign_internal(setup, tpm, host, msg, bsn, trace, true)
+    setup.config.validate()?;
+    sign_internal(setup, tpm, host, msg, bsn, trace)
 }
 
 // Signs internal.
@@ -1391,10 +1523,12 @@ fn sign_internal(
     msg: &[u8],
     bsn: &[u8],
     trace: &mut BenchmarkTrace,
-    prove_host: bool,
 ) -> DaaResult<SignOutput> {
     let total = Instant::now();
     let trace_start = trace.entries.len();
+    if tpm.sk.len() != setup.config.tpm_key_bytes() || tpm.member_id != host.member_id {
+        return Err(DaaError::InvalidCredential);
+    }
     let mut rng = DeterministicRng::new(
         setup.config.deterministic_seed ^ tpm.member_id ^ stable_u64(msg) ^ stable_u64(bsn),
     );
@@ -1472,17 +1606,30 @@ fn sign_internal(
                 let cred_msg = credential_message(&et, &host.credential.issuer_nonce);
                 issuer_verify_simulated(&setup.issuer_keys, &cred_msg, &host.credential.sigma)
             }
-            ProofMode::RealTpm | ProofMode::Real128s => true,
+            ProofMode::RealTpm => {
+                let checked = issuer_verify_external(
+                    &setup.config,
+                    &setup.issuer_keys.mpk,
+                    &credential_message(et, &host.credential.issuer_nonce),
+                    &host.credential.sigma,
+                )?;
+                trace.add("sign.host.credential_verify", checked);
+                true
+            }
+            ProofMode::Real128s => true,
         };
         let witness_ok = host_hk == *hk && host_cet == *cet && credential_ok;
-        match (setup.config.proof_mode, prove_host) {
-            (ProofMode::Simulated, _) | (ProofMode::RealTpm, _) | (_, false) => {
+        if !witness_ok {
+            return Err(DaaError::InvalidCredential);
+        }
+        match setup.config.proof_mode {
+            ProofMode::Simulated | ProofMode::RealTpm => {
                 trace.scoped("sign.host.pi_host_prove", || {
                     Ok(simulated_proof(
                         "pi_host",
                         &format!("simulated-risc0-{}", setup.config.backend_hash),
                         setup.config.tpm_token_bytes() * 4,
-                        &[hk, cet, &setup.issuer_keys.mpk],
+                        &[hk, cet, &setup.issuer_keys.mpk, &msg_prime],
                         &[
                             et,
                             &values.hook_secret,
@@ -1492,7 +1639,7 @@ fn sign_internal(
                     ))
                 })
             }
-            (ProofMode::Real128s, true) => {
+            ProofMode::Real128s => {
                 if !witness_ok {
                     return Err(DaaError::InvalidCredential);
                 }
@@ -1505,15 +1652,19 @@ fn sign_internal(
                     &values.hook_secret,
                     et,
                     &host.credential.issuer_nonce,
+                    &msg_prime,
                 )?;
-                trace.add_millis("sign.host.pi_host_prove", host_proof.prover_millis);
+                trace.add(
+                    "sign.host.pi_host_prove",
+                    Duration::from_micros(host_proof.prover_micros as u64),
+                );
                 Ok(ProofArtifact {
                     kind: "pi_host".to_string(),
                     backend: format!(
                         "risc0-{}-{}",
                         setup.config.backend_hash, setup.config.sphincs_params
                     ),
-                    statement_hash: hash_many(32, &[hk, cet, &setup.issuer_keys.mpk]),
+                    statement_hash: hash_many(32, &[hk, cet, &setup.issuer_keys.mpk, &msg_prime]),
                     proof_bytes: host_proof.proof_bytes,
                     seal_bytes: host_proof.seal_bytes,
                 })
@@ -1553,7 +1704,24 @@ pub fn verify(
     signature: &DaaSignature,
     trace: &mut BenchmarkTrace,
 ) -> DaaResult<bool> {
-    setup.config.ensure_real_supported()?;
+    setup.config.validate()?;
+    let token_len = setup.config.tpm_token_bytes();
+    let cet_len = if setup.config.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F {
+        token_len
+    } else {
+        0
+    };
+    if signature.rho.len() != setup.config.security.key_bytes()
+        || signature.slt.len() != token_len
+        || signature.hk.len() != token_len
+        || signature.cet.len() != cet_len
+        || signature.pi_tpm.kind != "pi_tpm"
+        || signature.pi_host.kind != "pi_host"
+        || signature.pi_tpm.proof_bytes.is_empty()
+        || signature.pi_host.proof_bytes.is_empty()
+    {
+        return Err(DaaError::InvalidTpmProof);
+    }
     let total = Instant::now();
     let trace_start = trace.entries.len();
     trace.scoped("verify.revocation_check", || {
@@ -1609,7 +1777,12 @@ pub fn verify(
             trace.scoped("verify.pi_host_verify", || {
                 let ok = verify_statement_only(
                     &signature.pi_host,
-                    &[&signature.hk, &signature.cet, &setup.issuer_keys.mpk],
+                    &[
+                        &signature.hk,
+                        &signature.cet,
+                        &setup.issuer_keys.mpk,
+                        &msg_prime,
+                    ],
                 );
                 if !ok {
                     return Err(DaaError::InvalidHostProof);
@@ -1624,8 +1797,12 @@ pub fn verify(
                 &setup.issuer_keys.mpk,
                 &signature.hk,
                 &signature.cet,
+                &msg_prime,
             )?;
-            trace.add_millis("verify.pi_host_verify", verification.verifier_millis);
+            trace.add(
+                "verify.pi_host_verify",
+                Duration::from_micros(verification.verifier_micros as u64),
+            );
             if !verification.accepted {
                 return Err(DaaError::InvalidHostProof);
             }
@@ -1649,10 +1826,25 @@ pub fn link(
     signature_b: &DaaSignature,
     trace: &mut BenchmarkTrace,
 ) -> bool {
+    return link_tokens(&signature_a.slt, &signature_b.slt, trace);
+}
+
+// Compares public link tokens after signature verification.
+fn link_tokens(a: &[u8], b: &[u8], trace: &mut BenchmarkTrace) -> bool {
     let total = Instant::now();
-    let linked = trace.scoped("link.slt_compare", || signature_a.slt == signature_b.slt);
+    let linked = trace.scoped("link.slt_compare", || a == b);
     trace.add("link.total", total.elapsed());
     linked
+}
+
+// Computes an auxiliary basename token for the demo's linking smoke check.
+fn link_token(config: &ProtocolConfig, sk: &[u8], bsn: &[u8]) -> Bytes {
+    let lid = link_id(config, bsn);
+    match config.tpm_backend {
+        TpmBackend::Aes => aes_prf(config, sk, &lid),
+        TpmBackend::Rijndael => rijndael_tpm::eval(sk, &lid),
+        TpmBackend::Sha2 => sha2_hash(config.security, &[&[0x01], sk, &lid]),
+    }
 }
 
 // Implements revoke empty.
@@ -1665,13 +1857,12 @@ pub fn revoke_empty(trace: &mut BenchmarkTrace) -> RevocationState {
 
 // Runs full.
 pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
-    config.ensure_real_supported()?;
+    config.validate()?;
     let mut trace = BenchmarkTrace::new();
-    let mut setup_out = setup(config, &mut trace);
+    let mut setup_out = setup(config, &mut trace)?;
     let join_out = join(&mut setup_out, 1, &mut trace)?;
 
     let msg1 = b"DAA message one";
-    let msg2 = b"DAA message two";
     let bsn = b"verifier.example/basename";
     let other_bsn = b"verifier.example/other-basename";
 
@@ -1683,24 +1874,8 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
         bsn,
         &mut trace,
     )?;
-    let sig2 = sign_internal(
-        &setup_out,
-        &join_out.tpm_state,
-        &join_out.host_state,
-        msg2,
-        bsn,
-        &mut BenchmarkTrace::new(),
-        false,
-    )?;
-    let sig3 = sign_internal(
-        &setup_out,
-        &join_out.tpm_state,
-        &join_out.host_state,
-        msg2,
-        other_bsn,
-        &mut BenchmarkTrace::new(),
-        false,
-    )?;
+    let same_token = link_token(&setup_out.config, &join_out.tpm_state.sk, bsn);
+    let other_token = link_token(&setup_out.config, &join_out.tpm_state.sk, other_bsn);
 
     record_size_metrics(&mut trace, &join_out, &sig1);
 
@@ -1713,8 +1888,8 @@ pub fn run_full(config: ProtocolConfig) -> DaaResult<FullRunOutput> {
         &sig1.signature,
         &mut trace,
     )?;
-    let linked_same_bsn = link(&sig1.signature, &sig2.signature, &mut trace);
-    let linked_different_bsn = link(&sig1.signature, &sig3.signature, &mut trace);
+    let linked_same_bsn = link_tokens(&sig1.signature.slt, &same_token, &mut trace);
+    let linked_different_bsn = link_tokens(&sig1.signature.slt, &other_token, &mut trace);
 
     Ok(FullRunOutput {
         accepted,
@@ -1743,6 +1918,7 @@ fn record_size_metrics(trace: &mut BenchmarkTrace, join: &JoinOutput, sign: &Sig
         "size.pi_join.faest_signature_bytes"
     };
     trace.add_size(join_size_name, join.pi_join.size_bytes());
+    trace.add_size("size.join.issuer_challenge", join.issuer_challenge.len());
     trace.add_size("size.issuer_credential.sigma", credential_sigma);
     trace.add_size("size.issuer_credential.issuer_nonce", credential_nonce);
     trace.add_size(
@@ -1815,7 +1991,10 @@ pub fn link_id(config: &ProtocolConfig, bsn: &[u8]) -> Bytes {
 pub fn message_prime(config: &ProtocolConfig, msg: &[u8], rho: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Rijndael => sha2_hash(SecurityLevel::L128, &[b"DAA-RIJNDAEL-MSG-v1", msg, rho]),
-        TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"msg-prime", msg, rho]),
+        TpmBackend::Aes => hash_many(
+            config.security.sha_digest_bytes(),
+            &[b"msg-prime", msg, rho],
+        ),
         TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-MSG-PRIME-v1", msg, rho]),
     }
 }
@@ -2048,7 +2227,7 @@ fn join_proof_message(config: &ProtocolConfig, gid: &[u8], et: &[u8]) -> Bytes {
 fn join_commitment(config: &ProtocolConfig, et: &[u8], r: &[u8]) -> Bytes {
     match config.tpm_backend {
         TpmBackend::Rijndael => sha2_hash(SecurityLevel::L128, &[b"DAA-RIJNDAEL-COM-v1", et, r]),
-        TpmBackend::Aes => hash_many(config.security.key_bytes(), &[b"join-com", et, r]),
+        TpmBackend::Aes => hash_many(config.security.sha_digest_bytes(), &[b"join-com", et, r]),
         TpmBackend::Sha2 => sha2_hash(config.security, &[b"DAA-JOIN-COM-v1", et, r]),
     }
 }
@@ -2099,6 +2278,16 @@ fn verify_join_real(
     et: &[u8],
     msg: &[u8],
 ) -> bool {
+    let parts: &[&[u8]] = &[gid, et, msg];
+    let expected = if config.tpm_backend == TpmBackend::Aes {
+        hash_many(32, parts)
+    } else {
+        sha2_hash(SecurityLevel::L128, parts)
+    };
+    if proof.kind != "pi_join" || proof.statement_hash != expected {
+        return false;
+    }
+
     match config.tpm_backend {
         TpmBackend::Aes => verify_join_aes_real(config, proof, gid, et, msg),
         TpmBackend::Rijndael => rijndael_tpm::verify_join(config, proof, gid, et, msg),
@@ -2181,6 +2370,20 @@ fn verify_tpm_real(
     cet: &[u8],
     msg_prime: &[u8],
 ) -> bool {
+    let parts: &[&[u8]] = if config.tpm_sha_scheme == TpmShaScheme::Cdenw23Ours5F {
+        &[msg_prime, gid, lid, slt, hk, cet]
+    } else {
+        &[lid, gid, slt, hk, msg_prime]
+    };
+    let expected = if config.tpm_backend == TpmBackend::Aes {
+        hash_many(32, parts)
+    } else {
+        sha2_hash(SecurityLevel::L128, parts)
+    };
+    if proof.kind != "pi_tpm" || proof.statement_hash != expected {
+        return false;
+    }
+
     match config.tpm_backend {
         TpmBackend::Aes => verify_tpm_aes_real(config, proof, lid, gid, slt, hk, msg_prime),
         TpmBackend::Rijndael => {
@@ -2538,6 +2741,10 @@ fn prove_join_aes_real(
     et: &[u8],
     msg: &[u8],
 ) -> DaaResult<ProofArtifact> {
+    if sk.len() != config.tpm_key_bytes() || gid.len() != 16 || et.len() != config.tpm_token_bytes()
+    {
+        return Err(DaaError::InvalidJoinProof);
+    }
     let spec = config.param_spec()?;
     let mut proof = vec![0u8; unsafe { daa_join_sig_bytes(spec.lambda, spec.fast as i32) }];
     let mut proof_len = proof.len();
@@ -2575,6 +2782,9 @@ fn verify_join_aes_real(
     et: &[u8],
     msg: &[u8],
 ) -> bool {
+    if gid.len() != 16 || et.len() != config.tpm_token_bytes() {
+        return false;
+    }
     let Ok(spec) = config.param_spec() else {
         return false;
     };
@@ -2604,6 +2814,16 @@ fn prove_tpm_aes_real(
     expected_slt: &[u8],
     expected_hk: &[u8],
 ) -> DaaResult<ProofArtifact> {
+    if lid.len() != 16
+        || gid.len() != 16
+        || sk.len() != config.tpm_key_bytes()
+        || s.len() != config.tpm_key_bytes()
+        || [expected_et, expected_slt, expected_hk]
+            .iter()
+            .any(|v| v.len() != config.tpm_token_bytes())
+    {
+        return Err(DaaError::InvalidTpmProof);
+    }
     let spec = config.param_spec()?;
     let token_len = config.security.token_bytes();
     let mut et = vec![0u8; token_len];
@@ -2651,6 +2871,13 @@ fn verify_tpm_aes_real(
     hk: &[u8],
     msg_prime: &[u8],
 ) -> bool {
+    if lid.len() != 16
+        || gid.len() != 16
+        || slt.len() != config.tpm_token_bytes()
+        || hk.len() != config.tpm_token_bytes()
+    {
+        return false;
+    }
     let Ok(spec) = config.param_spec() else {
         return false;
     };
@@ -2680,6 +2907,7 @@ fn prove_host_risc0_128s(
     hook_secret: &[u8],
     et: &[u8],
     issuer_nonce: &[u8],
+    context: &[u8],
 ) -> DaaResult<HostProofResult> {
     let input = HostProofInput {
         issuer_pk,
@@ -2689,6 +2917,7 @@ fn prove_host_risc0_128s(
         hook_secret,
         et,
         issuer_nonce,
+        context,
     };
     run_host_proof_command(config, "prove-protocol", &input, None)
 }
@@ -2700,6 +2929,7 @@ fn verify_host_risc0_128s(
     issuer_pk: &[u8],
     hk: &[u8],
     cet: &[u8],
+    context: &[u8],
 ) -> DaaResult<HostVerifyResult> {
     let input = HostProofInput {
         issuer_pk,
@@ -2709,11 +2939,12 @@ fn verify_host_risc0_128s(
         hook_secret: &[],
         et: &[],
         issuer_nonce: &[],
+        context,
     };
     let out = run_host_proof_command(config, "verify-protocol", &input, Some(&proof.proof_bytes))?;
     Ok(HostVerifyResult {
         accepted: out.accepted,
-        verifier_millis: out.verifier_millis,
+        verifier_micros: out.verifier_micros,
     })
 }
 
@@ -2725,6 +2956,7 @@ struct HostProofInput<'a> {
     hook_secret: &'a [u8],
     et: &'a [u8],
     issuer_nonce: &'a [u8],
+    context: &'a [u8],
 }
 
 #[derive(Debug, Clone)]
@@ -2732,20 +2964,20 @@ struct HostProofResult {
     proof_bytes: Bytes,
     seal_bytes: Option<usize>,
     accepted: bool,
-    prover_millis: u128,
-    verifier_millis: u128,
+    prover_micros: u128,
+    verifier_micros: u128,
 }
 
 #[derive(Debug, Clone)]
 struct HostVerifyResult {
     accepted: bool,
-    verifier_millis: u128,
+    verifier_micros: u128,
 }
 
 #[derive(Debug, Clone)]
 struct IssuerSignResult {
     signature: Bytes,
-    sign_millis: u128,
+    sign_micros: u128,
 }
 
 #[derive(Debug, Clone)]
@@ -2807,10 +3039,7 @@ fn prove_issuer_anchor_real(
     }
     let mut proof = vec![0u8; proof_capacity];
     let mut proof_len = proof.len();
-    let mut rng = DeterministicRng::new(
-        config.deterministic_seed ^ stable_u64(&native.certificate) ^ 0x5049_5f49,
-    );
-    let randomness = rng.bytes(32);
+    let randomness = fresh_prover_randomness()?;
     let ret = unsafe {
         daa_issuer_anchor_prove(
             level,
@@ -3006,10 +3235,9 @@ fn issuer_sign_external(
     sk: &[u8],
     msg: &[u8],
 ) -> DaaResult<IssuerSignResult> {
-    let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir();
-    let input_path = dir.join(format!("sedaa-issuer-sign-{stamp}.in"));
-    let output_path = dir.join(format!("sedaa-issuer-sign-{stamp}.out"));
+    let files = issuer_wots::PrivateFiles::new()?;
+    let input_path = files.dir.join("input");
+    let output_path = files.dir.join("receipt");
     write_length_prefixed_parts(&input_path, &[sk, msg])
         .map_err(|_| DaaError::ExternalHostProof)?;
     let mut cmd = host_cargo_command(config)?;
@@ -3029,8 +3257,31 @@ fn issuer_sign_external(
     let text = command_text(&output);
     Ok(IssuerSignResult {
         signature: parts[0].clone(),
-        sign_millis: parse_metric_u128(&text, "sign_ms").unwrap_or(0),
+        sign_micros: parse_metric_u128(&text, "sign_us").ok_or(DaaError::ExternalHostProof)?,
     })
+}
+
+// Checks a real credential natively when the Host proof is simulated.
+fn issuer_verify_external(
+    config: &ProtocolConfig,
+    pk: &[u8],
+    msg: &[u8],
+    sigma: &[u8],
+) -> DaaResult<Duration> {
+    let files = issuer_wots::PrivateFiles::new()?;
+    let path = files.dir.join("input");
+    write_length_prefixed_parts(&path, &[pk, msg, sigma])
+        .map_err(|_| DaaError::InvalidCredential)?;
+    let mut command = host_cargo_command(config)?;
+    command.arg("issuer-verify").arg(path);
+    let result = command.output().map_err(|_| DaaError::InvalidCredential)?;
+    let text = command_text(&result);
+    if !result.status.success() || parse_metric_bool(&text, "accepted") != Some(true) {
+        return Err(DaaError::InvalidCredential);
+    }
+    Ok(Duration::from_micros(
+        parse_metric_u128(&text, "verifier_us").ok_or(DaaError::InvalidCredential)? as u64,
+    ))
 }
 
 // Runs host proof command.
@@ -3040,16 +3291,22 @@ fn run_host_proof_command(
     input: &HostProofInput<'_>,
     receipt: Option<&[u8]>,
 ) -> DaaResult<HostProofResult> {
-    let stamp = HOST_TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir();
-    let input_path = dir.join(format!("sedaa-host-proof-{stamp}.bin"));
-    let receipt_path = dir.join(format!("sedaa-host-proof-{stamp}.receipt"));
+    let files = issuer_wots::PrivateFiles::new()?;
+    let input_path = files.dir.join("input");
+    let receipt_path = files.dir.join("receipt");
     write_host_input(config, &input_path, input).map_err(|_| DaaError::ExternalHostProof)?;
     if let Some(bytes) = receipt {
         std::fs::write(&receipt_path, bytes).map_err(|_| DaaError::ExternalHostProof)?;
     }
 
     let mut cmd = host_cargo_command(config)?;
+    if config.host_scheme == HostScheme::RecursiveZk {
+        cmd.env("RISC0_RECEIPT_KIND", "succinct")
+            .env("RISC0_IDENTITY_WRAP", "1");
+    } else {
+        cmd.env("RISC0_IDENTITY_WRAP", "0");
+    }
+    cmd.env_remove("RISC0_SKIP_BUILD");
     cmd.arg(mode).arg(&input_path).arg(&receipt_path);
     let output = cmd.output().map_err(|_| DaaError::ExternalHostProof)?;
     let _ = std::fs::remove_file(&input_path);
@@ -3060,6 +3317,14 @@ fn run_host_proof_command(
     }
     let text = command_text(&output);
     let metrics = parse_host_metrics(&text);
+    let timing = if mode == "prove-protocol" {
+        "prover_us"
+    } else {
+        "verifier_us"
+    };
+    if !metrics.accepted || parse_metric_u128(&text, timing).is_none() {
+        return Err(DaaError::ExternalHostProof);
+    }
     if mode == "prove-protocol" {
         let proof = std::fs::read(&receipt_path).map_err(|_| DaaError::ExternalHostProof)?;
         let _ = std::fs::remove_file(&receipt_path);
@@ -3067,8 +3332,8 @@ fn run_host_proof_command(
             proof_bytes: proof,
             seal_bytes: metrics.seal_bytes,
             accepted: metrics.accepted,
-            prover_millis: metrics.prover_millis,
-            verifier_millis: metrics.verifier_millis,
+            prover_micros: metrics.prover_micros,
+            verifier_micros: metrics.verifier_micros,
         })
     } else {
         let _ = std::fs::remove_file(&receipt_path);
@@ -3076,8 +3341,8 @@ fn run_host_proof_command(
             proof_bytes: Vec::new(),
             seal_bytes: None,
             accepted: metrics.accepted,
-            prover_millis: metrics.prover_millis,
-            verifier_millis: metrics.verifier_millis,
+            prover_micros: metrics.prover_micros,
+            verifier_micros: metrics.verifier_micros,
         })
     }
 }
@@ -3100,6 +3365,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
     }
     cmd.arg("run")
         .arg("--quiet")
+        .arg("--locked")
         .arg("--manifest-path")
         .arg(manifest)
         .arg("--release");
@@ -3110,6 +3376,7 @@ fn host_cargo_command(config: &ProtocolConfig) -> DaaResult<Command> {
         .arg("daa_sha256_backend_host")
         .arg("--")
         .env("RISC0_PROVER", "local")
+        .env("RISC0_DEV_MODE", "0")
         .env("SPHINCS_PARAMS", config.param_spec()?.sphincs_env)
         .env("SPHINCS_THASH", "simple")
         .env("DAA_HOST_SCHEME", config.host_scheme.name())
@@ -3153,17 +3420,17 @@ fn command_text(output: &std::process::Output) -> String {
 #[derive(Debug, Clone, Copy)]
 struct HostMetrics {
     accepted: bool,
-    prover_millis: u128,
-    verifier_millis: u128,
+    prover_micros: u128,
+    verifier_micros: u128,
     seal_bytes: Option<usize>,
 }
 
 // Parses host metrics.
 fn parse_host_metrics(output: &str) -> HostMetrics {
     HostMetrics {
-        accepted: parse_metric_bool(output, "accepted").unwrap_or_else(|| output.contains("ok")),
-        prover_millis: parse_metric_u128(output, "prover_ms").unwrap_or(0),
-        verifier_millis: parse_metric_u128(output, "verifier_ms").unwrap_or(0),
+        accepted: parse_metric_bool(output, "accepted") == Some(true),
+        prover_micros: parse_metric_u128(output, "prover_us").unwrap_or(0),
+        verifier_micros: parse_metric_u128(output, "verifier_us").unwrap_or(0),
         seal_bytes: parse_metric_u128(output, "seal_bytes").and_then(|v| v.try_into().ok()),
     }
 }
@@ -3207,6 +3474,7 @@ fn write_host_input(
                 input.hook_secret,
                 input.et,
                 input.issuer_nonce,
+                input.context,
             ],
         )
     } else {
@@ -3219,6 +3487,7 @@ fn write_host_input(
                 input.hook_secret,
                 input.et,
                 input.issuer_nonce,
+                input.context,
             ],
         )
     }
@@ -3247,7 +3516,7 @@ fn read_length_prefixed_parts(path: &PathBuf) -> std::io::Result<Vec<Bytes>> {
         len_bytes.copy_from_slice(&bytes[pos..pos + 8]);
         pos += 8;
         let len = u64::from_le_bytes(len_bytes) as usize;
-        if pos + len > bytes.len() {
+        if len > bytes.len() - pos {
             return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
         }
         parts.push(bytes[pos..pos + len].to_vec());
@@ -3629,29 +3898,30 @@ fn verify_statement_only(proof: &ProofArtifact, statement_parts: &[&[u8]]) -> bo
     proof.statement_hash == hash_many(32, statement_parts)
 }
 
-// Hashes many.
+// Expands a domain-separated, length-framed SHA-512 digest to the requested width.
 fn hash_many(out_len: usize, parts: &[&[u8]]) -> Bytes {
+    let mut prefix = Sha512::new();
+    prefix.update(b"DAA-HASH-EXPAND-v1");
+    prefix.update((out_len as u64).to_be_bytes());
+    prefix.update((parts.len() as u64).to_be_bytes());
+    for part in parts {
+        prefix.update((part.len() as u64).to_be_bytes());
+        prefix.update(part);
+    }
     let mut out = Vec::with_capacity(out_len);
-    let mut counter = 0u64;
-    while out.len() < out_len {
-        let mut hasher = DefaultHasher::new();
-        counter.hash(&mut hasher);
-        for part in parts {
-            part.len().hash(&mut hasher);
-            part.hash(&mut hasher);
-        }
-        out.extend_from_slice(&hasher.finish().to_le_bytes());
-        counter += 1;
+    for counter in 0..out_len.div_ceil(64) {
+        let mut block = prefix.clone();
+        block.update((counter as u64).to_be_bytes());
+        out.extend_from_slice(&block.finalize());
     }
     out.truncate(out_len);
     out
 }
 
-// Implements stable u64.
+// Derives a reproducible seed label from a SHA-256 digest.
 fn stable_u64(bytes: &[u8]) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    hasher.finish()
+    let digest = Sha256::digest(bytes);
+    u64::from_le_bytes(digest[..8].try_into().unwrap())
 }
 
 // Implements bool byte.
@@ -3703,6 +3973,208 @@ impl DeterministicRng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    // Binds the public statement metadata for SHA-2 and AES TPM proofs.
+    fn real_tpm_statement_metadata_is_bound() {
+        for (backend, scheme) in [
+            (TpmBackend::Aes, TpmShaScheme::Ours3F),
+            (TpmBackend::Sha2, TpmShaScheme::Ours3F),
+            (TpmBackend::Sha2, TpmShaScheme::Cdenw23Ours5F),
+        ] {
+            let config = ProtocolConfig::default()
+                .with_params("sha2-128f")
+                .with_tpm_backend(backend)
+                .with_tpm_sha_scheme(scheme)
+                .with_credential_scheme(CredentialScheme::FSphincsPlus);
+            let mut sk = vec![0x31; 16];
+            let mut secret = vec![0x72; 16];
+            if backend == TpmBackend::Aes {
+                normalize_faest_key(&mut sk);
+                normalize_faest_key(&mut secret);
+            }
+            let gid = group_id(&config, b"issuer");
+            let lid = link_id(&config, b"basename");
+            let context = message_prime(&config, b"message", &[0; 16]);
+            let values = tpm_sign_values(&config, &sk, &secret, &context, &lid, &gid);
+            let mut proof = prove_tpm_real(
+                &config,
+                &lid,
+                &gid,
+                &sk,
+                &values.hook_secret,
+                &context,
+                &values.et,
+                &values.slt,
+                &values.hk,
+                &values.cet,
+            )
+            .unwrap();
+            assert!(verify_tpm_real(
+                &config,
+                &proof,
+                &lid,
+                &gid,
+                &values.slt,
+                &values.hk,
+                &values.cet,
+                &context
+            ));
+            proof.statement_hash[0] ^= 1;
+            assert!(!verify_tpm_real(
+                &config,
+                &proof,
+                &lid,
+                &gid,
+                &values.slt,
+                &values.hk,
+                &values.cet,
+                &context
+            ));
+        }
+    }
+
+    #[test]
+    // Checks the framed hash against an independently computed SHA-512 vector.
+    fn protocol_hash_vector_and_framing() {
+        let hex: String = hash_many(96, &[b"ab", b"c"])
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(hex, "c90e1fa85fc868582e43562a4f60b7eb58177ae2d62fc1de11a62bbafdde7dfa2807a9514a818f9d5f91291d404448fc9f9d31e7e3b8db6d07bcc30bc8c18b453710d3a0d4d78d4996830c417c5ef3b6ea09103c0f01d252003d586f06fe5a21");
+        assert_ne!(hash_many(32, &[b"ab", b"c"]), hash_many(32, &[b"a", b"bc"]));
+        for (param, size) in [("sha2-128f", 32), ("sha2-192f", 48), ("sha2-256f", 64)] {
+            assert_eq!(
+                message_prime(
+                    &ProtocolConfig::default().with_params(param),
+                    b"message",
+                    b"rho"
+                )
+                .len(),
+                size
+            );
+        }
+    }
+
+    #[test]
+    // Rejects inconsistent public configuration fields before native calls.
+    fn configuration_and_malformed_inputs_are_rejected() {
+        let mut config = ProtocolConfig::default();
+        config.security = SecurityLevel::L256;
+        assert!(config.validate().is_err());
+        assert!(ProtocolConfig::default()
+            .with_params("unknown")
+            .validate()
+            .is_err());
+        assert!(ProtocolConfig::default()
+            .with_params("sha2-128f")
+            .with_tpm_sha_profile(TpmShaProfile::Small)
+            .validate()
+            .is_err());
+        let config = ProtocolConfig::default();
+        let proof = ProofArtifact {
+            kind: "pi_tpm".into(),
+            backend: "test".into(),
+            statement_hash: vec![],
+            proof_bytes: vec![],
+            seal_bytes: None,
+        };
+        assert!(!verify_tpm_aes_real(
+            &config,
+            &proof,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[]
+        ));
+        assert!(!verify_join_aes_real(&config, &proof, &[], &[], &[]));
+        assert!(prove_join_aes_real(&config, &[], &[], &[], &[]).is_err());
+    }
+
+    #[test]
+    // Rejects duplicate enrollment and modified simulated issuer statements.
+    fn demo_enrollment_and_issuer_binding() {
+        let config = ProtocolConfig::default().with_proof_mode(ProofMode::Simulated);
+        let mut trace = BenchmarkTrace::new();
+        let mut issuer = setup(config, &mut trace).unwrap();
+        let mut bad = issuer.clone();
+        bad.issuer_anchor.public_b[0] ^= 1;
+        assert!(join(&mut bad, 1, &mut trace).is_err());
+        let member = join(&mut issuer, 1, &mut trace).unwrap();
+        assert_eq!(member.issuer_challenge.len(), 16);
+        assert!(matches!(
+            join(&mut issuer, 1, &mut trace),
+            Err(DaaError::DuplicateMember)
+        ));
+        let mut host = member.host_state;
+        host.credential.sigma[0] ^= 1;
+        assert!(sign(
+            &issuer,
+            &member.tpm_state,
+            &host,
+            b"message",
+            b"basename",
+            &mut trace
+        )
+        .is_err());
+    }
+
+    #[test]
+    // Rejects replayed Join proofs under a different issuer challenge.
+    fn aes_join_context_replay_is_rejected() {
+        let config = ProtocolConfig::default().with_params("sha2-128f");
+        let mut sk = vec![0x31; 16];
+        normalize_faest_key(&mut sk);
+        let gid = group_id(&config, b"issuer");
+        let et = tpm_et(&config, &sk, &gid);
+        let proof = prove_join_real(&config, &sk, &gid, &et, b"challenge-one").unwrap();
+        assert!(verify_join_real(
+            &config,
+            &proof,
+            &gid,
+            &et,
+            b"challenge-one"
+        ));
+        assert!(!verify_join_real(
+            &config,
+            &proof,
+            &gid,
+            &et,
+            b"challenge-two"
+        ));
+    }
+
+    #[test]
+    // Keeps aggregate timings separate from their constituent steps.
+    fn trace_totals_and_strict_metrics() {
+        let mut trace = BenchmarkTrace::new();
+        trace.add("sign.tpm", Duration::from_micros(12));
+        trace.add("sign.host", Duration::from_micros(8));
+        trace.add("sign.total", Duration::from_micros(20));
+        assert_eq!(trace.total_micros("sign"), 20);
+        assert!(!parse_host_metrics("status=ok").accepted);
+        assert!(!parse_host_metrics("accepted=0\nstatus=ok").accepted);
+        let metrics = parse_host_metrics("accepted=1\nprover_us=123\nverifier_us=7");
+        assert_eq!(metrics.verifier_micros, 7);
+    }
+
+    #[test]
+    // Rejects a length prefix that exceeds the remaining encoded payload.
+    fn malformed_length_prefix_is_rejected() {
+        let files = issuer_wots::PrivateFiles::new().unwrap();
+        let path = files.dir.join("input");
+        std::fs::write(&path, u64::MAX.to_le_bytes()).unwrap();
+        assert!(read_length_prefixed_parts(&path).is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&files.dir).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+    }
 
     #[test]
 
@@ -3906,8 +4378,8 @@ mod tests {
 
     #[test]
 
-    // Implements legacy aes lengths and identifiers are unchanged.
-    fn legacy_aes_lengths_and_identifiers_are_unchanged() {
+    // Checks AES token widths and domain-separated identifiers.
+    fn aes_lengths_and_identifier_domains() {
         let config = ProtocolConfig::default().with_params("sha2-192s");
         assert_eq!(config.tpm_backend, TpmBackend::Aes);
         assert_eq!(config.tpm_token_bytes(), 32);
@@ -3965,8 +4437,8 @@ mod tests {
 
     #[test]
 
-    // Implements legacy aes real proofs still round trip.
-    fn legacy_aes_real_proofs_still_round_trip() {
+    // Checks the AES proof and hook interfaces.
+    fn aes_real_proofs_round_trip() {
         let config = ProtocolConfig::default()
             .with_params("sha2-128s")
             .with_tpm_backend(TpmBackend::Aes)
@@ -3988,7 +4460,7 @@ mod tests {
             &join_context
         ));
 
-        let context = message_prime(&config, b"legacy AES KAT", b"fixed rho");
+        let context = message_prime(&config, b"AES proof binding", b"fixed rho");
         let values = tpm_sign_values(&config, &sk, &s, &context, &lid, &gid);
         let proof = prove_tpm_aes_real(
             &config,

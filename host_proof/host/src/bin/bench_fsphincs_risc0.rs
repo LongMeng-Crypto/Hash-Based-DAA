@@ -1,4 +1,6 @@
 use std::time::Instant;
+#[path = "../../../protocol_context.rs"]
+mod protocol_context;
 
 #[cfg(not(any(daa_tpm_sha2, daa_tpm_rijndael)))]
 use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
@@ -256,7 +258,7 @@ fn main() {
     let seg_po2: u32 = std::env::var("RISC0_SEGMENT_LIMIT_PO2")
         .ok()
         .and_then(|value| value.parse().ok())
-        .unwrap_or(22);
+        .unwrap_or(20);
     assert!(seg_po2 <= 22, "CUDA-safe maximum segment po2 is 22");
     let backend = std::env::var("RISC0_BACKEND_HASH").unwrap_or_else(|_| "sha-256".to_owned());
     let kind = receipt_kind();
@@ -270,6 +272,7 @@ fn main() {
     let mut sig = vec![0u8; SIG_BYTES];
     let mut et_u = [0u8; ET_BYTES];
     let mut issuer_nonce = [0u8; NONCE_BYTES];
+    let context = [0x43u8; protocol_context::BYTES];
     let mut hook_secret = [0u8; HOOK_SECRET_BYTES];
     let mut message = [0u8; MSG_BYTES];
     use rand::RngCore;
@@ -330,6 +333,7 @@ fn main() {
         .write_slice(&hook_secret)
         .write_slice(&et_u)
         .write_slice(&issuer_nonce)
+        .write_slice(&context)
         .write_slice(&sig[..N]);
     for layer_sig in sig[N..].chunks_exact(MFORS_SIG_BYTES) {
         env_builder.write_slice(layer_sig);
@@ -380,6 +384,7 @@ fn main() {
             expected.extend_from_slice(cet);
         }
         expected.extend_from_slice(&pk);
+        expected.extend_from_slice(&context);
         assert_eq!(session.journal.bytes, expected);
         println!(
             "guest_execute=ok parameter={} hook={} H1_version={} node_bytes={} leaf_prf_version=7",
@@ -410,7 +415,10 @@ fn main() {
 
     let journal = receipt.journal.bytes.as_slice();
     let public_hook_bytes = HK_BYTES + cet.as_ref().map_or(0, |value| value.len());
-    assert_eq!(journal.len(), 4 + public_hook_bytes + PK_BYTES);
+    assert_eq!(
+        journal.len(),
+        4 + public_hook_bytes + PK_BYTES + context.len()
+    );
     assert_eq!(&journal[..4], 1u32.to_le_bytes().as_slice());
     assert_eq!(&journal[4..4 + HK_BYTES], &hk);
     let mut public_end = 4 + HK_BYTES;
@@ -418,7 +426,8 @@ fn main() {
         assert_eq!(&journal[public_end..public_end + cet.len()], cet);
         public_end += cet.len();
     }
-    assert_eq!(&journal[public_end..], &pk);
+    assert_eq!(&journal[public_end..public_end + PK_BYTES], &pk);
+    assert_eq!(&journal[public_end + PK_BYTES..], &context);
 
     let proof_bytes =
         risc0_zkvm::serde::to_vec(&receipt).unwrap().len() * core::mem::size_of::<u32>();
