@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "${script_dir}/.." && pwd)"
 source_dir="${project_dir}/vendor/TPM_SHA"
-build_dir="${TPM_SHA_BUILD_DIR:-${HOME}/.cache/sedaa-tpm-sha-relations}"
+build_dir="${TPM_SHA_BUILD_DIR:-${project_dir}/target/native-tpm-sha}"
 
 security="${SECURITY:-all}"
 profile="${PROFILE:-all}"

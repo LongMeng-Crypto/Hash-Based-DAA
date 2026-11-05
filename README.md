@@ -25,6 +25,11 @@ uses a 256-bit block and key with 128s/f VOLEith proof parameters. All three TPM
 primitives connect to the complete DAA protocol. The SHA-2 5F comparison uses
 F-SPHINCS+ credentials. F-SPHINCS+ is the construction implemented in this demo.
 
+The 128/192/256 labels select credential and TPM proof parameters. The RISC0
+backend keeps its bundled `Legacy97` profile, with 50 FRI queries and inverse
+rate 4; selecting a credential profile does not change those proof parameters
+or establish matching end-to-end security bits.
+
 ## 1. Hardware and software
 
 Use x86-64 Linux; the reference platform is Ubuntu 24.04. Native credential and
@@ -203,6 +208,9 @@ SETUP_MODES=fsphincs-seed RECEIPTS=succinct ITERATIONS=3 \
 The native AES/Rijndael scripts additionally accept `PARAMETERS` and `PHASES`;
 filtering excludes unselected proof computations. The SHA-2 script accepts
 `PARAMS_LIST`, `SECURITY`, `PROFILE`, and `SCHEME=all|ours|chen23`.
+Native Meson build directories default to this checkout's ignored `target/`;
+override them with `TPM_AES_BUILD_DIR`, `TPM_RDM_BUILD_DIR`, or `TPM_SHA_BUILD_DIR`.
+Use separate build directories for separate checkouts.
 
 Combined runners save a case manifest, raw logs and a machine-readable
 `summary.tsv`; full protocol cases also save JSON traces. KeyGen and ZK timings
@@ -221,6 +229,8 @@ bash scripts/test_issuer_seed_anchor.sh
 bash scripts/test_issuer_wots.sh
 bash scripts/test_host_verifiers.sh
 python3 -m unittest discover -s host_proof/tests -p test_benchmark_matrix.py
+meson setup /tmp/daa-tpm-aes-tests vendor/TPM_AES --buildtype=release
+meson test -C /tmp/daa-tpm-aes-tests --print-errorlogs
 meson setup /tmp/daa-tpm-sha-tests vendor/TPM_SHA --buildtype=release
 meson test -C /tmp/daa-tpm-sha-tests --print-errorlogs
 ```

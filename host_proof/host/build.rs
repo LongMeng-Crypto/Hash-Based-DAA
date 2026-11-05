@@ -152,7 +152,6 @@ fn main() {
     println!("cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME");
     println!("cargo:rerun-if-env-changed=DAA_TPM_BACKEND");
     println!("cargo:rerun-if-env-changed=DAA_TPM_SHA_SCHEME");
-    println!("cargo:rerun-if-env-changed=DAA_CREDENTIAL_SCHEME");
     println!("cargo:rerun-if-env-changed=FSPHINCS_SECURITY");
     println!("cargo:rerun-if-env-changed=FSPHINCS_K");
 

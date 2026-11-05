@@ -9,14 +9,14 @@ fn main() {
         .expect("daa_core should live under DAA_FULL/crates/daa_core")
         .to_path_buf();
     let tpm = daa_full.join("vendor/TPM_AES");
-    let tpm_build = tpm.join("builddir_rel");
+    let tpm_headers = tpm.join("include");
     let tpm_sha = daa_full.join("vendor/TPM_SHA");
 
     println!("cargo:rerun-if-changed=c_src/daa_tpm_shim.c");
     println!("cargo:rerun-if-changed={}", tpm.display());
     println!("cargo:rerun-if-changed={}", tpm_sha.display());
 
-    build_tpm(&tpm, &tpm_build);
+    build_tpm(&tpm, &tpm_headers);
     build_tpm_sha(&tpm_sha);
 }
 
@@ -108,10 +108,10 @@ fn base_c_build() -> cc::Build {
 }
 
 // Builds tpm.
-fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
+fn build_tpm(tpm: &PathBuf, tpm_headers: &PathBuf) {
     let mut build = base_c_build();
     build.include(tpm);
-    build.include(tpm_build);
+    build.include(tpm_headers);
     build.include(tpm.join("sha3"));
     build.include(tpm.join("sha3/opt64"));
     build.file("c_src/daa_tpm_shim.c");
@@ -155,7 +155,7 @@ fn build_tpm(tpm: &PathBuf, tpm_build: &PathBuf) {
         render_c_template(&tpm.join("faest_aes.c.in"), &path, &values);
         build.file(path);
     }
-    let parameters = std::fs::read_to_string(tpm_build.join("parameters.h")).unwrap();
+    let parameters = std::fs::read_to_string(tpm_headers.join("parameters.h")).unwrap();
     for profile in ["128s", "128f", "192s", "192f", "256s", "256f"] {
         let prefix = format!("#define FAEST_{}_", profile.to_uppercase());
         let values: Vec<(&str, &str)> = parameters

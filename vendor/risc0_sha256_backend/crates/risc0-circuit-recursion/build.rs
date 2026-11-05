@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Implements main.
 // Installs the bundled recursion programs for proof generation.
-// Implements main.
-// Implements main.
 fn main() {
     #[cfg(feature = "prove")]
     install_recursion_programs();

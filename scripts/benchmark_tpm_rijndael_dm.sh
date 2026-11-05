@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "${script_dir}/.." && pwd)"
 source_dir="${project_dir}/vendor/TPM_AES"
-build_dir="${TPM_RDM_BUILD_DIR:-${HOME}/.cache/sedaa-tpm-rdm-vole}"
+build_dir="${TPM_RDM_BUILD_DIR:-${project_dir}/target/native-tpm-rijndael}"
 iterations="${ITERATIONS:-20}"
 phases="${PHASES:-join,sign}"
 parameters="${PARAMETERS:-128s,128f}"

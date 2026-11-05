@@ -172,12 +172,12 @@ param_128s.set('W_GRIND', 7)
 param_128s.set('T_OPEN', 102)
 param_128s.set('Ske', 40)             
 param_128s.set('Senc', 160)              
-param_128s.set('ELL', 3520)              # was 1280
-param_128s.set('SIG_SIZE', 7586)         # was 4506
-param_128s.set('PK_SIZE', 64)            # was 32
-param_128s.set('SK_SIZE', 64)            # was 80: removed et_u from packed sk
-param_128s.set('OWF_INPUT_SIZE', 32)     # was 16
-param_128s.set('OWF_OUTPUT_SIZE', 32)    # was 16
+param_128s.set('ELL', 3520)
+param_128s.set('SIG_SIZE', 7586)
+param_128s.set('PK_SIZE', 64)
+param_128s.set('SK_SIZE', 64)
+param_128s.set('OWF_INPUT_SIZE', 32)
+param_128s.set('OWF_OUTPUT_SIZE', 32)
 
 parameter_sets += param_128s
 
@@ -195,12 +195,12 @@ param_128f.set('W_GRIND', 8)
 param_128f.set('T_OPEN', 110)
 param_128f.set('Ske', 40)               
 param_128f.set('Senc', 160)             
-param_128f.set('ELL', 3520)              # was 1280
-param_128f.set('SIG_SIZE', 10404)        # was 5924 
-param_128f.set('PK_SIZE', 64)            # was 32
-param_128f.set('SK_SIZE', 64)            # was 80: removed et_u from packed sk
-param_128f.set('OWF_INPUT_SIZE', 32)     # was 16
-param_128f.set('OWF_OUTPUT_SIZE', 32)    # was 16
+param_128f.set('ELL', 3520)
+param_128f.set('SIG_SIZE', 10404)
+param_128f.set('PK_SIZE', 64)
+param_128f.set('SK_SIZE', 64)
+param_128f.set('OWF_INPUT_SIZE', 32)
+param_128f.set('OWF_OUTPUT_SIZE', 32)
 
 parameter_sets += param_128f
 
@@ -269,7 +269,7 @@ param_192s.set('Lenc', 1024)
 param_192s.set('TAU', 16)
 param_192s.set('W_GRIND', 12)
 param_192s.set('T_OPEN', 162)
-param_192s.set('SIG_SIZE', 20860)      # recomputed for ELL=7296
+param_192s.set('SIG_SIZE', 20860)
 param_192s.set('PK_SIZE', 96)          # lid(16)+gid(16)+slt(32)+hk(32)
 param_192s.set('SK_SIZE', 80)          # lid(16)+gid(16)+sk_u(24)+s(24)
 param_192s.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
@@ -291,7 +291,7 @@ param_192f.set('Lenc', 1024)
 param_192f.set('TAU', 24)
 param_192f.set('W_GRIND', 8)
 param_192f.set('T_OPEN', 163)
-param_192f.set('SIG_SIZE', 29348)      # recomputed for ELL=7296
+param_192f.set('SIG_SIZE', 29348)
 param_192f.set('PK_SIZE', 96)          # lid(16)+gid(16)+slt(32)+hk(32)
 param_192f.set('SK_SIZE', 80)          # lid(16)+gid(16)+sk_u(24)+s(24)
 param_192f.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
@@ -357,7 +357,7 @@ param_256s.set('Lenc', 1216)
 param_256s.set('TAU', 22)
 param_256s.set('W_GRIND', 6)
 param_256s.set('T_OPEN', 245)
-param_256s.set('SIG_SIZE', 36624)      # recomputed for ELL=8896
+param_256s.set('SIG_SIZE', 36624)
 param_256s.set('PK_SIZE', 96)          # lid(16)+gid(16)+slt(32)+hk(32)
 param_256s.set('SK_SIZE', 96)          # lid(16)+gid(16)+sk_u(32)+s(32)
 param_256s.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
@@ -379,7 +379,7 @@ param_256f.set('Lenc', 1216)
 param_256f.set('TAU', 32)
 param_256f.set('W_GRIND', 8)
 param_256f.set('T_OPEN', 246)
-param_256f.set('SIG_SIZE', 49716)      # recomputed for ELL=8896
+param_256f.set('SIG_SIZE', 49716)
 param_256f.set('PK_SIZE', 96)          # lid(16)+gid(16)+slt(32)+hk(32)
 param_256f.set('SK_SIZE', 96)          # lid(16)+gid(16)+sk_u(32)+s(32)
 param_256f.set('OWF_INPUT_SIZE', 32)   # lid||gid (2 x 16 bytes)
