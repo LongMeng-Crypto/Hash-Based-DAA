@@ -77,7 +77,7 @@ Native TPM benchmarks do not need CUDA or the RISC0 guest toolchains.
 The modified VOLEith/FAEST and RISC0-SHA256 sources are included in `vendor/` and
 are required to reproduce the proofs. The four RISC0 crates form one backend;
 Cargo patches select these local sources. Its checksummed recursion resource
-is split into three parts and assembled during the build. Keep all parts.
+is split into 23 parts of at most 6 MiB and assembled during the build. Keep all parts.
 Standard Cargo dependencies, toolchains, and prover kernels are downloaded on
 the first build; the repository is not a fully offline dependency bundle.
 

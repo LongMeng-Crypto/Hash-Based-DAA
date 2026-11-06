@@ -28,7 +28,7 @@ fn install_recursion_programs() {
     let directory = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("src");
     let target = PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("recursion_zkr.zip");
     println!("cargo:rerun-if-env-changed=RECURSION_SRC_PATH");
-    let parts: Vec<_> = (0..3).map(|index| directory.join(format!("recursion_zkr.part{index}"))).collect();
+    let parts: Vec<_> = (0..23).map(|index| directory.join(format!("recursion_zkr.part{index:02}"))).collect();
     for part in &parts {
         println!("cargo:rerun-if-changed={}", part.display());
     }
